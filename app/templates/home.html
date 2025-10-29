@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Flask Data Search</title>
+    <style>
+        body { font-family: Arial; margin: 40px; }
+        table, th, td {
+            border: 1px solid #ccc;
+            border-collapse: collapse;
+            padding: 8px;
+        }
+        th { background-color: #f2f2f2; }
+        input[type=text] { padding: 6px; width: 200px; }
+        button { padding: 6px 12px; }
+    </style>
+</head>
+<body>
+    <h2>Search</h2>
+    <form method="POST">
+        <input type="text" name="query" placeholder="Enter name or city" value="{{ query }}">
+        <button type="submit">Search</button>
+    </form>
+
+    {% if table %}
+        <h3>Results:</h3>
+        {{ table|safe }}
+    {% endif %}
+</body>
+</html>
