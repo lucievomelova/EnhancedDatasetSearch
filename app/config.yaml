@@ -1,0 +1,7 @@
+data:
+  datasets:
+    path: "data/datove_sady.csv"
+    url: "https://data.gov.cz/soubor/datov%C3%A9-sady.csv"
+  distribution:
+    path: "data/distribuce.csv"
+    url: "https://data.gov.cz/soubor/distribuce.csv"

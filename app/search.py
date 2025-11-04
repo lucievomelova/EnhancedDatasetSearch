@@ -7,7 +7,7 @@ logger = setup_logger(__name__)
 def search(expanded_query: list, data_df: pd.DataFrame, limit: int = 100) -> pd.DataFrame | None:
     """Search the data for the given query."""
 
-    logger.info("Searching.")
+    logger.info("Searching...")
     if expanded_query:
         def _match_score(row):
             text = f"{row['název']} {row['popis']}".lower()
@@ -16,4 +16,5 @@ def search(expanded_query: list, data_df: pd.DataFrame, limit: int = 100) -> pd.
         results = data_df[data_df['score'] > 0].sort_values(by='score', ascending=False)[:limit]
         logger.info("Searching complete, found %s relevant results.", results.shape[0])
         return results
+    logger.error("No input data given.")
     return None
