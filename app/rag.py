@@ -1,7 +1,6 @@
 import os
 
 import pandas as pd
-import yaml
 from llama_index.core.ingestion import IngestionPipeline
 from llama_index.core.node_parser import SentenceSplitter
 from llama_index.vector_stores.postgres import PGVectorStore
@@ -71,4 +70,4 @@ def load_document(row) -> Document:
         "legal_regulations": row['právní_předpis'],  # list of legal regulations
         "categories": row['kategorie_hvd_název'],  # list of categories
     }
-    return Document(content=content, metadata=metadata)
+    return Document(content=content, metadata=metadata, doc_id=row['datová_sada'])

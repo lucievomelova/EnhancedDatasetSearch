@@ -75,7 +75,7 @@ class SearchPipeline:
 
         self.data_df = self.data_df.drop_duplicates(subset=['datová_sada'])
 
-        self.data_df = self.data_df.applymap(lambda x: None if isinstance(x, list) and len(x) == 1 and pd.isna(x[0]) else x)
+        self.data_df = self.data_df.map(lambda x: None if isinstance(x, list) and len(x) == 1 and pd.isna(x[0]) else x)
         self.data_df = self.data_df.replace(np.nan, None)
         logger.info(f"Number of rows: {self.data_df.shape[0]}.")
 
