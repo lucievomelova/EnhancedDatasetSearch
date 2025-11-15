@@ -13,7 +13,9 @@ def search(expanded_query: list, data_df: pd.DataFrame, limit: int = 100) -> pd.
             text = f"{row['název']} {row['popis']}".lower()
             return sum(1 for w in expanded_query if w in text)
         data_df['score'] = data_df.apply(_match_score, axis=1)
-        results = data_df[data_df['score'] > 0].sort_values(by='score', ascending=False)[:limit]
+        results = data_df[data_df['score'] > 0].sort_values(by='score', ascending=False)[:limit*10]
+        results = results.drop_duplicates(subset=['název', 'datová_sada'])
+        results = results[:limit] if len(results) > limit else results
         logger.info("Searching complete, found %s relevant results.", results.shape[0])
         return results
     logger.error("No input data given.")
