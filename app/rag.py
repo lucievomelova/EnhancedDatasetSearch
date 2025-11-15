@@ -1,12 +1,15 @@
 import os
-
 import pandas as pd
 from llama_index.core.ingestion import IngestionPipeline
 from llama_index.core.node_parser import SentenceSplitter
 from llama_index.vector_stores.postgres import PGVectorStore
 from llama_index.storage.docstore.postgres import PostgresDocumentStore
 from llama_index.embeddings.ollama import OllamaEmbedding
-from llama_index.core import Document
+
+from utils import setup_logger
+from nkod_datasets import create_document_from_row
+
+logger = setup_logger(__name__)
 
 
 def create_ingestion_pipeline(config: dict) -> IngestionPipeline:
@@ -51,23 +54,6 @@ def create_ingestion_pipeline(config: dict) -> IngestionPipeline:
 def load_documents_to_rag_db(config: dict, data_df: pd.DataFrame) -> None:
     """Load documents from data_df into the RAG database."""
 
-    documents = [load_document(row) for _, row in data_df.iterrows()]
+    documents = [create_document_from_row(row) for _, row in data_df.iterrows()]
     pipeline = create_ingestion_pipeline(config)
     pipeline.run(documents=documents)
-
-
-def load_document(row) -> Document:
-    """Load a single document from a dataframe row."""
-    # columns - datová_sada,název,popis,poskytovatel_IRI,poskytovatel,klíčová_slova,prostorové_pokrytí,téma_IRI,téma,
-    # periodicita_aktualizace_IRI,periodicita_aktualizace,je_součástí_IRI,právní_předpis,kategorie_hvd_IRI,kategorie_hvd_název
-    content = f"{row['název']}\n{row['popis']}"
-    metadata = {
-        "title": row['název'],
-        "url": row['datová_sada'],
-        "keywords": row['klíčová_slova'],  # list of keywords
-        "provider": row['poskytovatel'],
-        "themes": row['téma'],  # list of themes
-        "legal_regulations": row['právní_předpis'],  # list of legal regulations
-        "categories": row['kategorie_hvd_název'],  # list of categories
-    }
-    return Document(content=content, metadata=metadata, doc_id=row['datová_sada'])
