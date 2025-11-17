@@ -1,6 +1,6 @@
 data:
   datasets:
-    path: "data/datove_sady_small.csv"
+    path: "data/datove_sady.csv"
     url: "https://data.gov.cz/soubor/datov%C3%A9-sady.csv"
   distribution:
     path: "data/distribuce.csv"

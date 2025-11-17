@@ -4,25 +4,13 @@ Search pipeline:
     2. Search
     3. Result Postprocessing
     4. Context
-
-There will be a RAG database containing info about all datasets. Every day, the new datove_sady and distribuce csvs
-will be downloaded and if there are changes detected in some datasets at NKOD, their info will be deleted from DB and
-then added again.
-
 """
-import re
-from datetime import datetime
-import os
-
-import numpy as np
-import ollama
 import pandas as pd
-import requests
 import logging
 
 import yaml
 
-from app.nkod_datasets import get_informative_dataset
+from nkod_datasets import NKOD
 from rag import load_documents_to_rag_db
 from query_prepocessing import query_preprocessing
 from search import search
@@ -35,15 +23,15 @@ logger = logging.getLogger(__name__)
 class SearchPipeline:
     def __init__(self, config: dict):
         self.config = config
-        self.informative_df = get_informative_dataset(config)
-
+        self.dataset_portal = NKOD(config)
+        self.super_df = self.dataset_portal.super_df
 
     def run(self, query: str) -> pd.DataFrame | None:
         """Run the search pipeline for the given query and return the results as a DataFrame."""
 
-        load_documents_to_rag_db(self.config["rag"], self.informative_df)
+        load_documents_to_rag_db(self.config['rag'], self.dataset_portal.get_new_datasets())
         expanded_query = query_preprocessing(query)
-        results = search(expanded_query, self.informative_df)
+        results = search(expanded_query, self.super_df)
         results = result_postprocessing(results)
         # return just nazev and popis columns
         if results is not None:

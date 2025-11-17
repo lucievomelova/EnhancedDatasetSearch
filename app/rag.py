@@ -1,5 +1,6 @@
 import os
 import pandas as pd
+from llama_index.core import Document
 from llama_index.core.ingestion import IngestionPipeline
 from llama_index.core.node_parser import SentenceSplitter
 from llama_index.vector_stores.postgres import PGVectorStore
@@ -7,7 +8,7 @@ from llama_index.storage.docstore.postgres import PostgresDocumentStore
 from llama_index.embeddings.ollama import OllamaEmbedding
 
 from utils import setup_logger
-from nkod_datasets import create_document_from_row
+from nkod_datasets import NKOD
 
 logger = setup_logger(__name__)
 
@@ -51,9 +52,7 @@ def create_ingestion_pipeline(config: dict) -> IngestionPipeline:
     return pipeline
 
 
-def load_documents_to_rag_db(config: dict, data_df: pd.DataFrame) -> None:
+def load_documents_to_rag_db(config: dict, new_documents: list[Document]) -> None:
     """Load documents from data_df into the RAG database."""
-
-    documents = [create_document_from_row(row) for _, row in data_df.iterrows()]
     pipeline = create_ingestion_pipeline(config)
-    pipeline.run(documents=documents)
+    pipeline.run(documents=new_documents)
