@@ -11,7 +11,7 @@ import logging
 import yaml
 
 from nkod_datasets import NKOD
-from rag import load_documents_to_rag_db
+from rag import RAG
 from query_prepocessing import query_preprocessing
 from search import search
 from result_postprocessing import result_postprocessing
@@ -29,9 +29,11 @@ class SearchPipeline:
     def run(self, query: str) -> pd.DataFrame | None:
         """Run the search pipeline for the given query and return the results as a DataFrame."""
 
-        load_documents_to_rag_db(self.config['rag'], self.dataset_portal.get_new_datasets())
+        rag = RAG(self.config['rag'])
+        rag.load_documents(self.dataset_portal.get_new_datasets())
+
         expanded_query = query_preprocessing(query)
-        results = search(expanded_query, self.super_df)
+        results = search(rag.index, expanded_query, self.super_df)
         results = result_postprocessing(results)
         # return just nazev and popis columns
         if results is not None:
@@ -44,4 +46,4 @@ with open("config.yaml", "r") as f:
     config = yaml.safe_load(f)
 
 search_pipeline = SearchPipeline(config)
-search_pipeline.run("Hi.")
+search_pipeline.run("Praha a její okolí.")

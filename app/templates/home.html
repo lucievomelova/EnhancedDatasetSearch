@@ -1,29 +1,21 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Flask Data Search</title>
-    <style>
-        body { font-family: Arial; margin: 40px; }
-        table, th, td {
-            border: 1px solid #ccc;
-            border-collapse: collapse;
-            padding: 8px;
-        }
-        th { background-color: #f2f2f2; }
-        input[type=text] { padding: 6px; width: 200px; }
-        button { padding: 6px 12px; }
-    </style>
+    <title>NKOD - Dataset Search</title>
+    <link rel="stylesheet" href="{{ url_for('static',filename='styles/styles.css') }}">
 </head>
 <body>
-    <h2>Search</h2>
+    <h2>NKOD - Dataset Search</h2>
     <form method="POST">
-        <input type="text" name="query" placeholder="Enter name or city" value="{{ query }}">
+        <input type="text" name="query" placeholder="Search" value="{{ query }}">
         <button type="submit">Search</button>
     </form>
 
-    {% if table %}
+    {% if results %}
         <h3>Results:</h3>
-        {{ table|safe }}
+        {{ results|safe }}
+    {% else %}
+        <p>No results found.</p>
     {% endif %}
 </body>
 </html>

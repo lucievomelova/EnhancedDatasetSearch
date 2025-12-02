@@ -14,18 +14,18 @@ search_pipeline = SearchPipeline(config)
 @app.route('/', methods=['GET', 'POST'])
 def home():
     query = ''
-    table_html = None
+    results = None
 
     if request.method == 'POST':
         query = request.form.get('query', '').strip().lower()
         if query:
             results = search_pipeline.run(query)
             if results is not None:
-                table_html = results.to_html(index=False, escape=False)
+                results = results.to_html(index=False, escape=False)
             else:
-                table_html = "<p>No matching results found.</p>"
+                results = None
 
-    return render_template("home.html", query=query, table=table_html)
+    return render_template("home.html", query=query, results=results)
 
 
 if __name__ == '__main__':

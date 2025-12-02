@@ -1,22 +1,43 @@
+import ollama
 import pandas as pd
 from utils import setup_logger
+from llama_index.core.retrievers import QueryFusionRetriever
+from llama_index.retrievers.bm25 import BM25Retriever
 
 logger = setup_logger(__name__)
 
 
-def search(expanded_query: list, data_df: pd.DataFrame, limit: int = 100) -> pd.DataFrame | None:
+def _create_fusion_retriever(index) -> QueryFusionRetriever:
+    vector_retriever = index.as_retriever(similarity_top_k=10)
+    bm25_retriever = BM25Retriever.from_defaults(docstore=index.docstore, similarity_top_k=10)
+
+    retriever = QueryFusionRetriever(
+        [vector_retriever, bm25_retriever],
+        similarity_top_k=10,
+        num_queries=1,  # set this to 1 to disable query generation
+        mode="reciprocal_rerank",
+        use_async=True,
+        verbose=True,
+    )
+    return retriever
+
+
+def search(index, expanded_query: list, data_df: pd.DataFrame, k: int = 100) -> pd.DataFrame | None:
     """Search the data for the given query."""
 
+    system_query_intro = """
+    You are a helpful AI assistant for a dataset catalog search engine. The user typed in a search query, which was 
+    expanded into multiple related queries to improve search results:
+    """
+
+    system_query_task = f"""
+    Your task is to search for relevant datasets based on the expanded queries. There is a RAG database containing 
+    information about all datasets. For each expanded query, search the RAG database and retrieve text chunks that match 
+    the expanded search queries. Return {k} most relevant results."""
+
     logger.info("Searching...")
-    if expanded_query:
-        def _match_score(row):
-            text = f"{row['název']} {row['popis']}".lower()
-            return sum(1 for w in expanded_query if w in text)
-        data_df['score'] = data_df.apply(_match_score, axis=1)
-        results = data_df[data_df['score'] > 0].sort_values(by='score', ascending=False)[:limit*10]
-        results = results.drop_duplicates(subset=['název', 'datová_sada'])
-        results = results[:limit] if len(results) > limit else results
-        logger.info("Searching complete, found %s relevant results.", results.shape[0])
-        return results
-    logger.error("No input data given.")
-    return None
+
+    retriever = index.as_retriever(similarity_top_k=10)
+    nodes = retriever.retrieve(f'{system_query_intro} + {expanded_query} + {system_query_task}')
+    node = nodes[0]
+    logger.info(f"Retrieved chunks: {[node.metadata for node in nodes]}")

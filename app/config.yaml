@@ -15,6 +15,7 @@ rag:
   embedding:
     model_name: "snowflake-arctic-embed2"
     base_url: "http://localhost:11434"
-    chunk_size: 2048
-    chunk_overlap: 0
+    chunk_size: 4096
+    chunk_overlap: 50
+    embed_batch_size: 200
 

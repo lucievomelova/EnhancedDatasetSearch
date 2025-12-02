@@ -40,22 +40,38 @@ class NKOD(InformativeDatasetClass):
 
     def __init__(self, config: dict):
         super().__init__()
-        self._load_super_df(**config["data"]["datasets"])
+        # indicates whether the RAG is up to date - if True, there are no new or updated datasets so
+        # no new documents need to be added to RAG store
+        self.rag_up_to_date: bool = False
+
+        # a dataframe that contains the old version of the super dataset - used to compare with the new one
+        # and find new datasets, that will be added to RAG store
         self._old_super_df: pd.DataFrame | None = None
+
+        self._load_super_df(**config["data"]["datasets"])
 
     def _load_super_df(self, path: str, url: str) -> None:
         """Load the NKOD super dataset.
 
         Check if csv file exists and is up to date - if not, download it again, load it and return the loaded df."""
+        today = datetime.today().date()
         if os.path.exists(path):
+            logger.info("File exists")
             mod_time = os.path.getmtime(path)
             mod_datetime = datetime.fromtimestamp(mod_time)
-            today = datetime.today().date()
+            if mod_datetime.date() != today:
+                logger.info("Not modified today")
+                # if the file is outdated, save a copy of the old file and save the contents into a df
+                # we will use later compare the old and new df to find new or updated rows
+                self._old_super_df = pd.read_csv(path, sep=",")
+                self._old_super_df.to_csv(path.replace(".csv", "_old.csv"), index=False)
         if not os.path.exists(path) or mod_datetime.date() != today:
-            self._old_super_df = pd.read_csv(path, sep=",")
             self.super_df = self._download_df(path, url)
         else:
+            logger.info("File is up to date, loading from disk.")
             self.super_df = pd.read_csv(path, sep=",")
+            self.rag_up_to_date = True
+        # self.super_df = pd.read_csv(path, sep=",")
         self.super_df = self._merge_dataset_rows_into_one_row(self.super_df)
         logger.info("Dataset info loaded.")
 
@@ -102,7 +118,7 @@ class NKOD(InformativeDatasetClass):
         """Create a llama index Document for a  llama index Document from a dataframe row."""
         # columns - datová_sada, název, popis, poskytovatel, klíčová_slova, prostorové_pokrytí, téma,
         # periodicita_aktualizace, právní_předpis, kategorie_hvd_název
-        content = f"{row['název']}\n{row['popis']}"
+        text = f"{row['název']}\n{row['popis']}"
         metadata = {
             "title": row['název'],
             "url": row['datová_sada'],
@@ -112,17 +128,21 @@ class NKOD(InformativeDatasetClass):
             "legal_regulations": row['právní_předpis'],  # list of legal regulations
             "categories": row['kategorie_hvd_název'],  # list of categories
         }
-        return Document(content=content, metadata=metadata, doc_id=row['datová_sada'])
+        return Document(text=text, metadata=metadata, doc_id=row['datová_sada'])
 
     def get_new_datasets(self) -> list[Document]:
         """Get the list of new or updated datasets as llama index Documents."""
+        if self.rag_up_to_date:
+            logger.info("No new datasets found. RAG store is up to date.")
+            return []
         if self._old_super_df is not None:
             merged_df = pd.merge(self.super_df, self._old_super_df, on='datová_sada', how='left', indicator=True)
             new_or_updated_df = merged_df[merged_df['_merge'] != 'both']
             new_or_updated_df = new_or_updated_df[self.super_df.columns]
             logger.info(f"Number of new or updated datasets: {new_or_updated_df.shape[0]}.")
-
-            new_datasets_as_documents = [self._create_document_from_row(row) for _, row in new_or_updated_df.iterrows()]
-            return new_datasets_as_documents
-        logger.info("No new datasets found.")
-        return []
+            documents = [self._create_document_from_row(row) for _, row in new_or_updated_df.iterrows()]
+        else:
+            logger.info(f"Old file not found. Adding all datasets to RAG store (number of datasets: {self.super_df.shape[0]}).")
+            documents = [self._create_document_from_row(row) for _, row in self.super_df.iterrows()]
+        logger.info("Documents created.")
+        return documents

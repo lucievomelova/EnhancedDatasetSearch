@@ -1,0 +1,40 @@
+body {
+    font-family: sans-serif;
+    margin: 40px;
+}
+table, th, td {
+    border: 1px solid #ccc;
+    border-collapse: collapse;
+    padding: 8px;
+}
+th {
+    background-color: #ecfaff;
+    font-size: 1.2em;
+    color: #0d1e3c;
+}
+td {
+    color: #3f4244;
+}
+tr:nth-child(even) {
+    background-color: #eaf7fe;
+}
+tr:nth-child(odd) {
+    background-color: #fdf5f5;
+}
+h1 {
+    color: #0d1e3c;
+    font-size: 1.5em;
+}
+
+input[type=text] {
+    padding: 6px;
+    width: 80%;
+    border: 1px solid #3f4244;
+    border-radius: 4px;
+    font-size: 1.2em;
+    color: #3f4244;
+}
+button {
+    padding: 6px 12px;
+    font-size: 1.2em;
+}
