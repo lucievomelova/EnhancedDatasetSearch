@@ -13,7 +13,24 @@
 
     {% if results %}
         <h3>Results:</h3>
-        {{ results|safe }}
+        <table border="1" cellpadding="6" cellspacing="0">
+            <thead>
+                <tr>
+                    <th>Title</th>
+                    <th>Text</th>
+                    <th>URL</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for dataset in results %}
+                <tr>
+                    <td>{{ dataset.title }}</td>
+                    <td>{{ dataset.text }}</td>
+                    <td>{{ dataset.url }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
     {% else %}
         <p>No results found.</p>
     {% endif %}

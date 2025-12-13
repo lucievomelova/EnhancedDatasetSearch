@@ -13,8 +13,8 @@ import requests
 import os
 
 from llama_index.core import Document
-from pandas import Series
 
+from data_processing.llamaindex_documents import create_document_from_row
 from utils import setup_logger
 
 logger = setup_logger(__name__)
@@ -63,15 +63,14 @@ class NKOD(InformativeDatasetClass):
                 logger.info("Not modified today")
                 # if the file is outdated, save a copy of the old file and save the contents into a df
                 # we will use later compare the old and new df to find new or updated rows
-                self._old_super_df = pd.read_csv(path, sep=",")
+                self._old_super_df = pd.read_csv(path, sep=",", dtype="string")
                 self._old_super_df.to_csv(path.replace(".csv", "_old.csv"), index=False)
         if not os.path.exists(path) or mod_datetime.date() != today:
             self.super_df = self._download_df(path, url)
         else:
             logger.info("File is up to date, loading from disk.")
-            self.super_df = pd.read_csv(path, sep=",")
+            self.super_df = pd.read_csv(path, sep=",", dtype="string")
             self.rag_up_to_date = True
-        # self.super_df = pd.read_csv(path, sep=",")
         self.super_df = self._merge_dataset_rows_into_one_row(self.super_df)
         logger.info("Dataset info loaded.")
 
@@ -81,7 +80,7 @@ class NKOD(InformativeDatasetClass):
         with open(path, "wb") as f:
             logger.info(f"Downloading {path.split("/")[-1]}.")
             f.write(response.content)
-        df = pd.read_csv(path, sep=",")
+        df = pd.read_csv(path, sep=",", dtype="string")
         return df
 
     def _merge_dataset_rows_into_one_row(self, data_df: pd.DataFrame) -> pd.DataFrame:
@@ -114,22 +113,6 @@ class NKOD(InformativeDatasetClass):
         logger.info(f"Number of rows: {data_df.shape[0]}.")
         return data_df
 
-    def _create_document_from_row(self, row: Series) -> Document:
-        """Create a llama index Document for a  llama index Document from a dataframe row."""
-        # columns - datová_sada, název, popis, poskytovatel, klíčová_slova, prostorové_pokrytí, téma,
-        # periodicita_aktualizace, právní_předpis, kategorie_hvd_název
-        text = f"{row['název']}\n{row['popis']}"
-        metadata = {
-            "title": row['název'],
-            "url": row['datová_sada'],
-            "keywords": row['klíčová_slova'],  # list of keywords
-            "provider": row['poskytovatel'],
-            "themes": row['téma'],  # list of themes
-            "legal_regulations": row['právní_předpis'],  # list of legal regulations
-            "categories": row['kategorie_hvd_název'],  # list of categories
-        }
-        return Document(text=text, metadata=metadata, doc_id=row['datová_sada'])
-
     def get_new_datasets(self) -> list[Document]:
         """Get the list of new or updated datasets as llama index Documents."""
         if self.rag_up_to_date:
@@ -140,9 +123,10 @@ class NKOD(InformativeDatasetClass):
             new_or_updated_df = merged_df[merged_df['_merge'] != 'both']
             new_or_updated_df = new_or_updated_df[self.super_df.columns]
             logger.info(f"Number of new or updated datasets: {new_or_updated_df.shape[0]}.")
-            documents = [self._create_document_from_row(row) for _, row in new_or_updated_df.iterrows()]
+            documents = [create_document_from_row(row) for _, row in new_or_updated_df.iterrows()]
         else:
-            logger.info(f"Old file not found. Adding all datasets to RAG store (number of datasets: {self.super_df.shape[0]}).")
-            documents = [self._create_document_from_row(row) for _, row in self.super_df.iterrows()]
+            logger.info \
+                (f"Old file not found. Adding all datasets to RAG store (number of datasets: {self.super_df.shape[0]}).")
+            documents = [create_document_from_row(row) for _, row in self.super_df.iterrows()]
         logger.info("Documents created.")
         return documents

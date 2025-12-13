@@ -1,24 +1,21 @@
 data:
   datasets:
-    path: "data/datove_sady.csv"
+    path: "../data/datove_sady.csv"
     url: "https://data.gov.cz/soubor/datov%C3%A9-sady.csv"
   distribution:
-    path: "data/distribuce.csv"
+    path: "../data/distribuce.csv"
     url: "https://data.gov.cz/soubor/distribuce.csv"
 rag:
   db:
     host: "localhost"
     port: 5432
-    document_table: "documents_qwen"
-    vector_table: "embeddings_qwen"
-    embed_dim: 4096
+    document_table: "documents"
+    vector_table: "embeddings"
+    embed_dim: 1024
   embedding:
-    model_name: "qwen3-embedding"
+    model_name: "snowflake-arctic-embed2"
     base_url: "http://localhost:11434"
-    chunk_size: 8192
+    chunk_size: 4096
     chunk_overlap: 50
     embed_batch_size: 200
-  llm:
-    model_name: "mistral-small3.2"
-    base_url: "http://localhost:11434"
 

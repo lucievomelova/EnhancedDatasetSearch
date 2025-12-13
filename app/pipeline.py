@@ -5,13 +5,18 @@ Search pipeline:
     3. Result Postprocessing
     4. Context
 """
+from typing import List, Dict
+
 import pandas as pd
 import logging
 
 import yaml
+from llama_index.core import Settings
+from llama_index.llms.ollama import Ollama
 
-from nkod_datasets import NKOD
-from rag import RAG
+from custom_ollama_embedding import CustomOllamaEmbedding
+from data_processing.nkod_datasets import NKOD
+from data_processing.rag import RAG
 from query_prepocessing import query_preprocessing
 from search import search
 from result_postprocessing import result_postprocessing
@@ -20,25 +25,31 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(level
 logger = logging.getLogger(__name__)
 
 
+
 class SearchPipeline:
     def __init__(self, config: dict):
         self.config = config
         self.dataset_portal = NKOD(config)
         self.super_df = self.dataset_portal.super_df
+        Settings.llm = Ollama(model=self.config['rag']['llm']['model_name'])
+        Settings.embed_model = CustomOllamaEmbedding(
+            model_name=self.config['rag']['embedding']['model_name'],
+            base_url=self.config['rag']['embedding']['base_url'],
+            embed_batch_size=self.config['rag']['embedding']['embed_batch_size'],
+        )
 
-    def run(self, query: str) -> pd.DataFrame | None:
+    def run(self, query: str) -> List[Dict] | None:
         """Run the search pipeline for the given query and return the results as a DataFrame."""
 
         rag = RAG(self.config['rag'])
         rag.load_documents(self.dataset_portal.get_new_datasets())
 
         expanded_query = query_preprocessing(query)
-        results = search(rag.index, expanded_query, self.super_df)
-        results = result_postprocessing(results)
+        nodes = search(rag.index, rag.document_store, expanded_query)
+        # results = result_postprocessing(results)
         # return just nazev and popis columns
-        if results is not None:
-            # results["datová_sada"] = results["datová_sada"].apply(lambda url: f'<a href="{url}" target="_blank">link</a>')
-            return results[['název', 'popis', "datová_sada"]]
+        if nodes is not None:
+            return nodes
         return None
 
 

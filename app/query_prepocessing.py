@@ -34,7 +34,7 @@ def get_alternative_queries(
     """
 
     logger.info("Creating alternative queries for: %s", user_query)
-    alternative_queries = ollama.generate(model='mistral-small3.2', prompt=f'{system_query} + {user_query}').response
+    alternative_queries = ollama.generate(model='mistral-small3.2', prompt=f'{system_query}{user_query}').response
 
     logger.info(f"Alternative queries:")
     alternative_queries = [q.strip() for q in alternative_queries.split('\n') if q.strip()]

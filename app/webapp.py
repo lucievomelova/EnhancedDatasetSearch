@@ -20,10 +20,6 @@ def home():
         query = request.form.get('query', '').strip().lower()
         if query:
             results = search_pipeline.run(query)
-            if results is not None:
-                results = results.to_html(index=False, escape=False)
-            else:
-                results = None
 
     return render_template("home.html", query=query, results=results)
 

@@ -1,21 +1,16 @@
 import os
-import pandas as pd
 from llama_index.core import Document
 from llama_index.core.ingestion import IngestionPipeline
 from llama_index.core.node_parser import SentenceSplitter
 from llama_index.vector_stores.postgres import PGVectorStore
 from llama_index.storage.docstore.postgres import PostgresDocumentStore
-from llama_index.embeddings.ollama import OllamaEmbedding
 from llama_index.core import VectorStoreIndex
 
 
 from custom_ollama_embedding import CustomOllamaEmbedding
 from utils import setup_logger
-from nkod_datasets import NKOD
 
-import httpx
 from llama_index.core.base.embeddings.base import BaseEmbedding
-from typing import List
 
 
 logger = setup_logger(__name__)
@@ -63,7 +58,7 @@ class RAG:
     def load_documents(self, new_documents: list[Document]) -> None:
         """Load documents from data_df into the RAG database."""
         logger.info("Ingestion pipeline created. Loading %d new documents to RAG DB.", len(new_documents))
-        self.pipeline.run(documents=new_documents)
+        self.pipeline.run(documents=new_documents, show_progress=True)
 
 
 # def create_index(vector_store: PGVectorStore, embed_model: BaseEmbedding) -> VectorStoreIndex:
