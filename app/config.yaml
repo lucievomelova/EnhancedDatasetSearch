@@ -21,4 +21,6 @@ rag:
   llm:
     model_name: "mistral-small3.2"
     base_url: "http://localhost:11434"
+    context_length: 8192
+    memory_limit: 8192
 

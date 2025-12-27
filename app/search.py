@@ -13,57 +13,82 @@ from llama_index.llms.ollama import Ollama
 
 logger = setup_logger(__name__)
 
-def _create_fusion_retriever(index: VectorStoreIndex, docstore: PostgresDocumentStore) -> QueryFusionRetriever:
-    vector_retriever = index.as_retriever(similarity_top_k=10)
-    bm25_retriever = BM25Retriever.from_defaults(docstore=docstore, similarity_top_k=10)
 
-    retriever = QueryFusionRetriever(
-        [vector_retriever, bm25_retriever],
-        similarity_top_k=10,
-        num_queries=1,  # set this to 1 to disable query generation
-        mode="reciprocal_rerank",
-        use_async=True,
-        verbose=True,
-    )
-    return retriever
+class SearchEngine:
+    def __init__(self, index: VectorStoreIndex, docstore: PostgresDocumentStore):
+        self.index = index
+        self.docstore = docstore
+        self.retriever = self._create_fusion_retriever()
 
+    def _create_fusion_retriever(self) -> QueryFusionRetriever:
+        vector_retriever = self.index.as_retriever(similarity_top_k=10)
+        bm25_retriever = BM25Retriever.from_defaults(docstore=self.docstore, similarity_top_k=10)
 
-def search(index: VectorStoreIndex, docstore: PostgresDocumentStore, expanded_query: list, k: int = 100) -> List[Dict]:
-    """Search the data for the given query."""
+        retriever = QueryFusionRetriever(
+            [vector_retriever, bm25_retriever],
+            similarity_top_k=10,
+            num_queries=1,  # set this to 1 to disable query generation
+            mode="reciprocal_rerank",
+            use_async=True,
+            verbose=True,
+        )
+        return retriever
 
-    system_query_intro = """
-    You are a helpful AI assistant for a dataset catalog search engine. The user typed in a search query, which was 
-    expanded into multiple related queries to improve search results:
-    """
+    async def _retrieve(self, query: str) -> List[Dict[str, str]]:
+        """Retrieve relevant chunks from the RAG database for the given query."""
+        nodes = await self.retriever.aretrieve(f'{query}')
 
-    system_query_task = f"""
-    Your task is to search for relevant datasets based on the expanded queries. There is a RAG database containing 
-    information about all datasets. For each expanded query, search the RAG database and retrieve text chunks that match 
-    the expanded search queries. Return {k} most relevant results."""
+        formatted_nodes = []
+        for node in nodes:
+            text = self._remove_title_from_text(node.text)
+            formatted_node = {
+                "title": node.metadata["title"],
+                "url": node.metadata["url"],
+                "text": text,
+            }
+            formatted_nodes.append(formatted_node)
+        logger.info("Retrieved chunks:\n")
+        for item in formatted_nodes:
+            logger.info(f"{item["title"]} - {item["url"]}:\n{item["text"]}\n")
+        return formatted_nodes
 
-    logger.info("Searching...")
+    async def _search_all_queries(self, user_query: str, alternative_queries: list, k: int = 10):
+        """Search the data using all queries - the original and the alternative."""
 
-    retriever = _create_fusion_retriever(index, docstore)
-    nodes = retriever.retrieve(f'{system_query_intro}{expanded_query}{system_query_task}')
+        query = f"""
+            You are a helpful AI assistant for a dataset catalog search engine. The user typed in a search query:
+            {user_query}.
 
+            This query was expanded into multiple related queries to improve search results: {alternative_queries}
 
-    formatted_nodes = []
-    for node in nodes:
-        text = _remove_title_from_text(node.text)
-        formatted_node = {
-            "title": node.metadata["title"],
-            "url": node.metadata["url"],
-            "text": text,
-        }
-        formatted_nodes.append(formatted_node)
-    logger.info("Retrieved chunks:\n")
-    for item in formatted_nodes:
-        logger.info(f"{item["title"]} - {item["url"]}:\n{item["text"]}\n")
-    return formatted_nodes
+            Your task is to search for relevant datasets based on the original and the alternative queries. 
+            There is a RAG database containing information about all datasets. For each expanded query, 
+            search the RAG database and retrieve text chunks that match the expanded search queries."""
 
+        logger.info("Searching - all queries used.")
+        return await self._retrieve(query)
 
-def _remove_title_from_text(text: str) -> str:
-    """Remove dataset title from the text chunk."""
-    without_title = text.split('\n')[1:]  # title is on the first line
-    joined_string = '\n'.join(without_title)  # join the split string back into one
-    return joined_string
+    async def _search_one_query(self, query: str):
+        """Search the data using a single query."""
+        logger.info(f"Searching - query: {query}")
+        query = f"""
+            You are a helpful AI assistant for a dataset catalog search engine.
+            Your task is to search for relevant datasets based on this query: {query}
+            There is a RAG database containing information about all datasets."""
+
+        nodes = await self._retrieve(query)
+        return nodes
+
+    async def search(self, user_query: str, alternative_queries: list) -> Dict:
+        """Search for relevant datasets."""
+
+        results = {user_query: await self._search_all_queries(user_query, alternative_queries)}
+        for alt_query in alternative_queries:
+            results[alt_query] = await self._search_one_query(alt_query)
+        return results
+
+    def _remove_title_from_text(self, text: str) -> str:
+        """Remove dataset title from the text chunk."""
+        without_title = text.split('\n')[1:]  # title is on the first line
+        joined_string = '\n'.join(without_title)  # join the split string back into one
+        return joined_string

@@ -1,3 +1,5 @@
+import asyncio
+
 from flask import Flask, render_template, request
 from pipeline import SearchPipeline
 import yaml
@@ -19,7 +21,7 @@ def home():
     if request.method == 'POST':
         query = request.form.get('query', '').strip().lower()
         if query:
-            results = search_pipeline.run(query)
+            results = asyncio.run(search_pipeline.run(query))
 
     return render_template("home.html", query=query, results=results)
 
