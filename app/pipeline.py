@@ -17,9 +17,10 @@ from llama_index.llms.ollama import Ollama
 
 from context import Agent
 from custom_ollama_embedding import CustomOllamaEmbedding
+from data_processing.knowledge_graph import create_kg
 from data_processing.nkod_datasets import NKOD
-from data_processing.rag import RAG
-from query_prepocessing import query_preprocessing, detect_user_intent
+from data_processing.database import Database
+from query_prepocessing import query_preprocessing
 from result_postprocessing import result_postprocessing
 from search import SearchEngine
 
@@ -47,14 +48,17 @@ class SearchPipeline:
     async def run(self, query: str) -> List[Dict] | None:
         """Run the search pipeline for the given query and return the results as a DataFrame."""
 
-        rag = RAG(self.config['rag'])
-        rag.load_documents(self.dataset_portal.get_new_datasets())
+        database = Database(self.config['rag'])
+        datasets_documents = self.dataset_portal.get_new_datasets()
+        database.load_documents(datasets_documents)
+        # TODO use all documents to create knowledge graph, now its empty
+        # create_kg(datasets_documents)
 
         intent, alternative_queries = query_preprocessing(query)
-        search_engine = SearchEngine(rag.index, rag.document_store)
+        search_engine = SearchEngine(database.index, database.document_store)
         search_results = await search_engine.search(query, alternative_queries)
-        agent = Agent(rag.index, search_engine.retriever, self.llm)
-        await agent.run_chatbot()
+        # agent = Agent(database.index, search_engine.retriever, self.llm)
+        # await agent.run_chatbot()
         # results = result_postprocessing(results)
         # return just nazev and popis columns
         nodes = result_postprocessing(query, search_results, intent)
@@ -63,8 +67,8 @@ class SearchPipeline:
         return None
 
 
-# with open("config.yaml", "r") as f:
-#     config = yaml.safe_load(f)
-#
-# search_pipeline = SearchPipeline(config)
-# asyncio.run(search_pipeline.run("Praha a její okolí."))
+with open("config.yaml", "r") as f:
+    config = yaml.safe_load(f)
+
+search_pipeline = SearchPipeline(config)
+asyncio.run(search_pipeline.run("Praha a její okolí."))

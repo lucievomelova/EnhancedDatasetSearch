@@ -13,8 +13,10 @@ import requests
 import os
 
 from llama_index.core import Document
+from pandas import Series
 
-from data_processing.llamaindex_documents import create_document_from_row
+from data_processing.llamaindex_documents import assign_keywords, assign_theme, \
+    classify_into_domain, detect_region, detect_time_period, create_documents
 from utils import setup_logger
 
 logger = setup_logger(__name__)
@@ -49,6 +51,19 @@ class NKOD(InformativeDatasetClass):
         self._old_super_df: pd.DataFrame | None = None
 
         self._load_super_df(**config["data"]["datasets"])
+        self.extended_df: pd.DataFrame | None = None
+
+        self._extended_df_path = config["data"]["extended_df"]["path"]
+        self._load_extended_df(self._extended_df_path)
+
+    def _load_extended_df(self, path: str) -> None:
+        """Load the extended NKOD dataset containing also dataset metadata."""
+        if not os.path.exists(path):
+            logger.warning("Extended NKOD dataset file not found.")
+            self.extended_df = pd.DataFrame()
+        else:
+            logger.info("Loading extended NKOD dataset.")
+            self.extended_df = pd.read_csv(path, sep=",")
 
     def _load_super_df(self, path: str, url: str) -> None:
         """Load the NKOD super dataset.
@@ -115,18 +130,68 @@ class NKOD(InformativeDatasetClass):
 
     def get_new_datasets(self) -> list[Document]:
         """Get the list of new or updated datasets as llama index Documents."""
-        if self.rag_up_to_date:
-            logger.info("No new datasets found. RAG store is up to date.")
-            return []
-        if self._old_super_df is not None:
-            merged_df = pd.merge(self.super_df, self._old_super_df, on='datová_sada', how='left', indicator=True)
-            new_or_updated_df = merged_df[merged_df['_merge'] != 'both']
-            new_or_updated_df = new_or_updated_df[self.super_df.columns]
-            logger.info(f"Number of new or updated datasets: {new_or_updated_df.shape[0]}.")
-            documents = [create_document_from_row(row) for _, row in new_or_updated_df.iterrows()]
-        else:
-            logger.info \
-                (f"Old file not found. Adding all datasets to RAG store (number of datasets: {self.super_df.shape[0]}).")
-            documents = [create_document_from_row(row) for _, row in self.super_df.iterrows()]
+        # if self.rag_up_to_date:
+        #     logger.info("No new datasets found. RAG store is up to date.")
+        #     return []
+        # if self._old_super_df is not None:
+        #     merged_df = pd.merge(self.super_df, self._old_super_df, on='datová_sada', how='left', indicator=True)
+        #     new_datasets = merged_df[merged_df['_merge'] != 'both']
+        #     new_datasets = new_datasets[self.super_df.columns]
+        #     logger.info(f"Number of new or updated datasets: {new_datasets.shape[0]}.")
+        # else:
+        #     logger.info(f"Old file not found. Adding all datasets to RAG db ({self.super_df.shape[0]} datasets).")
+        #     new_datasets = self.super_df
+        new_datasets = self.super_df
+        new_rows = [self.create_metadata_for_row(row, self.all_keywords(), self.all_themes()) for _, row in new_datasets.iterrows()]
+        self.extended_df = pd.concat([self.extended_df, pd.DataFrame(new_rows)], ignore_index=True)  # append new datasets to extended df
+        self.extended_df.to_csv(self._extended_df_path, index=False)
+        documents = create_documents(self.extended_df)
         logger.info("Documents created.")
+        input()
         return documents
+
+    def all_keywords(self) -> list:
+        """Get a list of all keywords present in the super dataset."""
+        keywords = list(self.super_df["klíčová_slova"].explode().unique())
+        keywords = [kw for kw in keywords if kw is not None]
+        with open("keywords.txt", "w", encoding="utf-8") as f:
+            for theme in keywords:
+                f.write(f"{theme}\n")
+        return keywords
+
+    def all_themes(self) -> list:
+        """Get a list of all themes present in the super dataset."""
+        themes = list(self.super_df["téma"].explode().unique())
+        themes = [theme for theme in themes if theme is not None]
+        # save to file themes.txt
+        with open("themes.txt", "w", encoding="utf-8") as f:
+            for theme in themes:
+                f.write(f"{theme}\n")
+
+        return themes
+
+    def create_metadata_for_row(self, row: Series, all_keywords: list, all_themes: list) -> dict:
+        """Create metadata dictionary from a dataframe row."""
+        # columns - datová_sada, název, popis, poskytovatel, klíčová_slova, prostorové_pokrytí, téma,
+        # periodicita_aktualizace, právní_předpis, kategorie_hvd_název
+
+        keyword_list = assign_keywords(row, all_keywords)
+        theme_list = assign_theme(row, all_themes) if row['téma'] is None else row['téma']
+
+        row = {
+            "title": row['název'],
+            "description": row['popis'],
+            "url": row['datová_sada'],
+            "keywords": keyword_list,  # list of keywords
+            "themes": theme_list,  # list of themes
+            "provider": row['poskytovatel'],
+            "legal_regulations": row['právní_předpis'],  # list of legal regulations
+            "categories": row['kategorie_hvd_název'],  # list of categories
+            "domain": classify_into_domain(row),
+            "region": detect_region(row),
+            "time_period": detect_time_period(row),
+        }
+
+        print(row)
+        # input()
+        return row

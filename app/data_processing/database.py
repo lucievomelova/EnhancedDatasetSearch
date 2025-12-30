@@ -16,7 +16,8 @@ from llama_index.core.base.embeddings.base import BaseEmbedding
 logger = setup_logger(__name__)
 
 
-class RAG:
+class Database:
+    """Class for handling the RAG database - Postgres with PGVector extension."""
     def __init__(self, config: dict):
         db_config = config["db"]
         embedding_config = config["embedding"]
@@ -59,50 +60,3 @@ class RAG:
         """Load documents from data_df into the RAG database."""
         logger.info("Ingestion pipeline created. Loading %d new documents to RAG DB.", len(new_documents))
         self.pipeline.run(documents=new_documents, show_progress=True)
-
-
-# def create_index(vector_store: PGVectorStore, embed_model: BaseEmbedding) -> VectorStoreIndex:
-#     index = VectorStoreIndex.from_vector_store(vector_store, embed_model)
-#
-#
-# def create_ingestion_pipeline(config: dict) -> IngestionPipeline:
-#     """Create an ingestion pipeline to process and store documents in the rag store."""
-#     db_config = config['db']
-#     embedding_config = config['embedding']
-#     vector_store = PGVectorStore.from_params(
-#         database=os.environ['POSTGRES_DB'],
-#         host=db_config['host'],
-#         password=os.environ['POSTGRES_PASSWORD'],
-#         port=db_config['port'],
-#         user=os.environ['POSTGRES_USER'],
-#         table_name=db_config['vector_table'],
-#         embed_dim=db_config['embed_dim'],
-#     )
-#     document_store = PostgresDocumentStore.from_params(
-#         database=os.environ['POSTGRES_DB'],
-#         host=db_config['host'],
-#         password=os.environ['POSTGRES_PASSWORD'],
-#         port=db_config['port'],
-#         user=os.environ['POSTGRES_USER'],
-#         table_name=db_config['document_table'],
-#     )
-#
-#     ollama_embedding = CustomOllamaEmbedding(
-#         model_name=embedding_config['model_name'],
-#         base_url=embedding_config['base_url'],
-#         embed_batch_size=embedding_config['embed_batch_size'],
-#     )
-#
-#     pipeline = IngestionPipeline(
-#         transformations=[
-#             SentenceSplitter(chunk_size=embedding_config['chunk_size'],
-#                              chunk_overlap=embedding_config['chunk_overlap']),
-#             ollama_embedding,
-#         ],
-#         vector_store=vector_store,
-#         docstore=document_store,
-#     )
-#
-#     return pipeline
-
-

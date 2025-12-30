@@ -48,8 +48,8 @@ class SearchEngine:
             }
             formatted_nodes.append(formatted_node)
         logger.info("Retrieved chunks:\n")
-        for item in formatted_nodes:
-            logger.info(f"{item["title"]} - {item["url"]}:\n{item["text"]}\n")
+        # for item in formatted_nodes:
+        #     logger.info(f"{item["title"]} - {item["url"]}:\n{item["text"]}\n")
         return formatted_nodes
 
     async def _search_all_queries(self, user_query: str, alternative_queries: list, k: int = 10):

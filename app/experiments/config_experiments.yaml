@@ -2,6 +2,8 @@ data:
   datasets:
     path: "../data/datove_sady.csv"
     url: "https://data.gov.cz/soubor/datov%C3%A9-sady.csv"
+  extended_df:
+    path: "data/datasets_with_metadata.csv"
   distribution:
     path: "../data/distribuce.csv"
     url: "https://data.gov.cz/soubor/distribuce.csv"

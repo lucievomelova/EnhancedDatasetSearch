@@ -60,7 +60,6 @@ class Agent:
         print("Chatbot is ready. Type 'exit' to quit.")
         while True:
             user_input = input("You: ")
-            # user_input = "hledam datasety o historii prahy"
             if user_input.lower() == 'exit':
                 print("Goodbye!")
                 break
