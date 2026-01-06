@@ -1,5 +1,6 @@
 import os
 
+import pandas as pd
 from llama_index.core import Document
 from neo4j import GraphDatabase
 from utils import setup_logger
@@ -37,7 +38,28 @@ def ingest_provider(tx, dataset_id, provider):
         MERGE (d)-[:PROVIDED_BY]->(p)
         """, id=dataset_id, provider=provider)
 
-def create_kg(datasets: list[Document]) -> None:
+def ingest_category(tx, dataset_id, category):
+    tx.run("""
+        MATCH (d:Dataset {id: $id})
+        MERGE (c:Category {name: $category})
+        MERGE (d)-[:HAS_CATEGORY]->(c)
+        """, id=dataset_id, category=category)
+
+def ingest_region(tx, dataset_id, region):
+    tx.run("""
+        MATCH (d:Dataset {id: $id})
+        MERGE (r:Region {name: $region})
+        MERGE (d)-[:HAS_REGION]->(r)
+        """, id=dataset_id, region=region)
+
+def ingest_time_period(tx, dataset_id, time_period):
+    tx.run("""
+        MATCH (d:Dataset {id: $id})
+        MERGE (t:TimePeriod {name: $time_period})
+        MERGE (d)-[:HAS_TIME_PERIOD]->(t)
+        """, id=dataset_id, time_period=time_period)
+
+def create_kg(datasets: pd.DataFrame) -> None:
     """Create knowledge graph from list of llama index Documents."""
     driver = GraphDatabase.driver(
         os.environ['NEO4J_URI'],
@@ -52,20 +74,33 @@ def create_kg(datasets: list[Document]) -> None:
         session.run("CREATE CONSTRAINT keyword_name IF NOT EXISTS FOR (k:Keyword) REQUIRE k.name IS UNIQUE;")
         session.run("CREATE CONSTRAINT theme_name IF NOT EXISTS FOR (t:Theme) REQUIRE t.name IS UNIQUE;")
         session.run("CREATE CONSTRAINT provider_name IF NOT EXISTS FOR (p:Provider) REQUIRE p.name IS UNIQUE;")
+        session.run("CREATE CONSTRAINT category_name IF NOT EXISTS FOR (c:Category) REQUIRE c.name IS UNIQUE;")
+        session.run("CREATE CONSTRAINT region_name IF NOT EXISTS FOR (r:Region) REQUIRE r.name IS UNIQUE;")
+        session.run("CREATE CONSTRAINT time_period_name IF NOT EXISTS FOR (t:TimePeriod) REQUIRE t.name IS UNIQUE;")
 
     with driver.session() as session:
         i = 1
-        for ds in datasets:
+        for index, row in datasets.iterrows():
             logger.info(f"{i}/{len(datasets)}")
             i += 1
-            session.execute_write(ingest_dataset, ds.id_, ds.text, ds.metadata)
-            if ds.metadata["keywords"] is not None:
-                for keyword in ds.metadata["keywords"]:
-                    session.execute_write(ingest_keyword, ds.id_, keyword.lower())
-            if ds.metadata["themes"] is not None:
-                for theme in ds.metadata["themes"]:
-                    session.execute_write(ingest_theme, ds.id_, theme.lower())
-            if ds.metadata["provider"] is not None:
-                session.execute_write(ingest_provider, ds.id_, ds.metadata["provider"].lower())
+            metadata = row.drop(columns="description")
+            session.execute_write(ingest_dataset, index, row["description"], metadata)
+            if row["keywords"] is not []:
+                for keyword in row["keywords"]:
+                    session.execute_write(ingest_keyword, index, keyword.title())
+            if row["themes"] is not []:
+                for theme in row["themes"]:
+                    session.execute_write(ingest_theme, index, theme.title())
+            if row["categories"] is not []:
+                for category in row["categories"]:
+                    session.execute_write(ingest_category, index, category.title())
+            if row["region"] is not []:
+                for region in row["region"]:
+                    session.execute_write(ingest_region, index, region.title())
+            if row["time_period"] is not []:
+                for time_period in row["time_period"]:
+                    session.execute_write(ingest_time_period, index, time_period.title())
+            if row["provider"] is not None:
+                session.execute_write(ingest_provider, index, row["provider"].title())
 
     logger.info("Knowledge graph creation completed.")

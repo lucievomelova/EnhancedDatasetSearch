@@ -48,22 +48,22 @@ class SearchPipeline:
     async def run(self, query: str) -> List[Dict] | None:
         """Run the search pipeline for the given query and return the results as a DataFrame."""
 
-        database = Database(self.config['rag'])
-        datasets_documents = self.dataset_portal.get_new_datasets()
-        database.load_documents(datasets_documents)
+        # database = Database(self.config['rag'])
+        # datasets_documents = await self.dataset_portal.get_new_datasets()
+        # database.load_documents(datasets_documents)
         # TODO use all documents to create knowledge graph, now its empty
-        # create_kg(datasets_documents)
+        create_kg(self.dataset_portal.extended_df)
 
         intent, alternative_queries = query_preprocessing(query)
-        search_engine = SearchEngine(database.index, database.document_store)
-        search_results = await search_engine.search(query, alternative_queries)
+        # search_engine = SearchEngine(database.index, database.document_store)
+        # search_results = await search_engine.search(query, alternative_queries)
         # agent = Agent(database.index, search_engine.retriever, self.llm)
         # await agent.run_chatbot()
         # results = result_postprocessing(results)
         # return just nazev and popis columns
-        nodes = result_postprocessing(query, search_results, intent)
-        if nodes is not None:
-            return nodes
+        # nodes = result_postprocessing(query, search_results, intent)
+        # if nodes is not None:
+        #     return nodes
         return None
 
 
