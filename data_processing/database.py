@@ -11,8 +11,10 @@ from custom_ollama_embedding import CustomOllamaEmbedding
 from utils import setup_logger
 
 from llama_index.core.base.embeddings.base import BaseEmbedding
+from dotenv import load_dotenv
 
 
+load_dotenv()
 logger = setup_logger(__name__)
 
 

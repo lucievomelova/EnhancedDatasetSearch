@@ -22,7 +22,7 @@ from utils import setup_logger
 
 logger = setup_logger(__name__)
 
-executor = ThreadPoolExecutor(max_workers=4)
+executor = ThreadPoolExecutor(max_workers=8)
 
 
 def split_dataframe(df, chunk_size=100) -> list[pd.DataFrame]:
@@ -56,8 +56,12 @@ class NKOD(InformativeDatasetClass):
         # indicates whether the RAG is up to date - if True, there are no new or updated datasets so
         # no new documents need to be added to RAG store
         self.rag_up_to_date: bool = False
-        self._download_new_data: bool = False
-        self._recreate_extended_df: bool = False
+        self._download_new_data: bool = True
+        self._update_extended_df: bool = True
+        self.categories = config["rag"]["data_processing"]["categories"]
+        self.column_mapping = config["rag"]["data_processing"]["column_mapping"]
+        self.unwanted_columns = config["rag"]["data_processing"]["unwanted_columns"]
+        self.other_category = config["rag"]["data_processing"]["other_category"]
 
         # a dataframe that contains the old version of the super dataset - used to compare with the new one
         # and find new datasets, that will be added to RAG store
@@ -68,6 +72,7 @@ class NKOD(InformativeDatasetClass):
 
         self._extended_df_path = config["data"]["extended_df"]["path"]
         self._load_extended_df(self._extended_df_path)
+
 
 
     def _load_extended_df(self, path: str) -> None:
@@ -126,22 +131,28 @@ class NKOD(InformativeDatasetClass):
         and category associated with it. We want a single row per dataset with all keywords merged into one column.
         """
 
-        columns_with_duplicates = ["klíčová_slova", "prostorové_pokrytí", "téma", "právní_předpis"]
-        # columns that are not needed - e.g. tema_IRI when we also have column tema, je_součástí_IRI is always empty
-        # also kategorie_hvd is mostly None and it should only be use for legislation related data -> drop it
-        columns_to_be_dropped = ["kategorie_hvd_IRI", "kategorie_hvd_název", "je_součástí_IRI", "periodicita_aktualizace_IRI", "téma_IRI", "poskytovatel_IRI"]
-        data_df = data_df.drop(columns=columns_to_be_dropped)
+        # columns that contain multiple values per dataset -> merge the values into one list
+        list_columns = [
+            self.column_mapping["keywords"],
+            self.column_mapping["spatial_coverage"],
+            self.column_mapping["themes"],
+            self.column_mapping["legal_regulations"]
+        ]
 
-        for col in columns_with_duplicates:
-            sub_df = data_df.groupby('datová_sada')[col].apply(lambda x: list(set(x))).reset_index()
+        # drop columns that are not needed
+        data_df = data_df.drop(columns=self.unwanted_columns)
+
+        groupby_column = self.column_mapping["url"]  # group by dataset URL
+        for col in list_columns:
+            sub_df = data_df.groupby(groupby_column)[col].apply(lambda x: list(set(x))).reset_index()
             data_df = data_df.drop(columns=[col])
-            data_df = pd.merge(data_df, sub_df, on='datová_sada', how='left')
+            data_df = pd.merge(data_df, sub_df, on=groupby_column, how='left')
 
             # TODO check if it works
             # replace Nan and empty values with []
             data_df[col] = data_df[col].map(lambda x: [] if x is None or x == np.nan or x == "" else x)
 
-        data_df = data_df.drop_duplicates(subset=['datová_sada'])
+        data_df = data_df.drop_duplicates(subset=[groupby_column])
 
         # handle NaN values
         # change all single NaN lists to None
@@ -156,22 +167,26 @@ class NKOD(InformativeDatasetClass):
 
     async def get_new_datasets(self) -> list[Document]:
         """Get the list of new or updated datasets as llama index Documents."""
-        # if self.rag_up_to_date:
-        #     logger.info("No new datasets found. RAG store is up to date.")
-        #     return []
-        # if self._old_super_df is not None:
-        #     merged_df = pd.merge(self.super_df, self._old_super_df, on='datová_sada', how='left', indicator=True)
-        #     new_datasets = merged_df[merged_df['_merge'] != 'both']
-        #     new_datasets = new_datasets[self.super_df.columns]
-        #     logger.info(f"Number of new or updated datasets: {new_datasets.shape[0]}.")
-        # else:
-        #     logger.info(f"Old file not found. Adding all datasets to RAG db ({self.super_df.shape[0]} datasets).")
-        #     new_datasets = self.super_df
-        # new_rows = [self.create_metadata_for_row(row) for _, row in new_datasets.iterrows()]
-
-        if self._recreate_extended_df:
+        if self.rag_up_to_date:
+            logger.info("No new datasets found. RAG store is up to date.")
+            return []
+        if self._old_super_df is not None:
+            merged_df = pd.merge(self.super_df, self._old_super_df, on=self.column_mapping["url"], how='left', indicator=True)
+            new_datasets = merged_df[merged_df['_merge'] != 'both']
+            new_datasets = new_datasets[self.super_df.columns]
+            logger.info(f"Number of new or updated datasets: {new_datasets.shape[0]}.")
+        else:
+            logger.info(f"Old file not found. Adding all datasets to RAG db ({self.super_df.shape[0]} datasets).")
             new_datasets = self.super_df
-            chunks = split_dataframe(new_datasets, chunk_size=50)
+
+        if self._update_extended_df:
+            # dont use rows that are already loaded in the extended df
+            self._load_extended_df(self._extended_df_path)
+            new_datasets = (((pd.merge(self.extended_df, new_datasets, left_on="url", right_on=self.column_mapping["url"], how='outer', indicator=True)
+                            .query("_merge != 'both'"))
+                            .drop('_merge', axis=1))
+                            .reset_index(drop=True))
+            chunks = split_dataframe(new_datasets, chunk_size=20)
             for chunk in chunks:
                 logger.info(f"Processing chunk with {chunk.shape[0]} datasets.")
                 new_rows = await self.run_all(chunk)
@@ -180,6 +195,7 @@ class NKOD(InformativeDatasetClass):
                     pd.DataFrame(new_rows).to_csv(self._extended_df_path, index=False, header=True)
                 else:
                     pd.DataFrame(new_rows).to_csv(self._extended_df_path, index=False, header=False, mode="a")
+
         self._load_extended_df(self._extended_df_path)
         documents = create_documents(self.extended_df)
         logger.info("Documents created.")
@@ -187,26 +203,15 @@ class NKOD(InformativeDatasetClass):
 
     def get_keywords(self) -> list:
         """Get a list of all keywords present in the super dataset."""
-        keywords = list(self.super_df["klíčová_slova"].explode().unique())
+        keywords = list(self.super_df[self.column_mapping["keywords"]].explode().unique())
         keywords = [kw for kw in keywords if kw is not None]
         return keywords
 
     def get_themes(self) -> list:
         """Get a list of all themes present in the super dataset."""
-        themes = list(self.super_df["téma"].explode().unique())
+        themes = list(self.super_df[self.column_mapping["themes"]].explode().unique())
         themes = [theme for theme in themes if theme is not None]
         return themes
-
-    def get_categories(self) -> list:
-        """Get a list of categories.
-
-        Based on categories from the EU data portal -
-        https://op.europa.eu/en/web/eu-vocabularies/concept-scheme/-/resource?uri=http://publications.europa.eu/resource/authority/data-theme"""
-        categories = ["Zemědělství, rybolov, lesnictví a výživa", "Vzdělávání, kultura a sport", "Životní prostředí",
-                   "Energie", "Doprava", "Věda a technika", "Hospodářství a finance", "Populace a společnost", "Zdraví",
-                   "Vláda a veřejný sektor", "Regiony a města", "Spravedlnost, právní systém a veřejná bezpečnost",
-                   "Mezinárodní otázky"]
-        return categories
 
     async def run_all(self, new_datasets):
         new_rows = [self.enrich_async(row) for _, row in new_datasets.iterrows()]
@@ -219,33 +224,29 @@ class NKOD(InformativeDatasetClass):
                 result = await loop.run_in_executor(executor, self.create_metadata_for_row, row)
                 return result
             except Exception as e:
-                logger.error(f"Error processing row {row['název']}: {e}, retrying...")
-        # logger.info(f"Row: {row["název"]}")
-        # return result
+                logger.error(f"Error processing row {row[self.column_mapping["title"]]}: {e}, retrying...")
 
     def create_metadata_for_row(self, row: Series) -> dict:
         """Create metadata dictionary from a dataframe row."""
-        # columns - datová_sada, název, popis, poskytovatel, klíčová_slova, prostorové_pokrytí, téma,
-        # periodicita_aktualizace, právní_předpis, kategorie_hvd_název
 
-        generated_metadata = enrich_metadata(row, self.get_keywords(), self.get_themes(), self.get_categories())
-        keywords = row['klíčová_slova']
+        generated_metadata = enrich_metadata(row, self.get_keywords(), self.get_themes(), self.categories, self.other_category)
+        keywords = row[self.column_mapping["keywords"]]
         keywords = keywords + generated_metadata["keywords"] if keywords is not None else generated_metadata["keywords"]
-        themes = row['téma']
+        themes = row[self.column_mapping["themes"]]
         themes = themes + generated_metadata["themes"] if themes is not None else generated_metadata["themes"]
 
-        for category in self.get_categories():
+        for category in self.categories:
             if category in themes and category not in generated_metadata["categories"]:
                 generated_metadata["categories"].append(category)
 
         metadata = {
-            "title": row['název'],
-            "description": row['popis'],
-            "url": row['datová_sada'],
-            "keywords": keywords,  # list of keywords
-            "themes": themes,  # list of themes
-            "provider": row['poskytovatel'],
-            "legal_regulations": row['právní_předpis'],  # list of legal regulations
+            "title": row[self.column_mapping["title"]],
+            "description": row[self.column_mapping["description"]],
+            "url": row[self.column_mapping["url"]],
+            "keywords": keywords,
+            "themes": themes,
+            "provider": row[self.column_mapping["provider"]],
+            "legal_regulations": row[self.column_mapping["legal_regulations"]],
             "categories": generated_metadata["categories"],
             "region": generated_metadata["regions"],
             "time_period": generated_metadata["time_periods"],

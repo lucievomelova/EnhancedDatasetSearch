@@ -1,7 +1,7 @@
 import asyncio
 
 from flask import Flask, render_template, request
-from pipeline import SearchPipeline
+from app.pipeline import SearchPipeline
 import yaml
 
 

@@ -1,3 +1,4 @@
+import json
 from typing import Dict, List
 
 import ollama
@@ -40,30 +41,34 @@ def result_postprocessing(user_query: str, results: Dict[str, List[Dict[str, str
     each dataset at most once.
     
     You know that the user is looking for data with the following intent:
-    * Place (e.g. a city, region, geographical area): {intent['place']}
-    * Discipline (a field, area of expertise): {intent['discipline']}
-    * Time (e.g. a year, specific time range): {intent['time']}
+    * Categories: {intent['categories']}
+    * Geographical regions: {intent['regions']}
+    * Time Periods: {intent['time_periods']}
     
     Rerank the datasets based on their relevance to the original user query and detected intent. 
     
     Do not change the title, url or text of any dataset.
     
-    Return at most {k} most relevant datasets as a python list of dictionaries with title, url, text and explanation keys. 
+    Return at most {k} most relevant datasets as a json list of objects, each object representing one dataset -
+    with title, url, text and explanation keys. 
     Be absolutely sure
     to return each dataset AT MOST ONCE, even if it appeared in results for multiple queries. 
-    If the URL is the same, consider it the same dataset. You cannot return a dataset with the same URL more than once.
+    If the URL is the same, consider it the same dataset. You CANNOT return a dataset with the same URL more than once.
 
     In the explanation key, provide a brief explanation (1-2 sentences) why this result is relevant to the user's query.
     
-    Return just the list, no additional commentary or markdown formatting. The result will be converted to a 
-    python list directly, so it must contain ONLY the list.
+    Return only the final JSON list. Do NOT wrap the output in markdown. Do NOT use ```json or ``` fences.
+    The whole output must be directly parseable by json.loads().    
     """
 
-    reranked_results = ollama.generate(model='mistral-small3.2', prompt=f'{query}').response
+    response = ollama.generate(model='mistral-small3.2', prompt=f'{query}').response
+    logger.info(f"Reranked results (raw): {response}.")
 
-    # keep only results in []
-    reranked_results = reranked_results[reranked_results.find('['):reranked_results.rfind(']')+1]
-    results_as_list = ast.literal_eval(reranked_results)
+    if "```" in response:
+        response = response.split("```")[1]
+        if response.startswith("json"):
+            response = response[len("json"):].strip()
+    results_as_list = json.loads(response)
 
     logger.info(f"Reranked results: {results_as_list}.")
     return results_as_list

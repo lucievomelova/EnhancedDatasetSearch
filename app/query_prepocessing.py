@@ -1,3 +1,4 @@
+import json
 import re
 from typing import Dict
 
@@ -7,12 +8,13 @@ from utils import setup_logger
 logger = setup_logger(__name__)
 
 
-def query_preprocessing(user_query: str) -> (str, list):
+def query_preprocessing(user_query: str, categories: list[str], other_category: str) -> (str, list):
     """Preprocess the user query."""
 
     logger.info("User query: %s", user_query)
-    intent = detect_user_intent(user_query)
-    alternative_queries = get_alternative_queries(user_query, intent)
+    intent = detect_user_intent(user_query, categories, other_category)
+    # alternative_queries = get_alternative_queries(user_query, intent)
+    alternative_queries = []
 
     return intent, alternative_queries
 
@@ -30,9 +32,9 @@ def get_alternative_queries(
     is more effective. Use synonyms, related terms, and broader concepts.
     
     You know that the user is looking for data with the following intent:
-    * Place (e.g. a city, region, geographical area): {user_intent['place']}
-    * Discipline (a field, area of expertise): {user_intent['discipline']}
-    * Time (e.g. a year, specific time range): {user_intent['time']}
+    * Categories: {user_intent['categories']}
+    * Geographical regions: {user_intent['regions']}
+    * Time Periods: {user_intent['time_periods']}
     
     Provide {min_number_of_alternative_queries}-{max_number_of_alternative_queries} alternative 
     search queries that capture the essence of the user's intent. 
@@ -54,38 +56,51 @@ def get_alternative_queries(
     return alternative_queries
 
 
-def detect_user_intent(user_query: str) -> Dict[str, str]:
+def detect_user_intent(user_query: str, categories: list[str], other_category: str) -> Dict[str, str]:
     """Detect the user intent from the query using LLM."""
     logger.info("Detecting intent for query: %s", user_query)
 
-    general_intent_explanation = """
+    num_categories = 2
+
+    prompt = f"""
     You are an AI assistant for a dataset catalog search engine. Your task is to identify the user's intent 
-    behind their search query."""
+    behind their search query.
+    
+    The user query is: {user_query}
 
-    ending = """  Otherwise return "no". You have to be 100% sure that you are right, return "no" if you are not 
-    completely sure. Do not include any additional commentary. The user query is: """
+    ## Category
+    Classify the query intent into at most {num_categories} of the following predefined 
+    categories: {', '.join(categories)}. You can choose up to {num_categories} categories if all are equally relevant. 
+    But if one category is clearly more relevant than all other, choose only that one. 
+    If none of the provided categories is appropriate, classify it into one category called {other_category}.
+        
+    ## Region
+    Your task is to answer if the user is looking for data for a specific geographical region? 
+    e.g. a city, region, places with specific geographical attributes (like rivers, mountains, etc.). 
+    If yes, return the place name or names separated by commas.
 
-    intents = {
-        "place": """
-        Your task is to answer if the user is looking for data for a specific place? 
-        e.g. a city, region, places with specific geographical attributes (like rivers, mountains, etc.). 
-        If yes, return the place name or names separated by commas.""",
+    ## Time Period
+    Your task is to answer if the user is looking for data from a specific time period or date range?
+    e.g. historical data from a specific decade or year, data from the last year, data from winter months, etc.
+    If yes, return the time period or date range.
+    
+    Return the intent in the following JSON format:
+    {{
+        "categories": [list of categories (in Czech)],
+        "regions": [list of regions (in Czech)],
+        "time_periods": [list of time periods (in Czech)]
+    }}
+    
+    Return only the final JSON object. Do NOT wrap the output in markdown. Do NOT use ```json or ``` fences.
+    The whole output must be directly parseable by json.loads().    
+    """
 
-        "discipline": """    
-        Your task is to answer if the user is looking for data from a specific field, discipline or area of expertise? 
-        e.g. healthcare, transportation, education, environment, etc.
-        If yes, return the discipline name or names separated by commas.""",
+    response = ollama.generate(model='mistral-small3.2', prompt=prompt).response
+    if "```" in response:
+        response = response.split("```")[1]
+        if response.startswith("json"):
+            response = response[len("json"):].strip()
+    intent = json.loads(response)
+    logger.info(f"Detected intent: {intent}")
 
-        "time": """
-        Your task is to answer if the user is looking for data from a specific time period or date range?
-        e.g. historical data from a specific decade or year, data from the last year, data from winter months, etc.
-        If yes, return the time period or date range."""
-    }
-    results = {}
-    for name, intent in intents.items():
-        query = f"{general_intent_explanation}{intent}{user_query}{ending}"
-        response = ollama.generate(model='mistral-small3.2', prompt=query).response
-        logger.info(f"Detected {name} intent: {response}")
-        results[name] = response
-
-    return results
+    return intent

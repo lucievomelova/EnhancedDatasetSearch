@@ -1,7 +1,6 @@
 import os
 
 import pandas as pd
-from llama_index.core import Document
 from neo4j import GraphDatabase
 from utils import setup_logger
 

@@ -5,7 +5,6 @@ from llama_index.core.base.embeddings.base import BaseEmbedding
 from llama_index.core.llms import LLM
 from llama_index.storage.docstore.postgres import PostgresDocumentStore
 
-from custom_ollama_embedding import CustomOllamaEmbedding
 from utils import setup_logger
 from llama_index.core.retrievers import QueryFusionRetriever
 from llama_index.retrievers.bm25 import BM25Retriever

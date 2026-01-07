@@ -1,4 +1,4 @@
-app/data/*
+data/*
 app/__pycache__/*
 .idea
 venv
