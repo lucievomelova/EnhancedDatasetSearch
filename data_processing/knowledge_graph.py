@@ -67,7 +67,7 @@ def create_kg(datasets: pd.DataFrame) -> None:
     logger.info(f"Creating knowledge graph from dataset metadata for {len(datasets)} datasets.")
 
     with driver.session() as session:
-        session.run("MATCH (n) DETACH DELETE n;")
+        session.run("MATCH (n) WHERE n.embedding is null DETACH DELETE n;")
     with driver.session() as session:
         session.run("CREATE CONSTRAINT dataset_id IF NOT EXISTS FOR (d:Dataset) REQUIRE d.id IS UNIQUE;")
         session.run("CREATE CONSTRAINT keyword_name IF NOT EXISTS FOR (k:Keyword) REQUIRE k.name IS UNIQUE;")

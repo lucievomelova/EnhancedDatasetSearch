@@ -5,13 +5,9 @@ Search pipeline:
     3. Result Postprocessing
     4. Context
 """
-import asyncio
-from typing import List, Dict
 
-import pandas as pd
 import logging
 
-import yaml
 from llama_index.core import Settings
 from llama_index.llms.ollama import Ollama
 
@@ -22,8 +18,7 @@ from data_processing.database import Database
 from app.query_prepocessing import query_preprocessing
 from app.result_postprocessing import result_postprocessing
 from app.search import SearchEngine
-
-
+from app.result_postprocessing import rerank_with_llm
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
@@ -35,7 +30,6 @@ class SearchPipeline:
     def __init__(self, config: dict):
         self.config = config
         self.dataset_portal = NKOD(config)
-        self.super_df = self.dataset_portal.super_df
         self.llm = Ollama(model=self.config['rag']['llm']['model_name'], context_window=self.config['rag']['llm']['context_length'])
         Settings.llm = self.llm
         Settings.embed_model = CustomOllamaEmbedding(
@@ -46,25 +40,20 @@ class SearchPipeline:
         self.database = Database(self.config['rag'])
 
 
-    async def run(self, query: str) -> List[Dict] | None:
+    async def run(self, query: str) -> list[dict] | None:
         """Run the search pipeline for the given query and return the results as a DataFrame."""
 
-        # datasets_documents = await self.dataset_portal.get_new_datasets()
-        # self.database.load_documents(datasets_documents)
-        # create_kg(self.dataset_portal.extended_df)
-
-        # intent, alternative_queries = query_preprocessing(query,
-        #                                                   self.config["data_processing"]["categories"],
-        #                                                   self.config["data_processing"]["other_category"])
+        intent, extended_query = query_preprocessing(query,
+                                                          self.config['rag']["data_processing"]["categories"],
+                                                          self.config['rag']["data_processing"]["other_category"])
         search_engine = SearchEngine(self.database.index, self.database.document_store)
-        # search_results = await search_engine.search(query, alternative_queries)
-        agent = Agent(self.database.index, search_engine.retriever, self.llm)
-        await agent.run_chatbot()
-        # results = result_postprocessing(results)
-        # return just nazev and popis columns
-        # nodes = result_postprocessing(query, search_results, intent)
-        # if nodes is not None:
-        #     return nodes
+        search_results = await search_engine.search(extended_query)
+        # agent = Agent(self.database.index, search_engine.retriever, self.llm)
+        # await agent.run_chatbot()
+        nodes = result_postprocessing(query, extended_query, search_results, intent)
+        # nodes = rerank_with_llm(self.llm, query, search_results, intent)
+        if nodes is not None:
+            return nodes
         return None
 
 

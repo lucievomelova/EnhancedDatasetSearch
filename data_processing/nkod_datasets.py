@@ -4,7 +4,6 @@ There will be a RAG database containing info about all datasets. Every day, the 
 will be downloaded and if there are changes detected in some datasets at NKOD, their info will be deleted from DB and
 then added again.
 """
-import ast
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
@@ -21,7 +20,6 @@ from data_processing.llamaindex_documents import create_documents, enrich_metada
 from utils import setup_logger
 
 logger = setup_logger(__name__)
-
 executor = ThreadPoolExecutor(max_workers=8)
 
 
@@ -58,21 +56,21 @@ class NKOD(InformativeDatasetClass):
         self.rag_up_to_date: bool = False
         self._download_new_data: bool = True
         self._update_extended_df: bool = True
-        self.categories = config["rag"]["data_processing"]["categories"]
-        self.column_mapping = config["rag"]["data_processing"]["column_mapping"]
-        self.unwanted_columns = config["rag"]["data_processing"]["unwanted_columns"]
-        self.other_category = config["rag"]["data_processing"]["other_category"]
+        self.categories: list = config["rag"]["data_processing"]["categories"]
+        self.column_mapping: str = config["rag"]["data_processing"]["column_mapping"]
+        self.unwanted_columns: str = config["rag"]["data_processing"]["unwanted_columns"]
+        self.other_category: str = config["rag"]["data_processing"]["other_category"]
+
+        self.super_df: pd.DataFrame | None = None
+        self._super_df_path: str = config["data"]["datasets"]["path"]
+        self._super_df_url: str = config["data"]["datasets"]["url"]
 
         # a dataframe that contains the old version of the super dataset - used to compare with the new one
         # and find new datasets, that will be added to RAG store
         self._old_super_df: pd.DataFrame | None = None
 
-        self._load_super_df(**config["data"]["datasets"])
         self.extended_df: pd.DataFrame | None = None
-
         self._extended_df_path = config["data"]["extended_df"]["path"]
-        self._load_extended_df(self._extended_df_path)
-
 
 
     def _load_extended_df(self, path: str) -> None:
@@ -139,8 +137,7 @@ class NKOD(InformativeDatasetClass):
             self.column_mapping["legal_regulations"]
         ]
 
-        # drop columns that are not needed
-        data_df = data_df.drop(columns=self.unwanted_columns)
+        data_df = data_df.drop(columns=self.unwanted_columns)  # drop columns that are not needed
 
         groupby_column = self.column_mapping["url"]  # group by dataset URL
         for col in list_columns:
@@ -148,7 +145,6 @@ class NKOD(InformativeDatasetClass):
             data_df = data_df.drop(columns=[col])
             data_df = pd.merge(data_df, sub_df, on=groupby_column, how='left')
 
-            # TODO check if it works
             # replace Nan and empty values with []
             data_df[col] = data_df[col].map(lambda x: [] if x is None or x == np.nan or x == "" else x)
 
@@ -165,8 +161,14 @@ class NKOD(InformativeDatasetClass):
         logger.info(f"Number of rows: {data_df.shape[0]}.")
         return data_df
 
+    def load(self):
+        self._load_super_df(self._super_df_path, self._super_df_url)
+        self._load_extended_df(self._extended_df_path)
+
     async def get_new_datasets(self) -> list[Document]:
         """Get the list of new or updated datasets as llama index Documents."""
+
+        self.load()
         if self.rag_up_to_date:
             logger.info("No new datasets found. RAG store is up to date.")
             return []
@@ -180,12 +182,13 @@ class NKOD(InformativeDatasetClass):
             new_datasets = self.super_df
 
         if self._update_extended_df:
-            # dont use rows that are already loaded in the extended df
-            self._load_extended_df(self._extended_df_path)
-            new_datasets = (((pd.merge(self.extended_df, new_datasets, left_on="url", right_on=self.column_mapping["url"], how='outer', indicator=True)
-                            .query("_merge != 'both'"))
-                            .drop('_merge', axis=1))
-                            .reset_index(drop=True))
+            if not self.extended_df.empty:
+                # dont use rows that are already loaded in the extended df
+                new_datasets = (((pd.merge(self.extended_df, new_datasets,
+                                           left_on="url", right_on=self.column_mapping["url"], how='outer', indicator=True)
+                                .query("_merge != 'both'"))
+                                .drop('_merge', axis=1))
+                                .reset_index(drop=True))[self.extended_df.columns]
             chunks = split_dataframe(new_datasets, chunk_size=20)
             for chunk in chunks:
                 logger.info(f"Processing chunk with {chunk.shape[0]} datasets.")
@@ -224,29 +227,30 @@ class NKOD(InformativeDatasetClass):
                 result = await loop.run_in_executor(executor, self.create_metadata_for_row, row)
                 return result
             except Exception as e:
-                logger.error(f"Error processing row {row[self.column_mapping["title"]]}: {e}, retrying...")
+                logger.error(f"Error processing row {row["title"]}: {e}, retrying...")
 
     def create_metadata_for_row(self, row: Series) -> dict:
         """Create metadata dictionary from a dataframe row."""
 
         generated_metadata = enrich_metadata(row, self.get_keywords(), self.get_themes(), self.categories, self.other_category)
-        keywords = row[self.column_mapping["keywords"]]
-        keywords = keywords + generated_metadata["keywords"] if keywords is not None else generated_metadata["keywords"]
-        themes = row[self.column_mapping["themes"]]
-        themes = themes + generated_metadata["themes"] if themes is not None else generated_metadata["themes"]
+        keywords = row["keywords"] if row["keywords"] is not None else []
+        keywords = keywords + generated_metadata["keywords"]
+
+        themes = row["themes"] if row["themes"] is not None else []
+        themes = themes + generated_metadata["themes"]
 
         for category in self.categories:
             if category in themes and category not in generated_metadata["categories"]:
                 generated_metadata["categories"].append(category)
 
         metadata = {
-            "title": row[self.column_mapping["title"]],
-            "description": row[self.column_mapping["description"]],
-            "url": row[self.column_mapping["url"]],
+            "title": row["title"],
+            "description": row["description"],
+            "url": row["url"],
             "keywords": keywords,
             "themes": themes,
-            "provider": row[self.column_mapping["provider"]],
-            "legal_regulations": row[self.column_mapping["legal_regulations"]],
+            "provider": row["provider"],
+            "legal_regulations": row["legal_regulations"],
             "categories": generated_metadata["categories"],
             "region": generated_metadata["regions"],
             "time_period": generated_metadata["time_periods"],

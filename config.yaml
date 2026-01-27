@@ -3,7 +3,7 @@ data:
     path: "data/datove_sady.csv"
     url: "https://data.gov.cz/soubor/datov%C3%A9-sady.csv"
   extended_df:
-    path: "data/datasets_with_metadata.csv"
+    path: "data/datasets_with_metadata_1000.csv"
   distribution:
     path: "data/distribuce.csv"
     url: "https://data.gov.cz/soubor/distribuce.csv"
@@ -23,7 +23,7 @@ rag:
   llm:
     model_name: "mistral-small3.2"
     base_url: "http://localhost:11434"
-    context_length: 8192
+    context_length: 30000
     memory_limit: 8192
   data_processing:
     column_mapping:

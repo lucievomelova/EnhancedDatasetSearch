@@ -5,13 +5,11 @@ from llama_index.core.node_parser import SentenceSplitter
 from llama_index.vector_stores.postgres import PGVectorStore
 from llama_index.storage.docstore.postgres import PostgresDocumentStore
 from llama_index.core import VectorStoreIndex
-
+from llama_index.core.base.embeddings.base import BaseEmbedding
+from dotenv import load_dotenv
 
 from custom_ollama_embedding import CustomOllamaEmbedding
 from utils import setup_logger
-
-from llama_index.core.base.embeddings.base import BaseEmbedding
-from dotenv import load_dotenv
 
 
 load_dotenv()

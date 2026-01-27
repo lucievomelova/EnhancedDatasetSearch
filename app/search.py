@@ -1,14 +1,12 @@
 from typing import List, Dict
 
-from llama_index.core import VectorStoreIndex, Settings
-from llama_index.core.base.embeddings.base import BaseEmbedding
-from llama_index.core.llms import LLM
+from llama_index.core import VectorStoreIndex
+from llama_index.core.schema import NodeWithScore
 from llama_index.storage.docstore.postgres import PostgresDocumentStore
 
 from utils import setup_logger
 from llama_index.core.retrievers import QueryFusionRetriever
 from llama_index.retrievers.bm25 import BM25Retriever
-from llama_index.llms.ollama import Ollama
 
 logger = setup_logger(__name__)
 
@@ -25,8 +23,8 @@ class SearchEngine:
 
         retriever = QueryFusionRetriever(
             [vector_retriever, bm25_retriever],
-            similarity_top_k=10,
-            num_queries=1,  # set this to 1 to disable query generation
+            similarity_top_k=20,
+            num_queries=1,
             mode="reciprocal_rerank",
             use_async=True,
             verbose=True,
@@ -46,7 +44,7 @@ class SearchEngine:
                 "text": text,
             }
             formatted_nodes.append(formatted_node)
-        logger.info("Retrieved chunks:\n")
+        # logger.info("Retrieved chunks:\n")
         # for item in formatted_nodes:
         #     logger.info(f"{item["title"]} - {item["url"]}:\n{item["text"]}\n")
         return formatted_nodes
@@ -55,7 +53,7 @@ class SearchEngine:
         """Search the data using all queries - the original and the alternative."""
 
         query = f"""
-            You are a helpful AI assistant for a dataset catalog search engine. The user typed in a search query:
+            You are an AI assistant for a dataset catalog search engine. The user typed in a search query:
             {user_query}.
 
             This query was expanded into multiple related queries to improve search results: {alternative_queries}
@@ -65,29 +63,23 @@ class SearchEngine:
             search the RAG database and retrieve text chunks that match the expanded search queries."""
 
         logger.info("Searching - all queries used.")
-        return await self._retrieve(query)
+        # return await self._retrieve(query)
+        return await self.retriever.aretrieve(f'{query}')
 
-    async def _search_one_query(self, query: str):
+    async def _search_one_query(self, query: str) -> list[NodeWithScore]:
         """Search the data using a single query."""
         logger.info(f"Searching - query: {query}")
-        query = f"""
-            You are a helpful AI assistant for a dataset catalog search engine.
-            Your task is to search for relevant datasets based on this query: {query}
-            There is a RAG database containing information about all datasets."""
-
-        nodes = await self._retrieve(query)
+        nodes = await self.retriever.aretrieve(f'{query}')
         return nodes
 
-    async def search(self, user_query: str, alternative_queries: list) -> Dict:
+    async def search(self, user_query: str, alternative_queries: list = None) -> Dict[str, list[NodeWithScore]]:
         """Search for relevant datasets."""
 
-        results = {user_query: await self._search_all_queries(user_query, alternative_queries)}
-        for alt_query in alternative_queries:
-            results[alt_query] = await self._search_one_query(alt_query)
-        return results
+        logger.info(f"Searching - query: {user_query}")
+        nodes = await self.retriever.aretrieve(f'{user_query}')
+        return nodes
 
-    def _remove_title_from_text(self, text: str) -> str:
-        """Remove dataset title from the text chunk."""
-        without_title = text.split('\n')[1:]  # title is on the first line
-        joined_string = '\n'.join(without_title)  # join the split string back into one
-        return joined_string
+        # results = {user_query: await self._search_all_queries(user_query, alternative_queries)}
+        # for alt_query in alternative_queries:
+        #     results[alt_query] = await self._search_one_query(alt_query)
+        # return results

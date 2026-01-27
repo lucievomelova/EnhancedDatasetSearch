@@ -1,80 +1,96 @@
 import json
 from typing import Dict, List
-
+from llama_index.core.evaluation import ContextRelevancyEvaluator
+from jinja2 import Environment, FileSystemLoader
 import ollama
+from llama_index.core.schema import NodeWithScore
+
 from utils import setup_logger
-import ast
 
 logger = setup_logger(__name__)
+env = Environment(loader=FileSystemLoader('prompts'))
+intro_template = env.get_template("intro.j2")
+intro_prompt = intro_template.render()
+return_json_template = env.get_template("return_json.j2")
+return_json_instructions = return_json_template.render()
 
 
-def _make_list_from_results(results: Dict[str, List[Dict[str, str]]]) -> List[Dict[str, str]]:
-    # take each value from the results dict and make one list from it
-    result_list = []
-    urls = set()
-    for res_list in results.values():
-        for item in res_list:
-            if item['url'] not in urls:
-                print(item['url'])
-                urls.add(item['url'])
-                result_list.append(item)
-    return result_list
+def _remove_title_and_metadata_from_text(text: str) -> str:
+    """Remove dataset title from the text chunk."""
+    without_title = text.split("\n")[1:]  # title is on the first line
+    joined_string = '\n'.join(without_title)  # join the split string back into one
+    without_metadata = text.split("Poskytovatel: ")[0]  # metadata is starting from "Poskytovatel: "
+    return without_metadata
 
 
-def result_postprocessing(user_query: str, results: Dict[str, List[Dict[str, str]]], intent: Dict[str, str], k: int = 10) -> List[Dict[str, str]] | None:
+def _format_nodes(nodes: list[NodeWithScore]) -> list[dict[str, str]]:
+    formatted_nodes = []
+    for node in nodes:
+        text = _remove_title_and_metadata_from_text(node.text)
+        formatted_node = {
+            "title": node.metadata["title"],
+            "url": node.metadata["url"],
+            "text": text,
+            "metadata": {
+                "themes": node.metadata.get("themes", []),
+                "keywords": node.metadata.get("keywords", []),
+                "provider": node.metadata.get("provider", ""),
+                "categories": node.metadata.get("categories", []),
+                "regions": node.metadata.get("regions", []),
+                "time_periods": node.metadata.get("time_periods", []),
+            }
+        }
+        formatted_nodes.append(formatted_node)
+
+    return formatted_nodes
+
+
+def result_postprocessing(user_query: str,
+                          extended_query: str,
+                          results: list[NodeWithScore],
+                          intent: Dict[str, str], k: int = 10) -> List[Dict[str, str]] | None:
     """Post-process search results."""
     if not results:
         logger.info("No results found.")
         return None
 
-    results = _make_list_from_results(results)
-    logger.info(f"Post-processing search results.")
-    query = f"""You are a helpful AI assistant for a dataset catalog search engine.
-    Your task is to rerank the following search results based on their relevance to the user's original query:
-    Original user query: {user_query}.
-    The original query was expanded int oa few alternative queries. Here are the search results from all queries combined:
-    {results}
-    Each result contains the title, url and description text of a dataset.
-    
-    Some queries may have returned the same datasets, you can detect these by comparing their "URL" - if it's the 
-    same, both datasets are the same. Rerank the datasets and return the most relevant ones, but 
-    each dataset at most once.
-    
-    You know that the user is looking for data with the following intent:
-    * Categories: {intent['categories']}
-    * Geographical regions: {intent['regions']}
-    * Time Periods: {intent['time_periods']}
-    
-    Rerank the datasets based on their relevance to the original user query and detected intent. 
-    
-    Do not change the title, url or text of any dataset.
-    
-    Return at most {k} most relevant datasets as a json list of objects, each object representing one dataset -
-    with title, url, text and explanation keys. 
-    Be absolutely sure
-    to return each dataset AT MOST ONCE, even if it appeared in results for multiple queries. 
-    If the URL is the same, consider it the same dataset. You CANNOT return a dataset with the same URL more than once.
+    logger.info(f"Post-processing {len(results)} results.")
+    results = _format_nodes(results)
+    results_str = json.dumps(results, indent=2, ensure_ascii=False)
 
-    In the explanation key, provide a brief explanation (1-2 sentences) why this result is relevant to the user's query.
-    
-    Return only the final JSON list. Do NOT wrap the output in markdown. Do NOT use ```json or ``` fences.
-    The whole output must be directly parseable by json.loads().    
-    """
+    template = env.get_template("rerank_results.j2")
+    prompt = template.render(intro=intro_prompt,
+                             user_query=user_query,
+                             extended_query=extended_query,
+                             categories_intent=", ".join(intent["categories"]),
+                             regions_intent=", ".join(intent["regions"]),
+                             time_periods_intent=", ".join(intent["time_periods"]),
+                             results=results_str,
+                             k=k,
+                             return_json_instructions=return_json_instructions)
 
-    response = ollama.generate(model='mistral-small3.2', prompt=f'{query}').response
-    logger.info(f"Reranked results (raw): {response}.")
+    response = ollama.generate(model='mistral-small3.2',
+                               format="json",
+                               prompt=prompt,
+                               options={
+                                       "temperature": 0,
+                               }).response
 
-    if "```" in response:
-        response = response.split("```")[1]
-        if response.startswith("json"):
-            response = response[len("json"):].strip()
-    results_as_list = json.loads(response)
-
-    logger.info(f"Reranked results: {results_as_list}.")
+    result = json.loads(response)
+    results_as_list = [r for r in result.values()]
+    logger.info(f"Reranked results:\n{[r["title"] + ": " + str(r["score"]) + "\n" for r in results_as_list]}.")
     return results_as_list
 
 
-class Reranker:
-    """Post-process and rerank search results based on relevance to the original query."""
-    def __init__(self):
-        pass
+def rerank_with_llm(llm, user_query: str, results: Dict[str, List[NodeWithScore]], intent: Dict[str, str], k: int = 10):
+    """ Rerank search results using LLM."""
+    evaluator = ContextRelevancyEvaluator(llm=llm)
+
+    for query, nodes in results.items():
+        for node in nodes:
+            score = evaluator.evaluate(
+                query=query,
+                contexts=[node.text]
+            ).score
+
+            print(score, node.text[:200])

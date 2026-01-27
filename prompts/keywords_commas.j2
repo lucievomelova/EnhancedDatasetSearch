@@ -1,0 +1,19 @@
+You will be given a a sequence of words. This sequence was taken from a keyword metadata field and
+it contains commas. We don't know if this sequence is one long phrase that contains commas, or if it is
+multiple keywords that were mistakenly taken as one.
+
+Your task is to determine whether this sequence is one phrase or multiple keywords.
+Return the sequence as a list of keywords, following these rules:
+- if it is a phrase, return it as is
+- if it is multiple keywords, split them correctly into separate keywords
+- DO NOT add or remove any words, DO NOT change any words
+- DO NOT return anything other than the processed sequence
+
+Here is the sequence: {{ keyword }}
+
+Return the result as a JSON object:
+{
+    "{{ keyword }}": [processed sequence (list of strings)]
+}
+
+{{ return_json_instructions }}
