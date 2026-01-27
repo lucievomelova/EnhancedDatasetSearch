@@ -5,14 +5,15 @@ Search pipeline:
     3. Result Postprocessing
     4. Context
 """
-
+import asyncio
 import logging
 
+import yaml
 from llama_index.core import Settings
+from llama_index.embeddings.ollama import OllamaEmbedding
 from llama_index.llms.ollama import Ollama
 
 from app.context import Agent
-from custom_ollama_embedding import CustomOllamaEmbedding
 from data_processing.nkod_datasets import NKOD
 from data_processing.database import Database
 from app.query_prepocessing import query_preprocessing
@@ -32,7 +33,7 @@ class SearchPipeline:
         self.dataset_portal = NKOD(config)
         self.llm = Ollama(model=self.config['rag']['llm']['model_name'], context_window=self.config['rag']['llm']['context_length'])
         Settings.llm = self.llm
-        Settings.embed_model = CustomOllamaEmbedding(
+        Settings.embed_model = OllamaEmbedding(
             model_name=self.config['rag']['embedding']['model_name'],
             base_url=self.config['rag']['embedding']['base_url'],
             embed_batch_size=self.config['rag']['embedding']['embed_batch_size'],
@@ -57,8 +58,8 @@ class SearchPipeline:
         return None
 
 
-# with open("config.yaml", "r") as f:
-#     config = yaml.safe_load(f)
-#
-# search_pipeline = SearchPipeline(config)
-# asyncio.run(search_pipeline.run("Praha a její okolí."))
+with open("config.yaml", "r") as f:
+    config = yaml.safe_load(f)
+
+search_pipeline = SearchPipeline(config)
+asyncio.run(search_pipeline.run("Praha a její okolí."))

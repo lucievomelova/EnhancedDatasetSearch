@@ -42,6 +42,8 @@ def create_documents(extended_df: pd.DataFrame) -> list[Document]:
         """
         document = Document(text=text, metadata=metadata)
         documents.append(document)
+
+    logger.info("Documents created.")
     return documents
 
 
@@ -55,7 +57,6 @@ def enrich_metadata(row: Series, all_keywords: list, all_themes: list, categorie
     remaining_keywords = 3 - len(keywords) if keywords is not None else 3
     num_categories = 2
     num_themes = 2
-
 
     template = env.get_template("enrich_metadata.j2")
     prompt = template.render(intro=intro_prompt,
@@ -82,4 +83,5 @@ def enrich_metadata(row: Series, all_keywords: list, all_themes: list, categorie
                                    ).response
 
     metadata = json.loads(metadata_str)
+    logger.info(metadata)
     return metadata

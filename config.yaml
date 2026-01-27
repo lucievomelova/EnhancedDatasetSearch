@@ -3,7 +3,7 @@ data:
     path: "data/datove_sady.csv"
     url: "https://data.gov.cz/soubor/datov%C3%A9-sady.csv"
   extended_df:
-    path: "data/datasets_with_metadata_1000.csv"
+    path: "data/datasets_with_metadata_new.csv"
   distribution:
     path: "data/distribuce.csv"
     url: "https://data.gov.cz/soubor/distribuce.csv"
@@ -27,20 +27,20 @@ rag:
     memory_limit: 8192
   data_processing:
     column_mapping:
-      title: název
-      description: popis
-      url: datová_sada
-      keywords: klíčová_slova
-      themes: téma
-      text: popis
-      provider: poskytovatel
-      legal_regulations: právní_předpis
-      spatial_coverage: prostorové_pokrytí
+      název: title
+      popis: description
+      datová_sada: url
+      klíčová_slova: keywords
+      téma: themes
+      poskytovatel: provider
+      právní_předpis: legal_regulations
+      prostorové_pokrytí: spatial_coverage
     unwanted_columns:
       - kategorie_hvd_IRI  # mostly None and should only be use for legislation related data
       - kategorie_hvd_název  # mostly None and should only be use for legislation related data
       - je_součástí_IRI  # always empty
       - periodicita_aktualizace_IRI  # not relevant
+      - periodicita_aktualizace  # not relevant
       - téma_IRI  # keeping "téma" column is enough
       - poskytovatel_IRI  # keeping "poskytovatel" column is enough
     categories:

@@ -2,13 +2,13 @@ import os
 from llama_index.core import Document
 from llama_index.core.ingestion import IngestionPipeline
 from llama_index.core.node_parser import SentenceSplitter
+from llama_index.embeddings.ollama import OllamaEmbedding
 from llama_index.vector_stores.postgres import PGVectorStore
 from llama_index.storage.docstore.postgres import PostgresDocumentStore
 from llama_index.core import VectorStoreIndex
 from llama_index.core.base.embeddings.base import BaseEmbedding
 from dotenv import load_dotenv
 
-from custom_ollama_embedding import CustomOllamaEmbedding
 from utils import setup_logger
 
 
@@ -39,7 +39,7 @@ class Database:
             table_name=db_config['document_table'],
         )
 
-        self.embedding_model: BaseEmbedding = CustomOllamaEmbedding(
+        self.embedding_model: BaseEmbedding = OllamaEmbedding(
             model_name=embedding_config['model_name'],
             base_url=embedding_config['base_url'],
             embed_batch_size=embedding_config['embed_batch_size'],
