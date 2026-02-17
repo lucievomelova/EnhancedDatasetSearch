@@ -1,9 +1,9 @@
 data:
   datasets:
-    path: "data/datove_sady_100.csv"
+    path: "data/golden/datove_sady_small.csv"
     url: "https://data.gov.cz/soubor/datov%C3%A9-sady.csv"
   extended_df:
-    path: "data/datasets_with_metadata_100.csv"
+    path: "data/golden/datasets_with_metadata_small.csv"
   distribution:
     path: "data/distribuce.csv"
     url: "https://data.gov.cz/soubor/distribuce.csv"
@@ -11,8 +11,8 @@ rag:
   db:
     host: "localhost"
     port: 5432
-    document_table: "documents_extra_metadata"
-    vector_table: "embeddings_extra_metadata"
+    document_table: "documents_eval"
+    vector_table: "embeddings_eval"
     embed_dim: 4096
   embedding:
     model_name: "qwen3-embedding"

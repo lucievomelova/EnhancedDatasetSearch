@@ -16,7 +16,9 @@ import os
 from llama_index.core import Document
 from pandas import Series
 
-from data_processing.llamaindex_documents import create_documents, enrich_metadata
+from data_processing.keywords import get_representatives
+from data_processing.metadata import create_documents, enrich_metadata, clean_metadata, \
+    add_cluster_representatives_to_metadata
 from utils import setup_logger
 
 logger = setup_logger(__name__)
@@ -64,8 +66,8 @@ class NKOD(InformativeDatasetClass):
         # indicates whether the RAG is up to date - if True, there are no new or updated datasets so
         # no new documents need to be added to RAG store
         self.rag_up_to_date: bool = False
-        self._download_new_data: bool = True
-        self._always_download_new_data: bool = True  # TODO just for debugging
+        self._download_new_data: bool = False
+        self._always_download_new_data: bool = False  # TODO just for debugging
         self._update_extended_df: bool = True
 
         self._data_processing_config = config["rag"]["data_processing"]
@@ -100,7 +102,8 @@ class NKOD(InformativeDatasetClass):
         else:
             logger.info("Loading extended NKOD dataset.")
             list_columns = ["keywords", "themes", "categories", "legal_regulations", "region", "time_period"]
-            self.extended_df = pd.read_csv(self._data_config["extended_df_path"], sep=",", converters={col: pd.eval for col in list_columns})
+            self.extended_df = pd.read_csv(self._data_config["extended_df_path"], sep=",",
+                                           converters={col: pd.eval for col in list_columns})
 
     def _load_super_df(self) -> None:
         """Load the NKOD super dataset.
@@ -121,11 +124,10 @@ class NKOD(InformativeDatasetClass):
         else:
             logger.info("File is up to date, loading from disk.")
             self.super_df = pd.read_csv(self._data_config["super_df_path"], sep=",", dtype="string")
-            self.rag_up_to_date = True
+            # self.rag_up_to_date = True
 
         self.super_df = self.super_df.rename(columns=self._column_mapping)  # rename columns based on column mapping
         self._old_super_df = self._old_super_df.rename(columns=self._column_mapping)
-        self._merge_dataset_rows_into_one_row()
         logger.info("Dataset info loaded.")
 
 
@@ -155,12 +157,20 @@ class NKOD(InformativeDatasetClass):
         self.super_df = self.super_df.replace(np.nan, None)  # remaining NaNs to None
         logger.info(f"Number of rows: {self.super_df.shape[0]}.")
 
+    def _preprocess_metadata(self):
+        """Preprocess metadata columns in the super_df."""
+        # init new columns as empty lists
+        self.super_df["categories"] = [[] for _ in range(len(self.super_df))]
+        self.super_df["keyword_cluster_representatives"] = [[] for _ in range(len(self.super_df))]
+
+        clean_metadata(self.super_df, self._data_processing_config["categories"])
+        add_cluster_representatives_to_metadata(self.super_df)
+
     def init(self):
         """Initialize the NKOD class - super_df, extended_df, all_keywords, all_themes."""
         if self._always_download_new_data:
             self.super_df = download_df(self._data_config["super_df_path"], self._data_config["super_df_url"])
             self.super_df = self.super_df.rename(columns=self._column_mapping)  # rename columns based on column mapping
-            self._merge_dataset_rows_into_one_row()
             logger.info("Dataset info loaded.")
         elif self._download_new_data:
             self._load_super_df()
@@ -168,16 +178,19 @@ class NKOD(InformativeDatasetClass):
             logger.info("Using old dataset file, loading from disk.")
             self.super_df = pd.read_csv(self._data_config["super_df_path"], sep=",", dtype="string")
             self.super_df = self.super_df.rename(columns=self._column_mapping)  # rename columns based on column mapping
-            self.rag_up_to_date = True
+            # self.rag_up_to_date = True
+        self._merge_dataset_rows_into_one_row()
+
+        self._preprocess_metadata()
         self._load_extended_df()
 
-        # get all unique keywords and themes and store them
+        # metadata cleaned -> find all unique keywords and themes, which will be used for metadata enrichment
         self._all_keywords = list(self.super_df["keywords"].explode().dropna().unique())
         self._all_themes = list(self.super_df["themes"].explode().dropna().unique())
 
+
     async def get_new_datasets(self) -> list[Document]:
         """Get the list of new or updated datasets as llama index Documents."""
-
         self.init()
         if self.rag_up_to_date:
             logger.info("No new datasets found. RAG store is up to date.")
@@ -197,7 +210,7 @@ class NKOD(InformativeDatasetClass):
                 new_datasets = pd.merge(self.extended_df["url"], new_datasets, on="url", how='outer', indicator=True)
                 # keep only rows that are not in both dataframes (=rows that do not have the merge label "_both")
                 new_datasets = new_datasets.query("_merge != 'both'").drop('_merge', axis=1).reset_index(drop=True)
-            chunks = split_dataframe(new_datasets, chunk_size=2)
+            chunks = split_dataframe(new_datasets, chunk_size=20)
             for chunk in chunks:
                 logger.info(f"Processing chunk with {chunk.shape[0]} datasets.")
                 new_rows = await self.create_metadata_for_chunk(chunk)
@@ -245,6 +258,7 @@ class NKOD(InformativeDatasetClass):
             "description": row["description"],
             "url": row["url"],
             "keywords": keywords,
+            "keyword_cluster_representatives": row["keyword_cluster_representatives"],
             "themes": themes,
             "provider": row["provider"],
             "legal_regulations": row["legal_regulations"],

@@ -44,11 +44,20 @@ def _format_nodes(nodes: list[NodeWithScore]) -> list[dict[str, str]]:
 
     return formatted_nodes
 
+def format_search_results(results: list[NodeWithScore]) -> list[dict[str, str]] | None:
+    """Format search results, don't add any additional postprocessing."""
+    if not results:
+        logger.info("No results found.")
+        return None
+    logger.info(f"Formatting {len(results)} results.")
+    results = _format_nodes(results)
+    return results
+
 
 def result_postprocessing(user_query: str,
                           extended_query: str,
                           results: list[NodeWithScore],
-                          intent: Dict[str, str], k: int = 10) -> List[Dict[str, str]] | None:
+                          intent: Dict[str, str], k: int = 10) -> list[dict[str, str]] | None:
     """Post-process search results."""
     if not results:
         logger.info("No results found.")

@@ -1,5 +1,5 @@
 import os
-from llama_index.core import Document
+from llama_index.core import Document, StorageContext
 from llama_index.core.ingestion import IngestionPipeline
 from llama_index.core.node_parser import SentenceSplitter
 from llama_index.embeddings.ollama import OllamaEmbedding
@@ -44,7 +44,15 @@ class Database:
             base_url=embedding_config['base_url'],
             embed_batch_size=embedding_config['embed_batch_size'],
         )
-        self.index: VectorStoreIndex = VectorStoreIndex.from_vector_store(self.vector_store, self.embedding_model)
+        self.storage_context = StorageContext.from_defaults(
+            vector_store=self.vector_store,
+            docstore=self.document_store
+        )
+        self.index: VectorStoreIndex = VectorStoreIndex(
+            nodes=[],
+            embed_model=self.embedding_model,
+            storage_context=self.storage_context
+        )
 
         self.pipeline = IngestionPipeline(
             transformations=[

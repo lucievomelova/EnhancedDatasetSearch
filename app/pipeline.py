@@ -17,7 +17,7 @@ from app.context import Agent
 from data_processing.nkod_datasets import NKOD
 from data_processing.database import Database
 from app.query_prepocessing import query_preprocessing
-from app.result_postprocessing import result_postprocessing
+from app.result_postprocessing import result_postprocessing, format_search_results
 from app.search import SearchEngine
 from app.result_postprocessing import rerank_with_llm
 
@@ -51,15 +51,16 @@ class SearchPipeline:
         search_results = await search_engine.search(extended_query)
         # agent = Agent(self.database.index, search_engine.retriever, self.llm)
         # await agent.run_chatbot()
-        nodes = result_postprocessing(query, extended_query, search_results, intent)
+        # nodes = result_postprocessing(query, extended_query, search_results, intent)
         # nodes = rerank_with_llm(self.llm, query, search_results, intent)
+        nodes = format_search_results(search_results)
         if nodes is not None:
             return nodes
         return None
 
 
-with open("config.yaml", "r") as f:
-    config = yaml.safe_load(f)
-
-search_pipeline = SearchPipeline(config)
-asyncio.run(search_pipeline.run("Praha a její okolí."))
+# with open("config.yaml", "r") as f:
+#     config = yaml.safe_load(f)
+#
+# search_pipeline = SearchPipeline(config)
+# asyncio.run(search_pipeline.run("datasety o cukrovce"))

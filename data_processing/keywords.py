@@ -8,7 +8,6 @@ from data_processing.database import Database
 from neo4j import GraphDatabase, Driver
 from jinja2 import Environment, FileSystemLoader
 
-from data_processing.nkod_datasets import NKOD
 from utils import setup_logger
 
 logger = setup_logger(__name__)
@@ -20,50 +19,13 @@ env = Environment(loader=FileSystemLoader('prompts'))
 return_json_template = env.get_template("return_json.j2")
 return_json_instructions = return_json_template.render()
 
+driver = GraphDatabase.driver(
+    os.environ['NEO4J_URI'],
+    auth=(os.environ['NEO4J_USER'], os.environ['NEO4J_PASSWORD'])
+)
 
-def preprocess_comma_separated_keywords(comma_separated_keywords: list[str]) -> list[str]:
-    """Preprocess keywords containing commas.
-
-    Some keywords like this truly contain commas, but others are actually multiple keywords
-    that were formatted incorrectly. Use an LLM to identify and split those."""
-
-    # check if we already processed some keywords
-    file = "comma_separated_keywords.json"
-    if os.path.exists(file):
-        with open(file, "r") as f:
-            already_processed_keywords = json.load(f)
-    else:
-        already_processed_keywords = {}
-
-    new_keywords = set()
-    for sequence in comma_separated_keywords:
-        if sequence in already_processed_keywords:
-            new_keywords.update(already_processed_keywords[sequence])
-            continue
-
-        template = env.get_template("keyword_commas.j2")
-        prompt = template.render(keyword=sequence, return_json_instructions=return_json_instructions)
-        response = ollama.generate(model=config["rag"]["llm"]["model_name"],
-                                   prompt=prompt,
-                                   format="json",
-                                   options={
-                                       "temperature": 0,
-                                   }).response
-        current_new_keywords = json.loads(response)[sequence]  # split sequence into keywords
-        print(current_new_keywords)
-        new_keywords.update(current_new_keywords)  # update the keyword set
-
-        # save as json, where key is the original sequence, and value is the list of new keywords
-        if not os.path.exists(file):
-            with open(file, "w") as f:
-                json.dump({sequence: current_new_keywords}, f, indent=4, ensure_ascii=False)
-        else:
-            with open(file, "r") as f:
-                content = json.load(f)
-                content.update({sequence: current_new_keywords})
-            with open(file, "w") as f:
-                json.dump(content, f, indent=4, ensure_ascii=False)
-    return list(new_keywords)
+kg_clusters_file = "clusters.json"  # file that stores the clusters found by leiden
+representatives_file = "representatives.json"  # file that stores the cluster representatives found by LLM
 
 
 def embed_keywords(database: Database, keywords: list[str]) -> list[list[float]]:
@@ -110,8 +72,13 @@ def create_similarity_edges(tx, similarity_threshold):
     )
 
 
-def create_keyword_kg(driver: Driver, keywords: list[str], embeddings: list[list[float]], embed_dim: int) -> None:
-    """Create the keyword knowledge graph."""
+def create_keyword_kg(database: Database, keywords: list[str], embeddings: list[list[float]], embed_dim: int) -> None:
+    """Embed keywords and create the keyword knowledge graph."""
+
+    logger.info("Creating keyword embeddings.")
+    embed_keywords(database, keywords)
+
+    logger.info("Creating keyword knowledge graph.")
     with driver.session() as session:
         session.run("MATCH (n) WHERE n.embedding is not null DETACH DELETE n;")
         session.execute_write(create_keywords, keywords, embeddings)
@@ -182,40 +149,12 @@ def get_clusters(driver: Driver, save_to_file: bool = True) -> dict[str, list[st
         logger.info(f"Divided keywords into {num_clusters} clusters.")
 
         if save_to_file:
-            with open("clusters.json", "w") as f:
+            with open(kg_clusters_file, "w") as f:
                 json.dump(clusters, f, indent=4, ensure_ascii=False)
         return clusters
 
 
-def preprocess_keywords(database: Database, keywords: list[str]) -> None:
-    """Preprocess and embed a list of keywords."""
-    logger.info("Preprocessing %d keywords.", len(keywords))
-    keywords = [kw.strip() for kw in keywords if kw.strip()]
-
-    comma_separated_keywords = [kw for kw in keywords if "," in kw]
-    logger.info("Preprocessing %d keywords containing commas", len(comma_separated_keywords))
-    processed_comma_sep_keywords = preprocess_comma_separated_keywords(comma_separated_keywords)
-
-    all_keywords = list(set([kw for kw in keywords if "," not in kw] + processed_comma_sep_keywords))
-    all_keywords = [kw for kw in all_keywords if kw and kw != ""]
-
-    logger.info("Creating keyword embeddings.")
-    keyword_embeddings = embed_keywords(database, all_keywords)
-
-    driver = GraphDatabase.driver(
-        os.environ['NEO4J_URI'],
-        auth=(os.environ['NEO4J_USER'], os.environ['NEO4J_PASSWORD'])
-    )
-    logger.info("Creating keyword knowledge graph.")
-    create_keyword_kg(driver, all_keywords, keyword_embeddings, database.vector_store.embed_dim)
-
-    logger.info("Clustering keywords.")
-
 def clustering():
-    driver = GraphDatabase.driver(
-        os.environ['NEO4J_URI'],
-        auth=(os.environ['NEO4J_USER'], os.environ['NEO4J_PASSWORD'])
-    )
     create_clusters(driver)
     get_clusters(driver, save_to_file=True)
     logger.info("Keyword preprocessing completed.")
@@ -223,12 +162,11 @@ def clustering():
 
 def find_representatives() -> dict[str, list[str]]:
     """Find representative keyword for each cluster."""
-    driver = GraphDatabase.driver(
-        os.environ['NEO4J_URI'],
-        auth=(os.environ['NEO4J_USER'], os.environ['NEO4J_PASSWORD'])
-    )
-
-    clusters = get_clusters(driver)
+    if os.path.exists(kg_clusters_file):
+        with open(kg_clusters_file, "r") as f:
+            clusters = json.load(f)
+    else:
+        clusters = get_clusters(driver)
     representatives = {}
     logger.info("Finding representative keyword for each cluster.")
     for cluster_id, cluster_keywords in clusters.items():
@@ -236,13 +174,27 @@ def find_representatives() -> dict[str, list[str]]:
 
         template = env.get_template("keywords_clustering.j2")
         prompt = template.render(keywords=", ".join(cluster_keywords), return_json_instructions=return_json_instructions)
-        response = ollama.generate(model=config["rag"]["llm"]["model_name"],
-                                   prompt=prompt,
-                                   format="json",
-                                   options={
-                                       "temperature": 0,
-                                   }).response
-        current_representatives = json.loads(response)
+        while True:
+            try:
+                response = ollama.generate(model=config["rag"]["llm"]["model_name"],
+                                           prompt=prompt,
+                                           format="json",
+                                           options={
+                                               "temperature": 0,
+                                           }).response
+                current_representatives = json.loads(response)
+                break
+            except json.JSONDecodeError as e:
+                try:
+                    response = ollama.generate(model=config["rag"]["llm"]["model_name2"],
+                                               prompt=prompt,
+                                               format="json",
+                                               options={
+                                                   "temperature": 0,
+                                               }).response
+                    break
+                except json.JSONDecodeError as e:
+                    logger.error(f"JSON decode error: {response}. Retrying...")
 
         for representative, keywords in current_representatives.items():
             representative = representative.strip()
@@ -253,11 +205,14 @@ def find_representatives() -> dict[str, list[str]]:
             print(representative, keywords)
 
     logger.info("Cluster representatives found.")
-    with open("representatives.json", "w") as f:
+    with open(representatives_file, "w") as f:
         json.dump(representatives, f, indent=4, ensure_ascii=False)
+    with open(representatives_file, "r") as f:
+        representatives = json.load(f)
 
     logger.info("Storing cluster representatives in the knowledge graph.")
     for representative, keywords in representatives.items():
+        print(representative)
         for keyword in keywords:
             with driver.session() as session:
                 session.run(
@@ -270,6 +225,16 @@ def find_representatives() -> dict[str, list[str]]:
                     text=keyword,
                     representative=representative
                 )
+    return representatives
+
+
+def get_representatives() -> dict[str, list[str]]:
+    """Get cluster representatives from file."""
+    if os.path.exists(representatives_file):
+        with open("representatives.json", "r") as f:
+            representatives = json.load(f)
+    else:
+        representatives = find_representatives()
     return representatives
 
 # dataset_portal = NKOD(config)

@@ -5,7 +5,7 @@ from llama_index.core import Settings
 from llama_index.embeddings.ollama import OllamaEmbedding
 from llama_index.llms.ollama import Ollama
 
-from data_processing.keywords import preprocess_keywords, find_representatives, clustering
+from data_processing.keywords import create_keyword_kg, clustering, get_representatives
 from data_processing.knowledge_graph import create_kg
 from data_processing.nkod_datasets import NKOD
 from data_processing.database import Database
@@ -36,28 +36,26 @@ class DataPreprocessingPipeline:
         self.database.load_documents(datasets_documents)
         # self.dataset_portal.init()
         # create_kg(self.dataset_portal.extended_df)
-        # clean_keywords(self.dataset_portal.get_keywords())
-        # preprocess_keywords(self.database, self.dataset_portal.get_keywords())
-        # clustering()
-        # find_representatives()
+        # create_keyword_kg(self.database, self.dataset_portal._all_keywords)
+        # get_representatives()
 
-# @click.command()
-# @click.option('--config', default='config.yaml', help='Path to the configuration YAML file.')
-# def main(config: str):
-#     with open(config, "r") as f:
-#         config = yaml.safe_load(f)
+@click.command()
+@click.option('--config', default='config.yaml', help='Path to the configuration YAML file.')
+def main(config: str):
+    with open(config, "r") as f:
+        config = yaml.safe_load(f)
+
+    pipeline = DataPreprocessingPipeline(config)
+    asyncio.run(pipeline.run())
+
+
+if __name__ == "__main__":
+    main()
+
+
+# # TODO just for debugging
+# with open("evaluation/config_eval.yaml", "r") as f:
+#     config = yaml.safe_load(f)
 #
-#     pipeline = DataPreprocessingPipeline(config)
-#     asyncio.run(pipeline.run())
-#
-#
-# if __name__ == "__main__":
-#     main()
-
-
-# TODO just for debugging
-with open("config.yaml", "r") as f:
-    config = yaml.safe_load(f)
-
-pipeline = DataPreprocessingPipeline(config)
-asyncio.run(pipeline.run())
+# pipeline = DataPreprocessingPipeline(config)
+# asyncio.run(pipeline.run())

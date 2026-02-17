@@ -1,5 +1,3 @@
-from typing import List, Dict
-
 from llama_index.core import VectorStoreIndex
 from llama_index.core.schema import NodeWithScore
 from llama_index.storage.docstore.postgres import PostgresDocumentStore
@@ -19,7 +17,7 @@ class SearchEngine:
 
     def _create_fusion_retriever(self) -> QueryFusionRetriever:
         vector_retriever = self.index.as_retriever(similarity_top_k=10)
-        bm25_retriever = BM25Retriever.from_defaults(docstore=self.docstore, similarity_top_k=10)
+        bm25_retriever = BM25Retriever.from_defaults(index=self.index, similarity_top_k=10)
 
         retriever = QueryFusionRetriever(
             [vector_retriever, bm25_retriever],
@@ -31,7 +29,7 @@ class SearchEngine:
         )
         return retriever
 
-    async def _retrieve(self, query: str) -> List[Dict[str, str]]:
+    async def _retrieve(self, query: str) -> list[dict[str, str]]:
         """Retrieve relevant chunks from the RAG database for the given query."""
         nodes = await self.retriever.aretrieve(f'{query}')
 
@@ -72,14 +70,11 @@ class SearchEngine:
         nodes = await self.retriever.aretrieve(f'{query}')
         return nodes
 
-    async def search(self, user_query: str, alternative_queries: list = None) -> Dict[str, list[NodeWithScore]]:
+    async def search(self, user_query: str, alternative_queries: list = None, k: int = 10) -> list[NodeWithScore]:
         """Search for relevant datasets."""
 
         logger.info(f"Searching - query: {user_query}")
         nodes = await self.retriever.aretrieve(f'{user_query}')
-        return nodes
-
-        # results = {user_query: await self._search_all_queries(user_query, alternative_queries)}
-        # for alt_query in alternative_queries:
-        #     results[alt_query] = await self._search_one_query(alt_query)
-        # return results
+        node_ids = [n.id_ for n in nodes]
+        nodes_without_duplicates = [n for n in nodes if n.node.ref_doc_id not in node_ids]
+        return nodes_without_duplicates[:k]
