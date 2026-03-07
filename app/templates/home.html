@@ -1,40 +1,44 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>NKOD - Dataset Search</title>
-    <link rel="stylesheet" href="{{ url_for('static',filename='styles/styles.css') }}">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dataset Search</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles/styles.css') }}">
 </head>
-<body>
-    <h2>NKOD - Dataset Search</h2>
-    <form method="POST">
-        <input type="text" name="query" placeholder="Search" value="{{ query }}">
-        <button type="submit">Search</button>
-    </form>
+<body class="home-page">
+    <div class="language-selector">
+        <select id="language" name="language" class="language-dropdown">
+            <option value="en">🇬🇧</option>
+            <option value="cs">🇨🇿</option>
+        </select>
+    </div>
 
-    {% if results %}
-        <h3>Results:</h3>
-        <table border="1" cellpadding="6" cellspacing="0">
-            <thead>
-                <tr>
-                    <th>Title</th>
-                    <th>Text</th>
-                    <th>Explanation</th>
-                    <th>URL</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for dataset in results %}
-                <tr>
-                    <td>{{ dataset.title }}</td>
-                    <td>{{ dataset.text }}</td>
-                    <td>{{ dataset.explanation }}</td>
-                    <td>{{ dataset.url }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    {% else %}
-        <p>No results found.</p>
-    {% endif %}
+    <div class="container">
+        <h1 class="title">Dataset Search</h1>
+
+        <form method="POST" action="/search" class="search-form">
+            <div class="search-container">
+                <input
+                    type="text"
+                    name="query"
+                    class="search-input"
+                    placeholder="Search for datasets..."
+                    autofocus
+                    required
+                >
+                <button type="submit" class="search-button">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="10" cy="10" r="7"></circle>
+                        <path d="m15 15 6 6"></path>
+                    </svg>
+                </button>
+            </div>
+        </form>
+
+        <p class="subtitle">AI powered dataset search for the <a href="https://data.gov.cz/" target="_blank" rel="noopener noreferrer" class="subtitle-link">Czech National Open Data Catalog</a>.</p>
+    </div>
+
+    {% include 'footer.html' %}
 </body>
 </html>

@@ -31,6 +31,7 @@ def _format_nodes(nodes: list[NodeWithScore]) -> list[dict[str, str]]:
             "title": node.metadata["title"],
             "url": node.metadata["url"],
             "text": text,
+            "explanation": "",
             "metadata": {
                 "themes": node.metadata.get("themes", []),
                 "keywords": node.metadata.get("keywords", []),
