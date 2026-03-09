@@ -267,3 +267,24 @@ class NKOD(InformativeDatasetClass):
             "time_period": generated_metadata["time_periods"],
         }
         return metadata
+
+    def get_dataset_by_url(self, url: str) -> dict | None:
+        """Get extended dataset info by URL."""
+        dataset_row = self.extended_df[self.extended_df['url'] == url]
+        if dataset_row.empty:
+            return None
+
+        row = dataset_row.iloc[0]
+        return {
+            'title': row['title'],
+            'url': row['url'],
+            'text': row['description'],
+            'metadata': {
+                'keywords': row['keywords'] if isinstance(row['keywords'], list) else [],
+                'themes': row['themes'] if isinstance(row['themes'], list) else [],
+                'provider': row['provider'] if 'provider' in row and not pd.isna(row['provider']) else '',
+                'categories': row['categories'] if isinstance(row['categories'], list) else [],
+                'region': row['region'] if isinstance(row['region'], list) else [],
+                'time_period': row['time_period'] if isinstance(row['time_period'], list) else [],
+            }
+        }

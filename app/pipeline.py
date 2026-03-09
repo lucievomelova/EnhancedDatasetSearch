@@ -31,6 +31,7 @@ class SearchPipeline:
     def __init__(self, config: dict):
         self.config = config
         self.dataset_portal = NKOD(config)
+        self.dataset_portal.init()
         self.llm = Ollama(model=self.config['rag']['llm']['model_name'], context_window=self.config['rag']['llm']['context_length'])
         Settings.llm = self.llm
         Settings.embed_model = OllamaEmbedding(
