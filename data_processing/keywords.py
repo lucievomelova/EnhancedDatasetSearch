@@ -24,9 +24,6 @@ driver = GraphDatabase.driver(
     auth=(os.environ['NEO4J_USER'], os.environ['NEO4J_PASSWORD'])
 )
 
-kg_clusters_file = "clusters.json"  # file that stores the clusters found by leiden
-representatives_file = "representatives.json"  # file that stores the cluster representatives found by LLM
-
 
 def embed_keywords(database: Database, keywords: list[str]) -> list[list[float]]:
     """Embed a list of keywords using the database's embedding model."""
@@ -72,11 +69,12 @@ def create_similarity_edges(tx, similarity_threshold):
     )
 
 
-def create_keyword_kg(database: Database, keywords: list[str], embeddings: list[list[float]], embed_dim: int) -> None:
+def create_keyword_kg(database: Database, keywords: list[str]) -> None:
     """Embed keywords and create the keyword knowledge graph."""
 
     logger.info("Creating keyword embeddings.")
-    embed_keywords(database, keywords)
+    embeddings = embed_keywords(database, keywords)
+    embed_dim = config["rag"]["db"]["embed_dim"]
 
     logger.info("Creating keyword knowledge graph.")
     with driver.session() as session:
@@ -129,7 +127,7 @@ def create_clusters(driver: Driver) -> None:
             """
         )
 
-def get_clusters(driver: Driver, save_to_file: bool = True) -> dict[str, list[str]]:
+def get_clusters(driver: Driver, clusters_state_file: str, save_to_file: bool = True) -> dict[str, list[str]]:
     """Get clusters of keywords from the knowledge graph."""
     with driver.session() as session:
         result = session.run(
@@ -149,7 +147,7 @@ def get_clusters(driver: Driver, save_to_file: bool = True) -> dict[str, list[st
         logger.info(f"Divided keywords into {num_clusters} clusters.")
 
         if save_to_file:
-            with open(kg_clusters_file, "w") as f:
+            with open(clusters_state_file, "w") as f:
                 json.dump(clusters, f, indent=4, ensure_ascii=False)
         return clusters
 
@@ -160,13 +158,13 @@ def clustering():
     logger.info("Keyword preprocessing completed.")
 
 
-def find_representatives() -> dict[str, list[str]]:
+def find_representatives(clusters_state_file: str, representatives_state_file: str) -> dict[str, list[str]]:
     """Find representative keyword for each cluster."""
-    if os.path.exists(kg_clusters_file):
-        with open(kg_clusters_file, "r") as f:
+    if os.path.exists(clusters_state_file):
+        with open(clusters_state_file, "r") as f:
             clusters = json.load(f)
     else:
-        clusters = get_clusters(driver)
+        clusters = get_clusters(driver, clusters_state_file)
     representatives = {}
     logger.info("Finding representative keyword for each cluster.")
     for cluster_id, cluster_keywords in clusters.items():
@@ -205,9 +203,9 @@ def find_representatives() -> dict[str, list[str]]:
             print(representative, keywords)
 
     logger.info("Cluster representatives found.")
-    with open(representatives_file, "w") as f:
+    with open(representatives_state_file, "w") as f:
         json.dump(representatives, f, indent=4, ensure_ascii=False)
-    with open(representatives_file, "r") as f:
+    with open(representatives_state_file, "r") as f:
         representatives = json.load(f)
 
     logger.info("Storing cluster representatives in the knowledge graph.")
@@ -228,13 +226,15 @@ def find_representatives() -> dict[str, list[str]]:
     return representatives
 
 
-def get_representatives() -> dict[str, list[str]]:
+def get_representatives(state_dir: str) -> dict[str, list[str]]:
     """Get cluster representatives from file."""
-    if os.path.exists(representatives_file):
+    representatives_state_file = state_dir + "/representatives.json"  # file that stores the cluster representatives found by LLM
+    clusters_state_file = state_dir + "/clusters.json"  # file that stores the clusters found by leiden
+    if os.path.exists(representatives_state_file):
         with open("representatives.json", "r") as f:
             representatives = json.load(f)
     else:
-        representatives = find_representatives()
+        representatives = find_representatives(clusters_state_file, representatives_state_file)
     return representatives
 
 # dataset_portal = NKOD(config)

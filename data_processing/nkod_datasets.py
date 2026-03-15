@@ -70,7 +70,9 @@ class NKOD(InformativeDatasetClass):
         self._always_download_new_data: bool = False  # TODO just for debugging
         self._update_extended_df: bool = True
 
+        self._llm_config = config["rag"]["llm"]
         self._data_processing_config = config["rag"]["data_processing"]
+        self._state_dir = config["state_dir"]
         self._column_mapping: dict = self._data_processing_config["column_mapping"]
 
         self.super_df: pd.DataFrame | None = None
@@ -163,8 +165,8 @@ class NKOD(InformativeDatasetClass):
         self.super_df["categories"] = [[] for _ in range(len(self.super_df))]
         self.super_df["keyword_cluster_representatives"] = [[] for _ in range(len(self.super_df))]
 
-        clean_metadata(self.super_df, self._data_processing_config["categories"])
-        add_cluster_representatives_to_metadata(self.super_df)
+        clean_metadata(self.super_df, self._data_processing_config["categories"], self._llm_config["model_name"], self._state_dir)
+        add_cluster_representatives_to_metadata(self.super_df, self._state_dir)
 
     def init(self):
         """Initialize the NKOD class - super_df, extended_df, all_keywords, all_themes."""

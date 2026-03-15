@@ -39,7 +39,7 @@ class SearchPipeline:
             base_url=self.config['rag']['embedding']['base_url'],
             embed_batch_size=self.config['rag']['embedding']['embed_batch_size'],
         )
-        self.database = Database(self.config['rag'])
+        self.database = Database(self.config['rag'], self.config["state_dir"])
 
 
     async def run(self, query: str) -> list[dict] | None:

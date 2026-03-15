@@ -1,7 +1,9 @@
 import os
 
 import pandas as pd
-from neo4j import GraphDatabase
+from neo4j import GraphDatabase, Session
+
+from data_processing.database import Database
 from utils import setup_logger
 
 
@@ -13,14 +15,17 @@ def ingest_dataset(tx, doc_id, description, metadata):
         MERGE (d:Dataset {id: $id})
         SET d.title = $title,
             d.description = $description,
-            d.url = $url
-        """,  id=doc_id, title=metadata["title"], description=description, url=metadata["url"])
+            d.url = $url,
+            d.graph = 'dataset_graph'
+        """,
+           id=doc_id, title=metadata["title"], description=description, url=metadata["url"])
 
 def ingest_keyword(tx, dataset_id, keyword):
     tx.run("""
         MATCH (d:Dataset {id: $id})
         MERGE (k:Keyword {name: $kw})
         MERGE (d)-[:HAS_KEYWORD]->(k)
+        SET k.graph = 'dataset_graph'
         """, id=dataset_id, kw=keyword)
 
 def ingest_theme(tx, dataset_id, theme):
@@ -28,6 +33,7 @@ def ingest_theme(tx, dataset_id, theme):
         MATCH (d:Dataset {id: $id})
         MERGE (t:Theme {name: $theme})
         MERGE (d)-[:HAS_THEME]->(t)
+        SET t.graph = 'dataset_graph'
         """, id=dataset_id, theme=theme)
 
 def ingest_provider(tx, dataset_id, provider):
@@ -35,6 +41,7 @@ def ingest_provider(tx, dataset_id, provider):
         MATCH (d:Dataset {id: $id})
         MERGE (p:Provider {name: $provider})
         MERGE (d)-[:PROVIDED_BY]->(p)
+        SET p.graph = 'dataset_graph'
         """, id=dataset_id, provider=provider)
 
 def ingest_category(tx, dataset_id, category):
@@ -42,6 +49,7 @@ def ingest_category(tx, dataset_id, category):
         MATCH (d:Dataset {id: $id})
         MERGE (c:Category {name: $category})
         MERGE (d)-[:HAS_CATEGORY]->(c)
+        SET c.graph = 'dataset_graph'
         """, id=dataset_id, category=category)
 
 def ingest_region(tx, dataset_id, region):
@@ -49,6 +57,7 @@ def ingest_region(tx, dataset_id, region):
         MATCH (d:Dataset {id: $id})
         MERGE (r:Region {name: $region})
         MERGE (d)-[:HAS_REGION]->(r)
+        SET r.graph = 'dataset_graph'
         """, id=dataset_id, region=region)
 
 def ingest_time_period(tx, dataset_id, time_period):
@@ -56,10 +65,28 @@ def ingest_time_period(tx, dataset_id, time_period):
         MATCH (d:Dataset {id: $id})
         MERGE (t:TimePeriod {name: $time_period})
         MERGE (d)-[:HAS_TIME_PERIOD]->(t)
+        SET t.graph = 'dataset_graph'
         """, id=dataset_id, time_period=time_period)
 
-def create_kg(datasets: pd.DataFrame) -> None:
-    """Create knowledge graph from list of llama index Documents."""
+
+def create_dataset_similarity_edges(tx, dataset_url: str, similar_datasets: dict[str, float]):
+    """Create similarity edges between datasets based on embedding similarity."""
+    rows = [{"url": similar_dataset_url, "score": score} for similar_dataset_url, score in similar_datasets.items()]
+    tx.run(
+        """
+        MATCH (d1:Dataset {url: $url})
+        UNWIND $rows AS row
+        MERGE (d2:Dataset {url: row.url})
+        MERGE (d1)-[r:SIMILAR]->(d2)
+        SET r.score = row.score
+        """,
+        url=dataset_url,
+        rows=rows
+    )
+
+
+def create_kg(datasets: pd.DataFrame, database: Database) -> None:
+    """Create knowledge graph based on dataset metadata and description embedding similarity."""
     driver = GraphDatabase.driver(
         os.environ['NEO4J_URI'],
         auth=(os.environ['NEO4J_USER'], os.environ['NEO4J_PASSWORD'])
@@ -68,6 +95,7 @@ def create_kg(datasets: pd.DataFrame) -> None:
 
     with driver.session() as session:
         session.run("MATCH (n) WHERE n.embedding is null DETACH DELETE n;")
+
     with driver.session() as session:
         session.run("CREATE CONSTRAINT dataset_id IF NOT EXISTS FOR (d:Dataset) REQUIRE d.id IS UNIQUE;")
         session.run("CREATE CONSTRAINT keyword_name IF NOT EXISTS FOR (k:Keyword) REQUIRE k.name IS UNIQUE;")
@@ -84,6 +112,7 @@ def create_kg(datasets: pd.DataFrame) -> None:
             i += 1
             metadata = row.drop(columns="description")
             session.execute_write(ingest_dataset, index, row["description"], metadata)
+
             if row["keywords"] is not []:
                 for keyword in row["keywords"]:
                     session.execute_write(ingest_keyword, index, keyword.title())
@@ -101,5 +130,12 @@ def create_kg(datasets: pd.DataFrame) -> None:
                     session.execute_write(ingest_time_period, index, time_period.title())
             if row["provider"] is not None:
                 session.execute_write(ingest_provider, index, row["provider"].title())
+
+        i = 1
+        for _, row in datasets.iterrows():
+            logger.info(f"Adding similarity edges for dataset {i}")
+            i += 1
+            similar_datasets = database.get_similar_datasets_by_embedding(row["url"])
+            session.execute_write(create_dataset_similarity_edges, row["url"], similar_datasets)
 
     logger.info("Knowledge graph creation completed.")

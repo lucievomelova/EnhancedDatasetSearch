@@ -3,7 +3,6 @@ import os
 from pprint import pprint
 
 import pandas as pd
-import yaml
 from llama_index.core import Document
 from pandas import Series
 import ollama
@@ -19,47 +18,44 @@ intro_prompt = intro_template.render()
 return_json_template = env.get_template("return_json.j2")
 return_json_instructions = return_json_template.render()
 
-with open("config.yaml", "r") as f:
-    config = yaml.safe_load(f)
 
-
-def preprocess_comma_separated_words(word_sequence: str) -> list[str]:
+def preprocess_comma_separated_words(word_sequence: str, model_name: str, state_dir: str) -> list[str]:
     """Preprocess words containing commas.
 
     Some keywords or themes like this truly contain commas, but others are actually multiple keywords
     that were formatted incorrectly. Use an LLM to identify and split those."""
-    file = "comma_separated_keywords.json"
-    if os.path.exists(file):  # check if we already processed some keywords
-        with open(file, "r") as f:
+    state_file = state_dir + "/comma_separated_keywords.json"
+    if os.path.exists(state_file):  # check if we already processed some keywords
+        with open(state_file, "r") as f:
             already_processed_keywords = json.load(f)
             if word_sequence in already_processed_keywords:
                 return already_processed_keywords[word_sequence]
 
     template = env.get_template("keywords_commas.j2")
     prompt = template.render(keyword=word_sequence, return_json_instructions=return_json_instructions)
-    response = ollama.generate(model=config["rag"]["llm"]["model_name"],
+    response = ollama.generate(model=model_name,
                                prompt=prompt, stream=False, format="json",
                                options={"temperature": 0}).response
 
     current_new_keywords = json.loads(response)[word_sequence]  # split sequence into keywords
     logger.info(current_new_keywords)
-    if not os.path.exists(file):  # add to file with already processed keywords
-        with open(file, "w") as f:
+    if not os.path.exists(state_file):  # add to file with already processed keywords
+        with open(state_file, "w") as f:
             json.dump({word_sequence: current_new_keywords}, f, indent=4, ensure_ascii=False)
     else:
-        with open(file, "r") as f:
+        with open(state_file, "r") as f:
             content = json.load(f)
             content.update({word_sequence: current_new_keywords})
-        with open(file, "w") as f:
+        with open(state_file, "w") as f:
             json.dump(content, f, indent=4, ensure_ascii=False)
     return current_new_keywords
 
 
-def clean_metadata(df: pd.DataFrame, categories: list[str]) -> None:
+def clean_metadata(df: pd.DataFrame, categories: list[str], model_name: str, state_dir: str) -> None:
     """Clean the metadata of the datasets in the extended dataframe."""
     # some keywords or themes might be incorrectly formatted and contain commas separating multiple keywords/themes
-    df["keywords"] = df["keywords"].apply(lambda x: preprocess_comma_separated_words(x) if "," in x else x)
-    df["themes"] = df["themes"].apply(lambda x: preprocess_comma_separated_words(x) if "," in x else x)
+    df["keywords"] = df["keywords"].apply(lambda x: preprocess_comma_separated_words(x, model_name, state_dir) if "," in x else x)
+    df["themes"] = df["themes"].apply(lambda x: preprocess_comma_separated_words(x, model_name, state_dir) if "," in x else x)
 
     all_themes = list(df["themes"].explode().dropna().unique())
 
@@ -78,14 +74,14 @@ def clean_metadata(df: pd.DataFrame, categories: list[str]) -> None:
     df["keywords"] = df["keywords"].apply(lambda keywords: [k for k in keywords if k not in categories + all_themes])
 
 
-def add_cluster_representatives_to_metadata(df: pd.DataFrame) -> None:
+def add_cluster_representatives_to_metadata(df: pd.DataFrame, state_dir: str) -> None:
     """Add keyword cluster representatives to the metadata of the datasets in the extended dataframe. """
     # explode keywords so we can assign a keywords representative to each of them, then group them back together
     exploded = df['keywords'].explode().reset_index()
     exploded.columns = ['original_index', 'keyword']
 
     # assign representatives
-    keyword_cluster_representatives = get_representatives()
+    keyword_cluster_representatives = get_representatives(state_dir)
     # we will use inverted representatives mapping so that the lookup is faster
     inverted_keyword_cluster_representatives = {
         keyword: representative
@@ -121,7 +117,7 @@ def create_documents(extended_df: pd.DataFrame) -> list[Document]:
             Region" : {metadata['region']}
             Časová období: {metadata['time_period']}
         """
-        document = Document(text=text, metadata=metadata)
+        document = Document(text=text, metadata=metadata, id_=metadata["url"])
         documents.append(document)
 
     logger.info("Documents created.")

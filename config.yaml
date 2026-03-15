@@ -1,12 +1,13 @@
 data:
   datasets:
-    path: "data/datove_sady_100.csv"
+    path: "data/golden/datove_sady_small.csv"
     url: "https://data.gov.cz/soubor/datov%C3%A9-sady.csv"
   extended_df:
-    path: "data/datasets_with_metadata_100.csv"
+    path: "data/golden/datasets_with_metadata_small.csv"
   distribution:
     path: "data/distribuce.csv"
     url: "https://data.gov.cz/soubor/distribuce.csv"
+state_dir: "state"
 rag:
   db:
     host: "localhost"
@@ -17,12 +18,11 @@ rag:
   embedding:
     model_name: "qwen3-embedding"
     base_url: "http://localhost:11434"
-    chunk_size: 8192
+    chunk_size: 1024
     chunk_overlap: 50
     embed_batch_size: 200
   llm:
     model_name: "mistral-small3.2"
-    model_name2: "mistral-small3.2"
     base_url: "http://localhost:11434"
     context_length: 30000
     memory_limit: 8192
