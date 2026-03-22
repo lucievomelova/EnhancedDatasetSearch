@@ -26,6 +26,20 @@ rag:
     base_url: "http://localhost:11434"
     context_length: 30000
     memory_limit: 8192
+  pipeline_config:
+    preprocessing:
+      detect_intent: true
+      extend_query: true
+    search:
+      top_k: 30
+      vector_top_k: 20
+      bm25_top_k: 20
+      mode: relative_score
+    postprocessing:
+      reranker: simple  # simple / llm / sentence_transformer
+      sentence_transformer_model: "cross-encoder/ms-marco-MiniLM-L-2-v2"  # only used for sentence_transformer reranker
+      top_k: 20  # only used for llm and sentence_transformer rerankers
+      score_cutoff: 0.2
   data_processing:
     column_mapping:
       název: title

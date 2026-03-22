@@ -13,13 +13,11 @@ from llama_index.core import Settings
 from llama_index.embeddings.ollama import OllamaEmbedding
 from llama_index.llms.ollama import Ollama
 
-from app.context import Agent
 from data_processing.nkod_datasets import NKOD
 from data_processing.database import Database
 from app.query_prepocessing import query_preprocessing
-from app.result_postprocessing import result_postprocessing, format_search_results
+from app.result_postprocessing import PostProcessor
 from app.search import SearchEngine
-from app.result_postprocessing import rerank_with_llm
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
@@ -48,13 +46,10 @@ class SearchPipeline:
         intent, extended_query = query_preprocessing(query,
                                                           self.config['rag']["data_processing"]["categories"],
                                                           self.config['rag']["data_processing"]["other_category"])
-        search_engine = SearchEngine(self.database.index, self.database.document_store)
+        search_engine = SearchEngine(self.config["rag"]["pipeline_config"]["search"], self.database.index, self.database.document_store)
         search_results = await search_engine.search(extended_query)
-        # agent = Agent(self.database.index, search_engine.retriever, self.llm)
-        # await agent.run_chatbot()
-        # nodes = result_postprocessing(query, extended_query, search_results, intent)
-        # nodes = rerank_with_llm(self.llm, query, search_results, intent)
-        nodes = format_search_results(search_results)
+        postprocessor = PostProcessor(self.config["rag"]["pipeline_config"]["postprocessing"])
+        nodes = postprocessor.run(query, extended_query, search_results, intent)
         if nodes is not None:
             return nodes
         return None
