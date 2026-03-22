@@ -51,8 +51,10 @@ The time period is usually mentioned in the dataset title.
 There can be more than one time period associated with the dataset. For example, if the dataset contains data for
 each March in 2022-2025, return BOTH the range (2022-2025) and March.
 Do NOT assign time periods that correspond to some type of frequency - e.g. "annual", "monthly", etc.
-DO NOT assign a specific date as a time period - we are interested in more general time periods, not specific dates.
+DO NOT assign a specific date as a time period - we are interested in more general time periods, NOT CONCRETE DATES.
+This is very important, the time period SHOULD NOT be a concrete date.
 
+# Input
 Here is the complete description of the dataset:
 Title: {{ title }}
 Description: {{ description }}
@@ -60,6 +62,7 @@ Themes: {{ themes }}
 Keywords: {{ keywords }}
 Provider: {{ provider }}
 
+## Output
 Return the metadata in the following JSON format:
 {
     "keywords": [list of keywords (in Czech)],

@@ -17,7 +17,7 @@
     <div class="container-dataset-detail">
         <div class="detail-header">
             <h1 class="detail-title">{{ dataset.title }}</h1>
-            <a href="{{ dataset.url }}" target="_blank" rel="noopener noreferrer" class="external-link-button">
+            <a href="https://data.gov.cz/datová-sada?iri={{ dataset.url }}" target="_blank" rel="noopener noreferrer" class="external-link-button">
                 View on NKOD
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
@@ -40,69 +40,81 @@
 
             <div class="detail-section">
                 <div class="metadata-grid">
-                    {% if dataset.metadata.keywords %}
+                    {% for metadata_category, metadata_values in dataset.metadata.items() %}
+                    {% if metadata_values %}
                     <div class="metadata-item-inline">
-                        <strong>Keywords:</strong>
+                        {% if metadata_category == "time_period" %}
+                        <strong>Time Periods</strong>
+                        {% else %}
+                        <strong>{{ metadata_category | title }}</strong>
+                        {% endif %}
                         <div class="metadata-tags">
-                            {% for keyword in dataset.metadata.keywords %}
-                            <span class="tag">{{ keyword }}</span>
+                        {% if metadata_category == "provider" %}
+                            <span>{{ dataset.metadata.provider }}</span>
+                        {% else %}
+                            {% for val in metadata_values %}
+                            <span class="tag">{{ val }}</span>
                             {% endfor %}
+                        {% endif %}
                         </div>
                     </div>
                     {% endif %}
-
-                    {% if dataset.metadata.themes %}
-                    <div class="metadata-item-inline">
-                        <strong>Themes:</strong>
-                        <div class="metadata-tags">
-                            {% for theme in dataset.metadata.themes %}
-                            <span class="tag">{{ theme }}</span>
-                            {% endfor %}
-                        </div>
-                    </div>
-                    {% endif %}
-
-                    {% if dataset.metadata.categories %}
-                    <div class="metadata-item-inline">
-                        <strong>Categories:</strong>
-                        <div class="metadata-tags">
-                            {% for category in dataset.metadata.categories %}
-                            <span class="tag">{{ category }}</span>
-                            {% endfor %}
-                        </div>
-                    </div>
-                    {% endif %}
-
-                    {% if dataset.metadata.regions %}
-                    <div class="metadata-item-inline">
-                        <strong>Regions:</strong>
-                        <div class="metadata-tags">
-                            {% for region in dataset.metadata.regions %}
-                            <span class="tag">{{ region }}</span>
-                            {% endfor %}
-                        </div>
-                    </div>
-                    {% endif %}
-
-                    {% if dataset.metadata.time_periods %}
-                    <div class="metadata-item-inline">
-                        <strong>Time Periods:</strong>
-                        <div class="metadata-tags">
-                            {% for period in dataset.metadata.time_periods %}
-                            <span class="tag">{{ period }}</span>
-                            {% endfor %}
-                        </div>
-                    </div>
-                    {% endif %}
-
-                    {% if dataset.metadata.provider %}
-                    <div class="metadata-item-inline">
-                        <strong>Provider:</strong>
-                        <span>{{ dataset.metadata.provider }}</span>
-                    </div>
-                    {% endif %}
+                    {% endfor %}
                 </div>
             </div>
+
+            {% if similar_datasets %}
+            <div class="detail-section">
+                <h3 class="section-title">Similar Datasets</h3>
+                {% for similarity_category, similar_datasets_in_category in similar_datasets.items() %}
+                {% if similar_datasets_in_category %}
+                <div class="similar-datasets-category">
+                    {% if similarity_category == "overall" %}
+                    <h4 class="similar-category-title">Most Similar Overall</h4>
+                    {% elif similarity_category == "time_period" %}
+                    <h4 class="similar-category-title">Similar By Time Period</h4>
+                    {% else %}
+                    <h4 class="similar-category-title">Similar By {{ similarity_category | title }}</h4>
+                    {% endif %}
+
+                    <div class="similar-datasets-list">
+                        {% for similar in similar_datasets_in_category %}
+                        <div class="similar-dataset-card">
+                            <div class="similar-dataset-content">
+                                <div>
+                                    <a href="{{ url_for('dataset_detail', dataset_url=similar.url) }}" class="similar-dataset-link">
+                                        <p class="similar-title">{{ similar.title }}</p>
+                                    </a>
+                                    <p class="similar-text-preview">{{ similar.text_preview }}</p>
+                                </div>
+                            </div>
+                            <div class="similar-dataset-menu">
+                                <button class="action-button">⋮</button>
+                                {% if similar.common_metadata %}
+                                <div class="similar-tooltip">
+                                    {% for metadata_category, values in similar.common_metadata.items() %}
+                                        {% if values %}
+                                        <div class="tooltip-section">
+                                            {% if metadata_category == "time_period" %}
+                                            <strong>Common Time Periods:</strong>
+                                            {% else %}
+                                            <strong>Common {{ metadata_category | title }}:</strong>
+                                            {% endif %}
+                                            <span>{{ values | list | join(', ') }}</span>
+                                        </div>
+                                        {% endif %}
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+                {% endfor %}
+            </div>
+            {% endif %}
     </div>
 
     {% include 'footer.html' %}

@@ -103,6 +103,9 @@ class Database:
                 if r.node_id not in node_ids:  # exclude chunks from the same dataset
                     if r.score < similarity_threshold:
                         continue
+                    # to avoid processing each pair twice, skip nodes with smaller url than current (lexicographically)
+                    if r.node.ref_doc_id < dataset_url:
+                        continue
                     if r.node.ref_doc_id not in similar_nodes:
                         similar_nodes[r.node.ref_doc_id] = r.score
                     else:
@@ -113,4 +116,3 @@ class Database:
         if len(sorted_similar_nodes) > k:
             sorted_similar_nodes = dict(list(sorted_similar_nodes.items())[:k])  # keep only top k
         return sorted_similar_nodes
-

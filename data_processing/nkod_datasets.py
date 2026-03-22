@@ -213,8 +213,10 @@ class NKOD(InformativeDatasetClass):
                 # keep only rows that are not in both dataframes (=rows that do not have the merge label "_both")
                 new_datasets = new_datasets.query("_merge != 'both'").drop('_merge', axis=1).reset_index(drop=True)
             chunks = split_dataframe(new_datasets, chunk_size=20)
-            for chunk in chunks:
-                logger.info(f"Processing chunk with {chunk.shape[0]} datasets.")
+            logger.info(f"Extending dataset metadata.")
+            for i in range(len(chunks)):
+                chunk = chunks[i]
+                logger.info(f"Processing chunk {i+1}/{len(chunks)}.")
                 new_rows = await self.create_metadata_for_chunk(chunk)
                 if not os.path.exists(self._data_config["extended_df_path"]):
                     logger.info("Creating extended csv file.")
@@ -248,9 +250,9 @@ class NKOD(InformativeDatasetClass):
         generated_metadata = enrich_metadata(row, self._all_keywords, self._all_themes, categories, other_category)
 
         keywords = row["keywords"] if row["keywords"] is not None else []
-        keywords = keywords + generated_metadata["keywords"]
+        keywords = list(set(keywords + generated_metadata["keywords"]))
         themes = row["themes"] if row["themes"] is not None else []
-        themes = themes + generated_metadata["themes"]
+        themes = list(set(themes + generated_metadata["themes"]))
         for category in categories:
             if category in themes and category not in generated_metadata["categories"]:
                 generated_metadata["categories"].append(category)
@@ -284,9 +286,9 @@ class NKOD(InformativeDatasetClass):
             'metadata': {
                 'keywords': row['keywords'] if isinstance(row['keywords'], list) else [],
                 'themes': row['themes'] if isinstance(row['themes'], list) else [],
-                'provider': row['provider'] if 'provider' in row and not pd.isna(row['provider']) else '',
                 'categories': row['categories'] if isinstance(row['categories'], list) else [],
                 'region': row['region'] if isinstance(row['region'], list) else [],
                 'time_period': row['time_period'] if isinstance(row['time_period'], list) else [],
+                'provider': row['provider'] if 'provider' in row and not pd.isna(row['provider']) else '',
             }
         }

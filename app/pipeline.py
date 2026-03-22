@@ -42,7 +42,7 @@ class SearchPipeline:
         self.database = Database(self.config['rag'], self.config["state_dir"])
 
 
-    async def run(self, query: str) -> list[dict] | None:
+    async def run(self, query: str) -> list[dict[str, str | list | None]] | None:
         """Run the search pipeline for the given query and return the results as a DataFrame."""
 
         intent, extended_query = query_preprocessing(query,

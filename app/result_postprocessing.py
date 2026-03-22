@@ -23,7 +23,7 @@ def _remove_title_and_metadata_from_text(text: str) -> str:
     return without_metadata
 
 
-def _format_nodes(nodes: list[NodeWithScore]) -> list[dict[str, str]]:
+def _format_nodes(nodes: list[NodeWithScore]) -> list[dict[str, str | list | None]]:
     formatted_nodes = []
     for node in nodes:
         text = _remove_title_and_metadata_from_text(node.text)
@@ -35,17 +35,17 @@ def _format_nodes(nodes: list[NodeWithScore]) -> list[dict[str, str]]:
             "metadata": {
                 "themes": node.metadata.get("themes", []),
                 "keywords": node.metadata.get("keywords", []),
-                "provider": node.metadata.get("provider", ""),
                 "categories": node.metadata.get("categories", []),
                 "regions": node.metadata.get("regions", []),
-                "time_periods": node.metadata.get("time_periods", []),
+                "time periods": node.metadata.get("time_periods", []),
+                "provider": node.metadata.get("provider", ""),
             }
         }
         formatted_nodes.append(formatted_node)
 
     return formatted_nodes
 
-def format_search_results(results: list[NodeWithScore]) -> list[dict[str, str]] | None:
+def format_search_results(results: list[NodeWithScore]) -> list[dict[str, str | list | None]] | None:
     """Format search results, don't add any additional postprocessing."""
     if not results:
         logger.info("No results found.")
@@ -58,7 +58,7 @@ def format_search_results(results: list[NodeWithScore]) -> list[dict[str, str]] 
 def result_postprocessing(user_query: str,
                           extended_query: str,
                           results: list[NodeWithScore],
-                          intent: Dict[str, str], k: int = 10) -> list[dict[str, str]] | None:
+                          intent: Dict[str, str], k: int = 10) -> list[dict[str, str | list | None]] | None:
     """Post-process search results."""
     if not results:
         logger.info("No results found.")

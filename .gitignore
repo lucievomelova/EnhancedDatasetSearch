@@ -1,7 +1,9 @@
-data/*
+data
 app/__pycache__/*
 .idea
 venv
 .env
 *.pyc
-experiments/*
+experiments
+state
+*.json

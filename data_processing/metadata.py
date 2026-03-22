@@ -71,7 +71,7 @@ def clean_metadata(df: pd.DataFrame, categories: list[str], model_name: str, sta
 
     df["themes"] = df.apply(lambda row: list(set(row["themes"] + themes_from_keywords.loc[row.name])), axis=1)
     df["themes"] = df["themes"].apply(lambda themes: [t for t in themes if t not in categories])
-    df["keywords"] = df["keywords"].apply(lambda keywords: [k for k in keywords if k not in categories + all_themes])
+    df["keywords"] = df["keywords"].apply(lambda keywords: list(set([k for k in keywords if k not in categories + all_themes])))
 
 
 def add_cluster_representatives_to_metadata(df: pd.DataFrame, state_dir: str) -> None:
@@ -160,5 +160,5 @@ def enrich_metadata(row: Series, all_keywords: list, all_themes: list, categorie
                                    ).response
 
     metadata = json.loads(metadata_str)
-    logger.info(metadata)
+    # logger.info(metadata)
     return metadata

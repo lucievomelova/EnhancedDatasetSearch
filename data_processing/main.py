@@ -39,7 +39,7 @@ class DataPreprocessingPipeline:
 
         datasets_documents = await self.dataset_portal.get_new_datasets()
         self.database.load_documents(datasets_documents)
-        self.dataset_portal.init()
+        # self.dataset_portal.init()
         create_kg(self.dataset_portal.extended_df, self.database)
         # create_keyword_kg(self.database, self.dataset_portal._all_keywords)
         # get_representatives()
