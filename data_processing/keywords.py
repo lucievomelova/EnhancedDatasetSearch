@@ -1,8 +1,6 @@
 import json
 import os
-
 import ollama
-import yaml
 
 from data_processing.database import Database
 from neo4j import GraphDatabase, Driver
@@ -11,10 +9,6 @@ from jinja2 import Environment, FileSystemLoader
 from utils import setup_logger
 
 logger = setup_logger(__name__)
-
-with open("config.yaml", "r") as f:
-    config = yaml.safe_load(f)
-
 env = Environment(loader=FileSystemLoader('prompts'))
 return_json_template = env.get_template("return_json.j2")
 return_json_instructions = return_json_template.render()
@@ -69,12 +63,11 @@ def create_similarity_edges(tx, similarity_threshold):
     )
 
 
-def create_keyword_kg(database: Database, keywords: list[str]) -> None:
+def create_keyword_kg(database: Database, keywords: list[str], embed_dim: int) -> None:
     """Embed keywords and create the keyword knowledge graph."""
 
     logger.info("Creating keyword embeddings.")
     embeddings = embed_keywords(database, keywords)
-    embed_dim = config["rag"]["db"]["embed_dim"]
 
     logger.info("Creating keyword knowledge graph.")
     with driver.session() as session:
@@ -158,7 +151,7 @@ def clustering():
     logger.info("Keyword preprocessing completed.")
 
 
-def find_representatives(clusters_state_file: str, representatives_state_file: str) -> dict[str, list[str]]:
+def find_representatives(clusters_state_file: str, representatives_state_file: str, model_name: str) -> dict[str, list[str]]:
     """Find representative keyword for each cluster."""
     if os.path.exists(clusters_state_file):
         with open(clusters_state_file, "r") as f:
@@ -174,7 +167,7 @@ def find_representatives(clusters_state_file: str, representatives_state_file: s
         prompt = template.render(keywords=", ".join(cluster_keywords), return_json_instructions=return_json_instructions)
         while True:
             try:
-                response = ollama.generate(model=config["rag"]["llm"]["model_name"],
+                response = ollama.generate(model=model_name,
                                            prompt=prompt,
                                            format="json",
                                            options={
@@ -183,16 +176,7 @@ def find_representatives(clusters_state_file: str, representatives_state_file: s
                 current_representatives = json.loads(response)
                 break
             except json.JSONDecodeError as e:
-                try:
-                    response = ollama.generate(model=config["rag"]["llm"]["model_name2"],
-                                               prompt=prompt,
-                                               format="json",
-                                               options={
-                                                   "temperature": 0,
-                                               }).response
-                    break
-                except json.JSONDecodeError as e:
-                    logger.error(f"JSON decode error: {response}. Retrying...")
+                logger.error(f"JSON decode error: {response}. Retrying...")
 
         for representative, keywords in current_representatives.items():
             representative = representative.strip()
@@ -226,7 +210,7 @@ def find_representatives(clusters_state_file: str, representatives_state_file: s
     return representatives
 
 
-def get_representatives(state_dir: str) -> dict[str, list[str]]:
+def get_representatives(state_dir: str, model_name: str) -> dict[str, list[str]]:
     """Get cluster representatives from file."""
     representatives_state_file = state_dir + "/representatives.json"  # file that stores the cluster representatives found by LLM
     clusters_state_file = state_dir + "/clusters.json"  # file that stores the clusters found by leiden
@@ -234,7 +218,7 @@ def get_representatives(state_dir: str) -> dict[str, list[str]]:
         with open("representatives.json", "r") as f:
             representatives = json.load(f)
     else:
-        representatives = find_representatives(clusters_state_file, representatives_state_file)
+        representatives = find_representatives(clusters_state_file, representatives_state_file, model_name)
     return representatives
 
 # dataset_portal = NKOD(config)

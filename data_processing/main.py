@@ -41,7 +41,7 @@ class DataPreprocessingPipeline:
         self.database.load_documents(datasets_documents)
         # self.dataset_portal.init()
         # create_kg(self.dataset_portal.extended_df, self.database)
-        # create_keyword_kg(self.database, self.dataset_portal._all_keywords)
+        # create_keyword_kg(self.database, self.dataset_portal._all_keywords, self.rag_config["db"]["embed_dim"])
         # get_representatives()
 
 @click.command()

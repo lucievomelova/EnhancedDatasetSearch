@@ -211,7 +211,7 @@ def preprocess_keywords_and_themes(datasets: pd.DataFrame, model_name: str, stat
         all_words = datasets[col].explode().dropna().unique()
         logger.info(f"Merged. Number of words: {len(all_words)}")
 
-def replace_nonfrequent_keywords_with_cluster_representatives(datasets: pd.DataFrame, state_dir: str) -> None:
+def replace_nonfrequent_keywords_with_cluster_representatives(datasets: pd.DataFrame, model_name: str, state_dir: str) -> None:
     """Some keywords occur only once - replace tehm with other representative keywords."""
 
     word_counts = datasets["keywords"].explode().value_counts()
@@ -219,7 +219,7 @@ def replace_nonfrequent_keywords_with_cluster_representatives(datasets: pd.DataF
     logger.info(f"Replacing words that occur only once with their keyword cluster representatives ({len(single_occurence_words)}).")
 
     # assign representatives
-    keyword_cluster_representatives = get_representatives(state_dir)
+    keyword_cluster_representatives = get_representatives(state_dir, model_name)
     # we will use inverted representatives mapping so that the lookup is faster
     inverted_keyword_cluster_representatives = {
         keyword: representative
@@ -261,26 +261,6 @@ def clean_metadata(df: pd.DataFrame, categories: list[str], model_name: str, sta
     df["keywords"] = df["keywords"].apply(lambda keywords: list(set([k for k in keywords if k not in categories + all_themes])))
 
     preprocess_keywords_and_themes(df, model_name, state_dir)
-
-
-def add_cluster_representatives_to_metadata(df: pd.DataFrame, state_dir: str) -> None:
-    """Add keyword cluster representatives to the metadata of the datasets in the extended dataframe. """
-    # explode keywords so we can assign a keywords representative to each of them, then group them back together
-    exploded = df['keywords'].explode().reset_index()
-    exploded.columns = ['original_index', 'keyword']
-
-    # assign representatives
-    keyword_cluster_representatives = get_representatives(state_dir)
-    # we will use inverted representatives mapping so that the lookup is faster
-    inverted_keyword_cluster_representatives = {
-        keyword: representative
-        for representative, keywords in keyword_cluster_representatives.items()
-        for keyword in keywords
-    }
-    exploded['representative'] = exploded['keyword'].map(inverted_keyword_cluster_representatives)
-    exploded = exploded.dropna(subset=['representative'])
-    representatives_series = exploded.groupby('original_index')['representative'].apply(list)
-    df['keyword_cluster_representatives'] = representatives_series.reindex(df.index, fill_value=[])
 
 
 def create_documents(extended_df: pd.DataFrame) -> list[Document]:

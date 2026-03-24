@@ -16,9 +16,7 @@ import os
 from llama_index.core import Document
 from pandas import Series
 
-from data_processing.keywords import get_representatives
-from data_processing.metadata import create_documents, enrich_metadata, clean_metadata, \
-    add_cluster_representatives_to_metadata, preprocess_time_periods, \
+from data_processing.metadata import create_documents, enrich_metadata, clean_metadata, preprocess_time_periods, \
     replace_nonfrequent_keywords_with_cluster_representatives
 from utils import setup_logger
 
@@ -235,7 +233,7 @@ class NKOD(InformativeDatasetClass):
 
         # rerun metadata cleaning for the generated metadata
         clean_metadata(self.extended_df, self._data_processing_config["categories"], self._llm_config["model_name"], self._state_dir)
-        replace_nonfrequent_keywords_with_cluster_representatives(self.extended_df, self._state_dir)
+        replace_nonfrequent_keywords_with_cluster_representatives(self.extended_df, self._llm_config["model_name"], self._state_dir)
         documents = create_documents(self.extended_df)
         return documents
 
