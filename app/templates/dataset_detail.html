@@ -43,7 +43,7 @@
                     {% for metadata_category, metadata_values in dataset.metadata.items() %}
                     {% if metadata_values %}
                     <div class="metadata-item-inline">
-                        {% if metadata_category == "time_period" %}
+                        {% if metadata_category == "time_periods" %}
                         <strong>Time Periods</strong>
                         {% else %}
                         <strong>{{ metadata_category | title }}</strong>
@@ -71,7 +71,7 @@
                 <div class="similar-datasets-category">
                     {% if similarity_category == "overall" %}
                     <h4 class="similar-category-title">Most Similar Overall</h4>
-                    {% elif similarity_category == "time_period" %}
+                    {% elif similarity_category == "time_periods" %}
                     <h4 class="similar-category-title">Similar By Time Period</h4>
                     {% else %}
                     <h4 class="similar-category-title">Similar By {{ similarity_category | title }}</h4>
@@ -95,7 +95,7 @@
                                     {% for metadata_category, values in similar.common_metadata.items() %}
                                         {% if values %}
                                         <div class="tooltip-section">
-                                            {% if metadata_category == "time_period" %}
+                                            {% if metadata_category == "time_periods" %}
                                             <strong>Common Time Periods:</strong>
                                             {% else %}
                                             <strong>Common {{ metadata_category | title }}:</strong>

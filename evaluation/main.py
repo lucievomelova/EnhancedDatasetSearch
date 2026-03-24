@@ -18,9 +18,10 @@ def main(config: str):
     with open(config, "r") as f:
         config = yaml.safe_load(f)
     search_pipeline = SearchPipeline(config)
-    asyncio.run(evaluate(search_pipeline))
+    search_result_top_k = config["rag"]["pipeline_config"]["search"]["top_k"]
+    asyncio.run(evaluate(search_pipeline, search_result_top_k))
 
-async def evaluate(search_pipeline: SearchPipeline):
+async def evaluate(search_pipeline: SearchPipeline, search_result_top_k: int):
     golden_dataset = pd.read_csv("data/golden/golden_dataset.csv")
     # find all unique queries in golden dataset
     queries = golden_dataset["query"].unique()
@@ -45,6 +46,10 @@ async def evaluate(search_pipeline: SearchPipeline):
                     points_to_distribute = sum([true_row["ranking"] - i for i in range(num_of_same_rankings)]) / len(results_true)
                     y_true[i] = points_to_distribute / num_of_same_rankings
                     relevant_count += 1
+
+        # because the amount of search results is different each time, pad it with 0
+        y_pred.extend([0] * (search_result_top_k - k))
+        y_true.extend([0] * (search_result_top_k - k))
 
         y_pred_all.append(y_pred)
         y_true_all.append(y_true)

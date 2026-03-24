@@ -5,6 +5,8 @@ from llama_index.storage.docstore.postgres import PostgresDocumentStore
 from utils import setup_logger
 from llama_index.core.retrievers import QueryFusionRetriever
 from llama_index.retrievers.bm25 import BM25Retriever
+from llama_index.core.vector_stores import MetadataFilters, ExactMatchFilter
+
 
 logger = setup_logger(__name__)
 
@@ -14,11 +16,16 @@ class SearchEngine:
         self.search_config = search_config
         self.index = index
         self.docstore = docstore
-        self.retriever = self._create_fusion_retriever()
+        self.retriever = self._create_retriever()
 
-    def _create_fusion_retriever(self) -> QueryFusionRetriever:
-        vector_retriever = self.index.as_retriever(similarity_top_k=self.search_config["vector_top_k"])
-        bm25_retriever = BM25Retriever.from_defaults(index=self.index, similarity_top_k=self.search_config["bm25_top_k"])
+    def _create_retriever(self, filters: MetadataFilters | None = None) -> QueryFusionRetriever:
+        """Create fusion retriever that combines vector search and BM25 search."""
+        vector_retriever = self.index.as_retriever(similarity_top_k=self.search_config["vector_top_k"],
+                                                   filters=filters)
+
+        bm25_retriever = BM25Retriever.from_defaults(docstore=self.docstore,
+                                                     similarity_top_k=self.search_config["bm25_top_k"],
+                                                     filters=filters)
 
         retriever = QueryFusionRetriever(
             [vector_retriever, bm25_retriever],
@@ -27,16 +34,24 @@ class SearchEngine:
             mode=self.search_config["mode"],
             use_async=True,
             verbose=True,
+            retriever_weights=self.search_config["retriever_weights"],
         )
         return retriever
 
-
-    async def search(self, user_query: str) -> list[NodeWithScore]:
+    async def search(self, user_query: str, extended_query: str | None = None, filters: dict | None = None) -> list[NodeWithScore]:
         """Search for relevant datasets."""
 
         logger.info(f"Searching - query: {user_query}")
         nodes = await self.retriever.aretrieve(f'{user_query}')
         node_ids = [n.id_ for n in nodes]
+        logger.info(f"Retrieved {len(node_ids)} nodes.")
+
+        # merge scores for duplicated results -  sum, because a node is more important if it was returned by both retrievers
+        duplicates = [n for n in nodes if n.node.ref_doc_id in node_ids]
+        for duplicate_node in duplicates:
+            node = nodes[node_ids.index(duplicate_node.node.ref_doc_id)]
+            node.score += duplicate_node.score
         nodes_without_duplicates = [n for n in nodes if n.node.ref_doc_id not in node_ids]
-        logger.info(f"Retrieved {len(nodes_without_duplicates)} nodes.")
+
+        logger.info(f"Removed duplicates, {len(nodes_without_duplicates)} nodes left.")
         return nodes_without_duplicates

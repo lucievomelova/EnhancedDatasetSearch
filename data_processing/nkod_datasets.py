@@ -18,7 +18,8 @@ from pandas import Series
 
 from data_processing.keywords import get_representatives
 from data_processing.metadata import create_documents, enrich_metadata, clean_metadata, \
-    add_cluster_representatives_to_metadata
+    add_cluster_representatives_to_metadata, preprocess_time_periods, \
+    replace_nonfrequent_keywords_with_cluster_representatives
 from utils import setup_logger
 
 logger = setup_logger(__name__)
@@ -103,7 +104,7 @@ class NKOD(InformativeDatasetClass):
             self.extended_df = pd.DataFrame()
         else:
             logger.info("Loading extended NKOD dataset.")
-            list_columns = ["keywords", "themes", "categories", "legal_regulations", "region", "time_period"]
+            list_columns = ["keywords", "themes", "categories", "legal_regulations", "region", "time_periods"]
             self.extended_df = pd.read_csv(self._data_config["extended_df_path"], sep=",",
                                            converters={col: pd.eval for col in list_columns})
 
@@ -129,7 +130,8 @@ class NKOD(InformativeDatasetClass):
             # self.rag_up_to_date = True
 
         self.super_df = self.super_df.rename(columns=self._column_mapping)  # rename columns based on column mapping
-        self._old_super_df = self._old_super_df.rename(columns=self._column_mapping)
+        if self._old_super_df is not None:
+            self._old_super_df = self._old_super_df.rename(columns=self._column_mapping)
         logger.info("Dataset info loaded.")
 
 
@@ -166,7 +168,6 @@ class NKOD(InformativeDatasetClass):
         self.super_df["keyword_cluster_representatives"] = [[] for _ in range(len(self.super_df))]
 
         clean_metadata(self.super_df, self._data_processing_config["categories"], self._llm_config["model_name"], self._state_dir)
-        add_cluster_representatives_to_metadata(self.super_df, self._state_dir)
 
     def init(self):
         """Initialize the NKOD class - super_df, extended_df, all_keywords, all_themes."""
@@ -185,10 +186,13 @@ class NKOD(InformativeDatasetClass):
 
         self._preprocess_metadata()
         self._load_extended_df()
+        preprocess_time_periods(self.extended_df)
 
         # metadata cleaned -> find all unique keywords and themes, which will be used for metadata enrichment
         self._all_keywords = list(self.super_df["keywords"].explode().dropna().unique())
+        logger.info(f"Number of unique keywords: {len(self._all_keywords)}")
         self._all_themes = list(self.super_df["themes"].explode().dropna().unique())
+        logger.info(f"Number of unique themes: {len(self._all_themes)}")
 
 
     async def get_new_datasets(self) -> list[Document]:
@@ -226,6 +230,12 @@ class NKOD(InformativeDatasetClass):
                 pd.DataFrame(new_rows).to_csv(self._data_config["extended_df_path"], index=False, header=False, mode="a")
 
         self._load_extended_df()
+
+        preprocess_time_periods(self.extended_df)
+
+        # rerun metadata cleaning for the generated metadata
+        clean_metadata(self.extended_df, self._data_processing_config["categories"], self._llm_config["model_name"], self._state_dir)
+        replace_nonfrequent_keywords_with_cluster_representatives(self.extended_df, self._state_dir)
         documents = create_documents(self.extended_df)
         return documents
 
@@ -268,7 +278,7 @@ class NKOD(InformativeDatasetClass):
             "legal_regulations": row["legal_regulations"],
             "categories": generated_metadata["categories"],
             "region": generated_metadata["regions"],
-            "time_period": generated_metadata["time_periods"],
+            "time_periods": generated_metadata["time_periods"],
         }
         return metadata
 
@@ -288,7 +298,7 @@ class NKOD(InformativeDatasetClass):
                 'themes': row['themes'] if isinstance(row['themes'], list) else [],
                 'categories': row['categories'] if isinstance(row['categories'], list) else [],
                 'region': row['region'] if isinstance(row['region'], list) else [],
-                'time_period': row['time_period'] if isinstance(row['time_period'], list) else [],
+                'time_periods': row['time_periods'] if isinstance(row['time_periods'], list) else [],
                 'provider': row['provider'] if 'provider' in row and not pd.isna(row['provider']) else '',
             }
         }

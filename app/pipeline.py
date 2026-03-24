@@ -47,7 +47,7 @@ class SearchPipeline:
                                                           self.config['rag']["data_processing"]["categories"],
                                                           self.config['rag']["data_processing"]["other_category"])
         search_engine = SearchEngine(self.config["rag"]["pipeline_config"]["search"], self.database.index, self.database.document_store)
-        search_results = await search_engine.search(extended_query)
+        search_results = await search_engine.search(extended_query, extended_query)
         postprocessor = PostProcessor(self.config["rag"]["pipeline_config"]["postprocessing"])
         nodes = postprocessor.run(query, extended_query, search_results, intent)
         if nodes is not None:
@@ -59,4 +59,4 @@ class SearchPipeline:
 #     config = yaml.safe_load(f)
 #
 # search_pipeline = SearchPipeline(config)
-# asyncio.run(search_pipeline.run("datasety o cukrovce"))
+# asyncio.run(search_pipeline.run("volby, prezidentské volby, volby 2023, volba prezidenta"))

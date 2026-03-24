@@ -24,3 +24,5 @@ psycopg2-binary==2.9.11
 PyYAML==6.0.3
 tqdm==4.67.1
 scikit-learn==1.8.0
+torch==2.10.0
+sentence-transformers==5.3.0

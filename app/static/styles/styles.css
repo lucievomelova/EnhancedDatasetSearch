@@ -92,7 +92,7 @@ a {
 }
 
 .container { max-width: 900px; }
-.container-search-results { max-width: 800px; }
+.container-search-results { max-width: 1000px; }
 .container-dataset-detail { max-width: 1200px; }
 
 body.home-page .container {

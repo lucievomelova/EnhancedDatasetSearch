@@ -59,15 +59,20 @@ class PostProcessor():
 
     def rerank(self, user_query: str, results: list[NodeWithScore], intent: dict[str, str]) -> list[NodeWithScore] | None:
         """ Rerank search results."""
-        # always cut off nodes with low score
-        original_num_results = len(results)
-        default_postprocessor = SimilarityPostprocessor(similarity_cutoff=self.postprocessing_config["score_cutoff"])
-        results = default_postprocessor.postprocess_nodes(results)
-        logger.info(f"{len(results)} results after cutting off low similarity scores (cutoff: {self.postprocessing_config['score_cutoff']}).")
+        # cut off nodes with low score
+        cutoff = self.postprocessing_config["score_cutoff"]
+        results = [result for result in results if result.score >= cutoff]
+        logger.info(f"{len(results)} results after cutting off low similarity scores (cutoff: {cutoff}).")
 
         logger.info(f"Reranking remaining results.")
         reranker = self.postprocessing_config["reranker"]
-        if reranker == "sentence_transformer":
+
+        # sort results by retrieval score
+        if reranker == "simple":
+            results = sorted(results, key=lambda r: r.score, reverse=True)
+
+        # sort results using sentence transformer
+        elif reranker == "sentence_transformer":
             transformer = SentenceTransformerRerank(
                 model=self.postprocessing_config["sentence_transformer_model"], top_n=self.postprocessing_config["top_k"]
             )

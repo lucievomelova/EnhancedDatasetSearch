@@ -74,13 +74,21 @@ def dataset_detail(dataset_url):
                 if len(text_preview) > 200:  # we dont want too long description text preview
                     index = text_preview[:200].rfind(" ")
                     text_preview = text_preview[:index] + "..."
+                elif len(text_preview) == 0:
+                    index = sim_dataset['text'][:200].rfind(" ")
+                    text_preview = sim_dataset['text'][:index]
+                    if len(sim_dataset['text']) > 200:
+                        index = sim_dataset['text'][:200].rfind(" ")
+                        text_preview = sim_dataset['text'][:index] + "..."
+                    else:
+                        text_preview = sim_dataset['text']
                 similar_dataset_info = {
                     'title': sim_dataset['title'],
                     'url': url,
                     'text_preview': text_preview,
                 }
                 if sim_category == "overall":
-                    metadata_categories = ["keywords", "themes", "categories", "region", "time_period"]
+                    metadata_categories = ["keywords", "themes", "categories", "region", "time_periods"]
                     common_metadata = get_common_metadata(metadata_categories, dataset_info["metadata"], sim_dataset["metadata"])
                     similar_dataset_info["common_metadata"] = common_metadata
                 elif sim_category != "description":

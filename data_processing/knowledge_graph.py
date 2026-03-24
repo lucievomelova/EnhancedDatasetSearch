@@ -92,17 +92,36 @@ def create_description_similarity_edges(tx, dataset_url: str, similar_datasets: 
 
 def create_metadata_similarity_edges(tx, similar_datasets: dict[tuple[str, str], float], metadata_name: str):
     """Create similarity edges between datasets based on metadata similarity."""
+    logger.info(f"Adding {len(similar_datasets)} metadata similarity edges for {metadata_name}.")
+    batches = []
+    batch_size = 10000
+    batch = []
     for urls, score in similar_datasets.items():
         url1, url2 = urls
+        batch.append({
+            "from": url1,
+            "to": url2,
+            "score": score
+        })
+        if len(batch) >= batch_size:
+            batches.append(batch)
+            batch = []
+    if batch:
+        batches.append(batch)
+
+    for i in range(len(batches)):
+        batch = batches[i]
+        logger.info(f"Adding batch {i}/{len(batches)}.")
         tx.run(
             f"""
-            MATCH (d1:Dataset {{url: $url1}})
-            MATCH (d2:Dataset {{url: $url2}})
+            UNWIND $edges AS e
+            MATCH (d1:Dataset {{url: e.from}})
+            MATCH (d2:Dataset {{url: e.to}})
             MERGE (d1)-[r:SIMILAR]-(d2)
-            ON CREATE SET r.{metadata_name}_similarity = $score
-            ON MATCH SET r.{metadata_name}_similarity = $score
+            ON CREATE SET r.{metadata_name}_similarity = e.score
+            ON MATCH SET r.{metadata_name}_similarity = e.score
             """,
-            url1=url1, url2=url2, score=score
+            edges=batch
         )
 
 
@@ -128,43 +147,44 @@ def create_kg(datasets: pd.DataFrame, database: Database) -> None:
     )
     logger.info(f"Creating knowledge graph from dataset metadata for {len(datasets)} datasets.")
 
-    with driver.session() as session:
-        session.run("MATCH (n) WHERE n.embedding is null DETACH DELETE n;")
+    # delete old data
+    # with driver.session() as session:
+    #     session.run("MATCH (n) WHERE n.embedding is null DETACH DELETE n;")
 
-    with driver.session() as session:
-        session.run("CREATE CONSTRAINT dataset_id IF NOT EXISTS FOR (d:Dataset) REQUIRE d.id IS UNIQUE;")
-        session.run("CREATE CONSTRAINT keyword_name IF NOT EXISTS FOR (k:Keyword) REQUIRE k.name IS UNIQUE;")
-        session.run("CREATE CONSTRAINT theme_name IF NOT EXISTS FOR (t:Theme) REQUIRE t.name IS UNIQUE;")
-        session.run("CREATE CONSTRAINT provider_name IF NOT EXISTS FOR (p:Provider) REQUIRE p.name IS UNIQUE;")
-        session.run("CREATE CONSTRAINT category_name IF NOT EXISTS FOR (c:Category) REQUIRE c.name IS UNIQUE;")
-        session.run("CREATE CONSTRAINT region_name IF NOT EXISTS FOR (r:Region) REQUIRE r.name IS UNIQUE;")
-        session.run("CREATE CONSTRAINT time_period_name IF NOT EXISTS FOR (t:TimePeriod) REQUIRE t.name IS UNIQUE;")
-
-    with driver.session() as session:
-        i = 1
-        for index, row in datasets.iterrows():
-            logger.info(f"{i}/{len(datasets)}")
-            i += 1
-            metadata = row.drop(columns="description")
-            session.execute_write(ingest_dataset, index, row["description"], metadata)
-
-            if row["keywords"] is not []:
-                for keyword in row["keywords"]:
-                    session.execute_write(ingest_keyword, index, keyword.title())
-            if row["themes"] is not []:
-                for theme in row["themes"]:
-                    session.execute_write(ingest_theme, index, theme.title())
-            if row["categories"] is not []:
-                for category in row["categories"]:
-                    session.execute_write(ingest_category, index, category.title())
-            if row["region"] is not []:
-                for region in row["region"]:
-                    session.execute_write(ingest_region, index, region.title())
-            if row["time_period"] is not []:
-                for time_period in row["time_period"]:
-                    session.execute_write(ingest_time_period, index, time_period.title())
-            if row["provider"] is not None:
-                session.execute_write(ingest_provider, index, row["provider"].title())
+    # with driver.session() as session:
+    #     session.run("CREATE CONSTRAINT dataset_id IF NOT EXISTS FOR (d:Dataset) REQUIRE d.id IS UNIQUE;")
+    #     session.run("CREATE CONSTRAINT keyword_name IF NOT EXISTS FOR (k:Keyword) REQUIRE k.name IS UNIQUE;")
+    #     session.run("CREATE CONSTRAINT theme_name IF NOT EXISTS FOR (t:Theme) REQUIRE t.name IS UNIQUE;")
+    #     session.run("CREATE CONSTRAINT provider_name IF NOT EXISTS FOR (p:Provider) REQUIRE p.name IS UNIQUE;")
+    #     session.run("CREATE CONSTRAINT category_name IF NOT EXISTS FOR (c:Category) REQUIRE c.name IS UNIQUE;")
+    #     session.run("CREATE CONSTRAINT region_name IF NOT EXISTS FOR (r:Region) REQUIRE r.name IS UNIQUE;")
+    #     session.run("CREATE CONSTRAINT time_period_name IF NOT EXISTS FOR (t:TimePeriod) REQUIRE t.name IS UNIQUE;")
+    #
+    # with driver.session() as session:
+    #     i = 1
+    #     for index, row in datasets.iterrows():
+    #         logger.info(f"{i}/{len(datasets)}")
+    #         i += 1
+    #         metadata = row.drop(columns="description")
+    #         session.execute_write(ingest_dataset, index, row["description"], metadata)
+    #
+    #         if row["keywords"] is not []:
+    #             for keyword in row["keywords"]:
+    #                 session.execute_write(ingest_keyword, index, keyword.title())
+    #         if row["themes"] is not []:
+    #             for theme in row["themes"]:
+    #                 session.execute_write(ingest_theme, index, theme.title())
+    #         if row["categories"] is not []:
+    #             for category in row["categories"]:
+    #                 session.execute_write(ingest_category, index, category.title())
+    #         if row["region"] is not []:
+    #             for region in row["region"]:
+    #                 session.execute_write(ingest_region, index, region.title())
+    #         if row["time_periods"] is not []:
+    #             for time_period in row["time_periods"]:
+    #                 session.execute_write(ingest_time_period, index, time_period.title())
+    #         if row["provider"] is not None:
+    #             session.execute_write(ingest_provider, index, row["provider"].title())
 
     add_similarity_edges(datasets, database, driver.session())
     logger.info("Knowledge graph creation completed.")
@@ -181,23 +201,30 @@ def add_similarity_edges(datasets: pd.DataFrame, database: Database, session: Se
         session.execute_write(create_description_similarity_edges, row["url"], similar_datasets)
 
     logger.info("Adding metadata similarity edges.")
+    # TODO too slow
     # metadata similarity - a score that will be calculated based on common metadata
     # keywords and themes - TF-IDF, to take into account how (un)common some words are
-    columns = ["keywords", "themes"]
-    for column in columns:
-        similar_dataset_pairs_with_score = _compute_tfidf_similarity_based_on_column(datasets, column)
-        session.execute_write(create_metadata_similarity_edges, similar_dataset_pairs_with_score, column)
+    # columns = ["keywords", "themes"]
+    # for column in columns:
+    #     logger.info(f"Adding metadata similarity edges for {column}.")
+    #     # similar_dataset_pairs_with_score = _compute_tfidf_similarity_based_on_column(datasets, column)
+    #     # logger.info(f"TF-IDF vectors computed.")
+    #     similar_dataset_pairs_with_score = _compute_jaccard_similarity_based_on_column(datasets, column)
+    #     logger.info(f"Jaccard vectors computed.")
+    #     session.execute_write(create_metadata_similarity_edges, similar_dataset_pairs_with_score, column)
 
     # category, time period, region - Jaccard
-    columns = ["categories", "time_period", "region"]
-    for column in columns:
-        similar_dataset_pairs_with_score = _compute_jaccard_similarity_based_on_column(datasets, column)
-        session.execute_write(create_metadata_similarity_edges, similar_dataset_pairs_with_score, column)
+    # columns = ["categories", "time_periods", "region"]
+    # for column in columns:
+    #     logger.info(f"Adding metadata similarity edges for {column}.")
+    #     similar_dataset_pairs_with_score = _compute_jaccard_similarity_based_on_column(datasets, column)
+    #     logger.info(f"Jaccard vectors computed.")
+    #     session.execute_write(create_metadata_similarity_edges, similar_dataset_pairs_with_score, column)
+    #
+    # session.execute_write(create_overall_similarity_edges)
 
-    session.execute_write(create_overall_similarity_edges)
 
-
-def _compute_jaccard_similarity_based_on_column(datasets: pd.DataFrame, column_name: str) -> dict[tuple[str, str], float]:
+def _compute_jaccard_similarity_based_on_column(datasets: pd.DataFrame, column_name: str, sim_threshold: int = 0.8) -> dict[tuple[str, str], float]:
     """Compute similarity between datasets based on a specific list column using Jaccard similarity."""
 
     metadata_dict = {}  # key: dataset url, value: set of items in the column
@@ -218,7 +245,8 @@ def _compute_jaccard_similarity_based_on_column(datasets: pd.DataFrame, column_n
         intersection = len(words_a.intersection(words_b))
         union = len(words_a.union(words_b))
         similarity = intersection / union if union > 0 else 0.0
-        similarity_dict[(a, b)] = similarity
+        if similarity > sim_threshold:
+            similarity_dict[(a, b)] = similarity
 
     return similarity_dict
 
@@ -230,7 +258,7 @@ def _compute_tfidf_similarity_based_on_column(datasets: pd.DataFrame, column_nam
     # for each row, take all items (words and phrases) in the metadata column and join them into one long string, so we
     # can vectorize it and use TF-IDF. Store the result in a dict with dataset url as key and the long string as value
     words_lists = {}  # key: url, value: string with all words and phrases from the column merged into one string
-    occurrences = defaultdict(set)  # for tracking which words occur in which datasets
+    occurrences = defaultdict()  # for tracking which words occur in which datasets
 
     for url, words in zip(datasets["url"], datasets[column_name]):
         # merge phrases into one word separated by _, so that it will represent one word after joining by space

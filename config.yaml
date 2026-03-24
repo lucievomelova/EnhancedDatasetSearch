@@ -1,9 +1,11 @@
 data:
   datasets:
-    path: "data/golden/datove_sady_small.csv"
+#    path: "data/golden/datove_sady_small.csv"
+    path: "data//datove_sady.csv"
     url: "https://data.gov.cz/soubor/datov%C3%A9-sady.csv"
   extended_df:
-    path: "data/golden/datasets_with_metadata_small.csv"
+#    path: "data/golden/datasets_with_metadata_small.csv"
+    path: "data//datasets_with_metadata_large.csv"
   distribution:
     path: "data/distribuce.csv"
     url: "https://data.gov.cz/soubor/distribuce.csv"
@@ -12,13 +14,13 @@ rag:
   db:
     host: "localhost"
     port: 5432
-    document_table: "documents_extra_metadata"
-    vector_table: "embeddings_extra_metadata"
+    document_table: "documents_large"
+    vector_table: "embeddings_large"
     embed_dim: 4096
   embedding:
     model_name: "qwen3-embedding"
     base_url: "http://localhost:11434"
-    chunk_size: 1024
+    chunk_size: 16192
     chunk_overlap: 50
     embed_batch_size: 200
   llm:
@@ -35,6 +37,9 @@ rag:
       vector_top_k: 20
       bm25_top_k: 20
       mode: relative_score
+      retriever_weights:
+        - 0.7  # vector_retriever
+        - 0.3  # bm25_retriever
     postprocessing:
       reranker: simple  # simple / llm / sentence_transformer
       sentence_transformer_model: "cross-encoder/ms-marco-MiniLM-L-2-v2"  # only used for sentence_transformer reranker
