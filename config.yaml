@@ -3,6 +3,9 @@ data:
 #    path: "data/golden/datove_sady_small.csv"
     path: "data//datove_sady.csv"
     url: "https://data.gov.cz/soubor/datov%C3%A9-sady.csv"
+  preprocessed_datasets:
+    suffix: "_preprocessed"
+
   extended_df:
 #    path: "data/golden/datasets_with_metadata_small.csv"
     path: "data//datasets_with_metadata_large.csv"
@@ -10,6 +13,7 @@ data:
     path: "data/distribuce.csv"
     url: "https://data.gov.cz/soubor/distribuce.csv"
 state_dir: "state"
+url: "http://127.0.0.1:5000/"
 rag:
   db:
     host: "localhost"
@@ -28,6 +32,12 @@ rag:
     base_url: "http://localhost:11434"
     context_length: 30000
     memory_limit: 8192
+  chatbot:
+    llm:
+      model_name: "mistral-small3.2"
+      base_url: "http://localhost:11434"
+      context_length: 65000
+      memory_limit: 65000
   pipeline_config:
     preprocessing:
       detect_intent: true

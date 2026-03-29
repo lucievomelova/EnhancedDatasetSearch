@@ -1,0 +1,41 @@
+{{ intro }}
+
+The user was chatting with you via a chatbot UI. Here is the chat history summary:
+{{ chat_history }}
+
+Based on the chat history, the following search query was constructed:
+{{ search_query }}
+
+The search query returned the following results:
+{{ search_results }}
+
+Each result represents one dataset - it has a title, url and description text.
+
+## Your Task
+Evaluate and explain the search results:
+
+### Evaluation
+Evaluate the search results based on the chat history. Consider, how relevant the results are.
+Give each dataset an integer score from 0-10 (10 is the best).
+
+### Explanation
+Provide an explanation as to why each returned dataset is relevant to the user and how. You can mention:
+* the overall relevance of the dataset
+* in which situations would the dataset be useful
+* what kind of information the dataset contains that is relevant to the user
+
+The explanation must be concise. Always consider the user's background if they mention it and try to
+link the explanation to it where possible.
+
+## Output
+Return a json in the following format:
+{
+    dataset_url: {
+        "score": integer score from 0-10,
+        "explanation": "the explanation of the relevance of the dataset"
+    },
+    ...
+}
+
+{{ return_json_instructions }}
+

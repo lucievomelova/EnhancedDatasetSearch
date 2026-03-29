@@ -4,6 +4,7 @@ from itertools import combinations
 
 import pandas as pd
 from neo4j import GraphDatabase, Session
+from scipy.sparse import vstack
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
@@ -193,38 +194,39 @@ def create_kg(datasets: pd.DataFrame, database: Database) -> None:
 def add_similarity_edges(datasets: pd.DataFrame, database: Database, session: Session) -> None:
     """Add similarity edges between datasets based on description embedding and metadata."""
     i = 1
-    for _, row in datasets.iterrows():
-        logger.info(f"Adding description similarity edges for dataset {i}")
-        i += 1
-        # description embedding similarity edges
-        similar_datasets = database.get_similar_datasets_by_embedding(row["url"])
-        session.execute_write(create_description_similarity_edges, row["url"], similar_datasets)
+    # for _, row in datasets.iterrows():
+    #     logger.info(f"Adding description similarity edges for dataset {i}")
+    #     i += 1
+    #     # description embedding similarity edges
+    #     similar_datasets = database.get_similar_datasets_by_embedding(row["url"])
+    #     session.execute_write(create_description_similarity_edges, row["url"], similar_datasets)
 
     logger.info("Adding metadata similarity edges.")
     # TODO too slow
     # metadata similarity - a score that will be calculated based on common metadata
     # keywords and themes - TF-IDF, to take into account how (un)common some words are
-    # columns = ["keywords", "themes"]
-    # for column in columns:
-    #     logger.info(f"Adding metadata similarity edges for {column}.")
-    #     # similar_dataset_pairs_with_score = _compute_tfidf_similarity_based_on_column(datasets, column)
-    #     # logger.info(f"TF-IDF vectors computed.")
-    #     similar_dataset_pairs_with_score = _compute_jaccard_similarity_based_on_column(datasets, column)
-    #     logger.info(f"Jaccard vectors computed.")
-    #     session.execute_write(create_metadata_similarity_edges, similar_dataset_pairs_with_score, column)
+    columns = ["themes"]
+    for column in columns:
+        logger.info(f"Adding metadata similarity edges for {column}.")
+        similar_dataset_pairs_with_score = _compute_tfidf_similarity_based_on_column(datasets, column)
+        logger.info(f"TF-IDF vectors computed.")
+        # similar_dataset_pairs_with_score = _compute_jaccard_similarity_based_on_column(datasets, column)
+        # logger.info(f"Jaccard vectors computed.")
+        session.execute_write(create_metadata_similarity_edges, similar_dataset_pairs_with_score, column)
 
-    # category, time period, region - Jaccard
-    # columns = ["categories", "time_periods", "region"]
-    # for column in columns:
-    #     logger.info(f"Adding metadata similarity edges for {column}.")
-    #     similar_dataset_pairs_with_score = _compute_jaccard_similarity_based_on_column(datasets, column)
-    #     logger.info(f"Jaccard vectors computed.")
-    #     session.execute_write(create_metadata_similarity_edges, similar_dataset_pairs_with_score, column)
-    #
-    # session.execute_write(create_overall_similarity_edges)
+    # time period, region - Jaccard
+    # we will skip category - too many edges
+    columns = ["time_periods", "region"]
+    for column in columns:
+        logger.info(f"Adding metadata similarity edges for {column}.")
+        similar_dataset_pairs_with_score = _compute_jaccard_similarity_based_on_column(datasets, column)
+        logger.info(f"Jaccard vectors computed.")
+        session.execute_write(create_metadata_similarity_edges, similar_dataset_pairs_with_score, column)
+
+    session.execute_write(create_overall_similarity_edges)
 
 
-def _compute_jaccard_similarity_based_on_column(datasets: pd.DataFrame, column_name: str, sim_threshold: int = 0.8) -> dict[tuple[str, str], float]:
+def _compute_jaccard_similarity_based_on_column(datasets: pd.DataFrame, column_name: str, sim_threshold: int = 0.8, top_k: int = 10) -> dict[tuple[str, str], float]:
     """Compute similarity between datasets based on a specific list column using Jaccard similarity."""
 
     metadata_dict = {}  # key: dataset url, value: set of items in the column
@@ -238,6 +240,7 @@ def _compute_jaccard_similarity_based_on_column(datasets: pd.DataFrame, column_n
         for a, b in combinations(occurrences[word], 2):
             url_pairs.add(tuple(sorted((a, b))))
 
+    top_k_dict = defaultdict(list)
     similarity_dict = {}
     for a, b in url_pairs:
         words_a = metadata_dict[a]
@@ -247,42 +250,70 @@ def _compute_jaccard_similarity_based_on_column(datasets: pd.DataFrame, column_n
         similarity = intersection / union if union > 0 else 0.0
         if similarity > sim_threshold:
             similarity_dict[(a, b)] = similarity
+            top_k_dict[a].append((b, float(similarity)))
+            if len(top_k_dict[a]) > top_k:
+                min_score_item = min(top_k_dict[a], key=lambda x: x[1])
+                max_score_item = max(top_k_dict[a], key=lambda x: x[1])
+                if min_score_item[1] == max_score_item[1]:
+                    continue  # if all scores are the same, dont remove the min
+                top_k_dict[a].remove(min_score_item)
+                similarity_dict.pop((a, min_score_item[0]), None)
 
     return similarity_dict
 
 
-def _compute_tfidf_similarity_based_on_column(datasets: pd.DataFrame, column_name: str, similarity_threshold: float = 0.3) -> dict[tuple[str, str], float]:
+def _compute_tfidf_similarity_based_on_column(datasets: pd.DataFrame, column_name: str, similarity_threshold: float = 0.8, top_k: int = 10) -> dict[tuple[str, str], float]:
     """Compute similarity between datasets based on a specific list column.
 
     We will use TF-IDF, to take into account how (un)common some words or phrases are."""
     # for each row, take all items (words and phrases) in the metadata column and join them into one long string, so we
     # can vectorize it and use TF-IDF. Store the result in a dict with dataset url as key and the long string as value
     words_lists = {}  # key: url, value: string with all words and phrases from the column merged into one string
-    occurrences = defaultdict()  # for tracking which words occur in which datasets
+    occurrences = defaultdict(set)  # for tracking which words occur in which datasets
 
     for url, words in zip(datasets["url"], datasets[column_name]):
         # merge phrases into one word separated by _, so that it will represent one word after joining by space
         words_joined = ["_".join(w.split(" ")) for w in words]
         words_lists[url] = " ".join(words_joined) if words_joined is not None else ""  # join the list of words
         [occurrences[w].add(url) for w in words]  # key is the word, value is list of dataset urls where the word occurs
+    logger.info("Joined words into strings for TF-IDF vectorization and counted occurrences.")
 
     # find datasets sharing at least one word, we will only calculate similarity between those to save time
-    url_pairs = set()  # stores pairs of dataset urls that share at least one word
+    pairs_by_dataset = defaultdict(list)  # stores pairs of dataset urls that share at least one word
     for word in occurrences:
         for a, b in combinations(occurrences[word], 2):
-            url_pairs.add(tuple(sorted((a, b))))
+            a_sorted, b_sorted = tuple(sorted((a, b)))
+            pairs_by_dataset[a_sorted].append(b_sorted)
+    logger.info(f"Constructed {len(pairs_by_dataset)} dataset pairs that share {column_name}.")
 
     vectorizer = TfidfVectorizer()
     words_vectors = vectorizer.fit_transform(list(words_lists.values()))
+    logger.info(f"TF-IDF vectors computed, shape: {words_vectors.shape}")
 
     # assign each vector to the corresponding dataset url, so we can use it to calculate similarity
     url_vector_dict = {url: vector for url, vector in zip(words_lists.keys(), words_vectors)}
 
     similarity_dict = {}
-    for a, b in url_pairs:
-        sim = cosine_similarity(url_vector_dict[a], url_vector_dict[b])[0, 0]
-        if sim > similarity_threshold:
-            similarity_dict[(a, b)] = float(sim)
+    top_k_dict = defaultdict(list)  # key: dataset url, value: list of (similar dataset url, similarity score) tuples
+    for a, candidates in pairs_by_dataset.items():
+        vec_a = url_vector_dict[a]
+        vecs_b = vstack([url_vector_dict[b] for b in candidates])
+        similarities = cosine_similarity(vec_a, vecs_b)[0]  # compute all similarities for one dataset
+
+        for b, sim in zip(candidates, similarities):
+            if sim > similarity_threshold:
+                similarity_dict[(a, b)] = float(sim)
+                top_k_dict[a].append((b, float(sim)))
+                if len(top_k_dict[a]) > top_k:
+                    min_score_item = min(top_k_dict[a], key=lambda x: x[1])
+                    max_score_item = max(top_k_dict[a], key=lambda x: x[1])
+                    if min_score_item[1] == max_score_item[1]:
+                        continue  # if all scores are the same, dont remove the min
+                    top_k_dict[a].remove(min_score_item)
+                    similarity_dict.pop((a, min_score_item[0]), None)
+        logger.info(f"Similar nodes for dataset {a} added, similarity dict length: {len(similarity_dict)}")
+
+    logger.info(f"Similarity dict constructed, length: {len(similarity_dict)}")
     return similarity_dict
 
 

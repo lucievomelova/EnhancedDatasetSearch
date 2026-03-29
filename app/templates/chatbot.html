@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dataset Search Chatbot</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles/chatbot.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles/styles.css') }}">
+</head>
+<body class="chatbot-page">
+    <div class="language-selector">
+        <select id="language" name="language" class="language-dropdown">
+            <option value="en">🇬🇧</option>
+            <option value="cs">🇨🇿</option>
+        </select>
+    </div>
+
+    <div class="chatbot-container">
+        <div class="chatbot-header">
+            <h1>Dataset Search Assistant</h1>
+        </div>
+
+        <div class="chatbot-messages" id="chatMessages">
+            <div class="chat-message assistant-message">
+                <div class="message-content">
+                    <p>Hello! I'm a Dataset Search Assistant. Ask me anything about available datasets, and I'll help you find what you need.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="chatbot-input-area">
+            <form id="chatForm" class="chat-input-form">
+                <div class="chat-input-wrapper">
+                    <input
+                        type="text"
+                        id="userInput"
+                        class="chat-input"
+                        placeholder="Type your question here..."
+                        autocomplete="off"
+                    />
+                    <button type="submit" class="chat-send-btn" aria-label="Send message">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="22" y1="2" x2="11" y2="13"></line>
+                            <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                        </svg>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    {% include 'footer.html' %}
+    <script src="https://cdn.jsdelivr.net/npm/showdown/dist/showdown.min.js"></script>
+    <script src="{{ url_for('static', filename='scripts/chatbot_scripts.js') }}"></script>
+</body>
+</html>
+

@@ -605,22 +605,6 @@ body.home-page .search-container {
     max-width: 600px;
 }
 
-.similar-datasets-list li {
-    padding-left: var(--spacing-md);
-    position: relative;
-}
-
-.similar-datasets-list li::before {
-    content: "→";
-    position: absolute;
-    left: 0;
-    color: var(--color-text-muted);
-}
-
-.similar-dataset-wrapper:hover .similar-tooltip {
-    visibility: visible;
-    opacity: 1;
-}
 
 .similar-dataset-menu:hover .similar-tooltip {
     visibility: visible;
@@ -762,5 +746,3 @@ body.home-page .search-container {
     .detail-title { font-size: 1.75rem; }
     .section-title { font-size: 1.1rem; }
 }
-
-

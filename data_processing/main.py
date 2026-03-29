@@ -37,10 +37,10 @@ class DataPreprocessingPipeline:
         if not os.path.exists(self.state_dir):
             os.makedirs(self.state_dir)
 
-        datasets_documents = await self.dataset_portal.get_new_datasets()
-        self.database.load_documents(datasets_documents)
-        # self.dataset_portal.init()
-        # create_kg(self.dataset_portal.extended_df, self.database)
+        # datasets_documents = await self.dataset_portal.get_new_datasets()
+        # self.database.load_documents(datasets_documents)
+        self.dataset_portal.init()
+        create_kg(self.dataset_portal.extended_df, self.database)
         # create_keyword_kg(self.database, self.dataset_portal._all_keywords, self.rag_config["db"]["embed_dim"])
         # get_representatives()
 

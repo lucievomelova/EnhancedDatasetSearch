@@ -82,11 +82,16 @@ class NKOD(InformativeDatasetClass):
         self.extended_df: pd.DataFrame | None = None
         """The extended NKOD dataset containing also dataset metadata, with renamed columns based on column mapping."""
 
+        self.preprocessed_super_df: pd.DataFrame | None = None
+        """The preprocessed NKOD dataset that has cleaned metadata and merged list columns."""
+
         self._data_config = {
             "super_df_path": config["data"]["datasets"]["path"],
             "super_df_url": config["data"]["datasets"]["url"],
             "old_super_df_path": config["data"]["datasets"]["path"].replace(".csv", "_old.csv"),
-            "extended_df_path": config["data"]["extended_df"]["path"]
+            "extended_df_path": config["data"]["extended_df"]["path"],
+            "preprocessed_super_df_path": config["data"]["datasets"]["path"].split(".csv")[0] +
+                                          config["data"]["preprocessed_datasets"]["suffix"]+ ".csv",
         }
 
         self._all_keywords: list | None = None
@@ -105,6 +110,17 @@ class NKOD(InformativeDatasetClass):
             list_columns = ["keywords", "themes", "categories", "legal_regulations", "region", "time_periods"]
             self.extended_df = pd.read_csv(self._data_config["extended_df_path"], sep=",",
                                            converters={col: pd.eval for col in list_columns})
+
+    def _load_preprocessed_super_df(self) -> None:
+        """Load the preprocessed NKOD dataset which has cleaned metadata and merged list columns."""
+        if not os.path.exists(self._data_config["preprocessed_super_df_path"]):
+            logger.warning("Preprocessed NKOD dataset file not found.")
+            self.super_df = pd.DataFrame()
+        else:
+            logger.info("Loading preprocessed NKOD dataset.")
+            list_columns = ["keywords", "themes", "categories", "legal_regulations", "region", "time_periods"]
+            self.super_df = pd.read_csv(self._data_config["preprocessed_super_df_path"], sep=",",
+                                                     converters={col: pd.eval for col in list_columns})
 
     def _load_super_df(self) -> None:
         """Load the NKOD super dataset.
@@ -166,6 +182,8 @@ class NKOD(InformativeDatasetClass):
         self.super_df["keyword_cluster_representatives"] = [[] for _ in range(len(self.super_df))]
 
         clean_metadata(self.super_df, self._data_processing_config["categories"], self._llm_config["model_name"], self._state_dir)
+        self.super_df.to_csv(self._data_config["preprocessed_super_df_path"], index=False, header=True)
+
 
     def init(self):
         """Initialize the NKOD class - super_df, extended_df, all_keywords, all_themes."""
@@ -177,14 +195,20 @@ class NKOD(InformativeDatasetClass):
             self._load_super_df()
         else:  # TODO this is just for debugging, old file should not be used
             logger.info("Using old dataset file, loading from disk.")
-            self.super_df = pd.read_csv(self._data_config["super_df_path"], sep=",", dtype="string")
-            self.super_df = self.super_df.rename(columns=self._column_mapping)  # rename columns based on column mapping
-            # self.rag_up_to_date = True
-        self._merge_dataset_rows_into_one_row()
 
-        self._preprocess_metadata()
+            if not os.path.exists(self._data_config["preprocessed_super_df_path"]):
+                self.super_df = pd.read_csv(self._data_config["super_df_path"], sep=",", dtype="string")
+                self.super_df = self.super_df.rename(columns=self._column_mapping)  # rename columns based on column mapping
+                self._merge_dataset_rows_into_one_row()
+                self._preprocess_metadata()
+            else:
+                self._load_preprocessed_super_df()
+            # self.rag_up_to_date = True
+
+        # todo now for debugging we use preprocessed file
+        # self._merge_dataset_rows_into_one_row()
+        # self._preprocess_metadata()
         self._load_extended_df()
-        preprocess_time_periods(self.extended_df)
 
         # metadata cleaned -> find all unique keywords and themes, which will be used for metadata enrichment
         self._all_keywords = list(self.super_df["keywords"].explode().dropna().unique())
@@ -228,8 +252,8 @@ class NKOD(InformativeDatasetClass):
                 pd.DataFrame(new_rows).to_csv(self._data_config["extended_df_path"], index=False, header=False, mode="a")
 
         self._load_extended_df()
-
         preprocess_time_periods(self.extended_df)
+        self.extended_df.to_csv(self._data_config["extended_df_path"], index=False, header=False)
 
         # rerun metadata cleaning for the generated metadata
         clean_metadata(self.extended_df, self._data_processing_config["categories"], self._llm_config["model_name"], self._state_dir)
@@ -290,7 +314,7 @@ class NKOD(InformativeDatasetClass):
         return {
             'title': row['title'],
             'url': row['url'],
-            'text': row['description'],
+            'text': row['description'] if pd.notna(row['description']) else "",
             'metadata': {
                 'keywords': row['keywords'] if isinstance(row['keywords'], list) else [],
                 'themes': row['themes'] if isinstance(row['themes'], list) else [],

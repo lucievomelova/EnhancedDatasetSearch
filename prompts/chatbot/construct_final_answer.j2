@@ -1,0 +1,28 @@
+{{ intro }}
+
+The user was chatting with you via a chatbot UI. Here is the chat history summary:
+{{ chat_history }}
+
+Based on the chat history, a search query was constructed and executed. Each search result was then evaluated and an
+explanation was attached to it. Here are the search results with their evaluations and explanations:
+{{ search_results }}
+
+## Your Task
+Construct a final answer to the user based on the search results and their evaluations. The main focus is to provide an
+informative and helpful answer to the user, that is based on the search results and their
+relevance to the user's intent. Consider the following guidelines:
+* Be concise but informative. Avoid unnecessary details.
+* Provide the datasets to the user by using their title. Always use the full title as it was provided to you.
+* Put more relevant datasets to the top.
+* Do not display the evaluation scores to the user.
+* If some datasets are related in some way - e.g. they cover similar topics, or they complement each other -
+mention that in your answer. You can also group related datasets in sections.
+* Provide an explanation to why a dataset was returned. If some datasets are related, you can provide an explanation
+for the whole section of related datasets instead of for each dataset separately.
+* Consider the user's background and intent when constructing the answer.
+
+
+## Output
+Return the final answer in natural language with markdown formatting. Every time you mention a specific dataset
+to the user, ALWAYS make it a markdown link like this: [dataset_title](dataset_url). ALWAYS use only the provided
+dataset titles and urls. DO NOT make any title or url up.

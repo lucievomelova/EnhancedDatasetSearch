@@ -38,6 +38,7 @@ class SearchPipeline:
             embed_batch_size=self.config['rag']['embedding']['embed_batch_size'],
         )
         self.database = Database(self.config['rag'], self.config["state_dir"])
+        self.index = self.database.index
 
 
     async def run(self, query: str) -> list[dict[str, str | list | None]] | None:
@@ -46,7 +47,7 @@ class SearchPipeline:
         intent, extended_query = query_preprocessing(query,
                                                           self.config['rag']["data_processing"]["categories"],
                                                           self.config['rag']["data_processing"]["other_category"])
-        search_engine = SearchEngine(self.config["rag"]["pipeline_config"]["search"], self.database.index, self.database.document_store)
+        search_engine = SearchEngine(self.config["rag"]["pipeline_config"]["search"], self.index, self.database.document_store)
         search_results = await search_engine.search(extended_query, extended_query)
         postprocessor = PostProcessor(self.config["rag"]["pipeline_config"]["postprocessing"])
         nodes = postprocessor.run(query, extended_query, search_results, intent)

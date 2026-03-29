@@ -1,0 +1,23 @@
+{{ intro }}
+
+The user was chatting with you via a chatbot UI. Here is the chat history summary:
+{{ chat_history }}
+
+And here is the last user message:
+{{ user_message }}
+
+## Your Task
+Decide if you have enough information to construct a search query that would satisfy the user's needs.
+If you don't have enough information, ask the user for more information.
+If you do have enough information, construct an effective search query that would satisfy the user's needs.
+
+## Output
+
+Return json in the following format:
+{
+    "action": "chat" | "search",
+    "search_query": "the search query you constructed, if action is 'search'",
+    "follow_up_question": "the follow up question you want to ask the user, if action is 'chat'"
+}
+
+{{ return_json_instructions }}
