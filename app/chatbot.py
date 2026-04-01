@@ -18,7 +18,7 @@ logger = setup_logger(__name__)
 
 class Chatbot:
     def __init__(self, config: dict, search_pipeline: SearchPipeline):
-        self.chatbot_config = config["rag"]["chatbot"]
+        self.chatbot_config = config["chatbot"]
         self.memory = ChatMemoryBuffer.from_defaults(token_limit=65000)
         self.condensed_chat_history: str | None = None
         self.search_pipeline = search_pipeline

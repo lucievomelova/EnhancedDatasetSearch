@@ -7,6 +7,7 @@ from llama_index.embeddings.ollama import OllamaEmbedding
 from llama_index.vector_stores.postgres import PGVectorStore
 from llama_index.storage.docstore.postgres import PostgresDocumentStore
 from llama_index.core import VectorStoreIndex
+from llama_index.core.schema import QueryBundle
 from llama_index.core.base.embeddings.base import BaseEmbedding
 from dotenv import load_dotenv
 
@@ -18,7 +19,7 @@ logger = setup_logger(__name__)
 
 
 class Database:
-    """Class for handling the RAG database - Postgres with PGVector extension."""
+    """Class for handling the database - Postgres with PGVector extension."""
     def __init__(self, config: dict, state_dir: str):
         db_config = config["db"]
         embedding_config = config["embedding"]
@@ -71,7 +72,7 @@ class Database:
 
 
     def load_documents(self, new_documents: list[Document]) -> None:
-        """Load documents from data_df into the RAG database."""
+        """Load documents from data_df into the database."""
         logger.info("Ingestion pipeline created. Loading %d new documents to RAG DB.", len(new_documents))
         nodes = self.pipeline.run(documents=new_documents, show_progress=True)
         for node in nodes:
@@ -84,7 +85,7 @@ class Database:
         with open(os.path.join(self.state_dir, "url_to_node_id_mapping.json"), "w") as f:
             json.dump(self.url_to_node_id_mapping, f)
 
-    def get_similar_datasets_by_embedding(self, dataset_url: str, similarity_threshold: int = 0.8, k: int = 10) -> dict[str, float]:
+    def get_similar_datasets_by_embedding(self, dataset_url: str, similarity_threshold: int, k: int) -> dict[str, float]:
         """Get datasets similar to the given dataset based on their embedding similarity.
 
         Returns:
@@ -97,8 +98,8 @@ class Database:
         # retrieve k + len(node_ids) to make sure we retrieve at least k chunks corresponding to other datasets
         vector_retriever = self.index.as_retriever(similarity_top_k=k+len(node_ids))
         for node in nodes:
-            text = node.get_content()
-            result = vector_retriever.retrieve(text)
+            # use QueryBundle for retrieval - we can pass already computed embedding instead of recomputing it
+            result = vector_retriever.retrieve(QueryBundle(embedding=node.embedding, query_str=node.get_content()))
             for r in result:
                 if r.node_id not in node_ids:  # exclude chunks from the same dataset
                     if r.score < similarity_threshold:

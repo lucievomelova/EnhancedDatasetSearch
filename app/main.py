@@ -75,7 +75,7 @@ def dataset_detail(dataset_url):
     if not dataset_info:
         return redirect(url_for('home'))
 
-    similar_datasets_raw = get_similar_datasets(dataset_url, top_k=5)
+    similar_datasets_raw = get_similar_datasets(dataset_url, config["data_processing"]["knowledge_graph"]["top_k"])
 
     similar_datasets = {}
     for sim_category, url_score_list in similar_datasets_raw.items():

@@ -215,14 +215,14 @@ def get_representatives(state_dir: str, model_name: str) -> dict[str, list[str]]
     representatives_state_file = state_dir + "/representatives.json"  # file that stores the cluster representatives found by LLM
     clusters_state_file = state_dir + "/clusters.json"  # file that stores the clusters found by leiden
     if os.path.exists(representatives_state_file):
-        with open("representatives.json", "r") as f:
+        with open(representatives_state_file, "r") as f:
             representatives = json.load(f)
     else:
         representatives = find_representatives(clusters_state_file, representatives_state_file, model_name)
     return representatives
 
-# dataset_portal = NKOD(config)
-# database = Database(config["rag"])
+# dataset_portal = NkodDataCatalog(config)
+# database = Database(config)
 # dataset_portal.load()
 #
 # preprocess_keywords(database, dataset_portal.get_keywords())

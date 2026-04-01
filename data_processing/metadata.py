@@ -113,20 +113,20 @@ def year_range_to_year_list(time_periods: list[str]) -> list[str]:
     return new_time_periods
 
 
-def preprocess_time_periods(extended_datasets: pd.DataFrame) -> None:
-    """Preprocess time periods."""
-    all_periods = extended_datasets["time_periods"].explode().dropna().unique()
+def preprocess_temporal_coverage(datasets: pd.DataFrame) -> None:
+    """Preprocess temporal coverage column."""
+    all_periods = datasets["temporal_coverage"].explode().dropna().unique()
     logger.info(f"Preprocessing {len(all_periods)} time periods.")
-    extended_datasets["time_periods"] = extended_datasets["time_periods"].apply(
-        lambda time_periods: extract_year_from_date(time_periods)
+    datasets["temporal_coverage"] = datasets["temporal_coverage"].apply(
+        lambda temporal_coverage: extract_year_from_date(temporal_coverage)
     )
-    all_periods = extended_datasets["time_periods"].explode().dropna().unique()
+    all_periods = datasets["temporal_coverage"].explode().dropna().unique()
     logger.info(f"Extracted years from time periods. Number of unique time periods: {len(all_periods)}")
 
-    extended_datasets["time_periods"] = extended_datasets["time_periods"].apply(
-        lambda time_periods: year_range_to_year_list(time_periods)
+    datasets["temporal_coverage"] = datasets["temporal_coverage"].apply(
+        lambda temporal_coverage: year_range_to_year_list(temporal_coverage)
     )
-    all_periods = extended_datasets["time_periods"].explode().dropna().unique()
+    all_periods = datasets["temporal_coverage"].explode().dropna().unique()
     logger.info(f"Expanded year ranges into individual years. Number of unique time periods: {len(all_periods)}")
 
 
@@ -263,15 +263,15 @@ def clean_metadata(df: pd.DataFrame, categories: list[str], model_name: str, sta
     preprocess_keywords_and_themes(df, model_name, state_dir)
 
 
-def create_documents(extended_df: pd.DataFrame) -> list[Document]:
+def create_documents(datasets: pd.DataFrame) -> list[Document]:
     """Create llama index Documents from the dataframe. Each row will be used to create one Document.
 
     The Document text will be: title + description + keywords + themes + categories + provider. All
     columns will also be stored in the metadata of the Document (even those that will be part of the text)."""
     documents = []
-    descriptions = extended_df["description"]
-    extended_df = extended_df.where(extended_df.notna(), None)
-    metadata_df = extended_df.drop(columns="description").to_dict(orient="records")
+    descriptions = datasets["description"]
+    datasets = datasets.where(datasets.notna(), None)
+    metadata_df = datasets.drop(columns="description").to_dict(orient="records")
 
     for description, metadata in zip(descriptions, metadata_df):
         text = f"""
@@ -280,11 +280,10 @@ def create_documents(extended_df: pd.DataFrame) -> list[Document]:
 
             Poskytovatel: {metadata['provider']}
             Klíčová slova: {metadata['keywords']}
-            Hlavní klíčová slova: {metadata['keyword_cluster_representatives']}
             Témata: {metadata['themes']}
             Kategorie: {metadata['categories']}
-            Region" : {metadata['region']}
-            Časová období: {metadata['time_period']}
+            Region" : {metadata['spatial_coverage']}
+            Časová období: {metadata['temporal_coverage']}
         """
         document = Document(text=text, metadata=metadata, id_=metadata["url"])
         documents.append(document)
@@ -293,7 +292,7 @@ def create_documents(extended_df: pd.DataFrame) -> list[Document]:
     return documents
 
 
-def enrich_metadata(row: Series, all_keywords: list, all_themes: list, categories: list, other_category: str) -> dict:
+def enrich_metadata(row: Series, all_keywords: list, all_themes: list, all_categories: list, other_category: str) -> dict:
     """Enrich the metadata of the datasets in the extended dataframe using LLM."""
     keywords = row['keywords']
     title = row['title']
@@ -301,12 +300,18 @@ def enrich_metadata(row: Series, all_keywords: list, all_themes: list, categorie
     description = row['description']
     provider = row['provider']
     categories = row['categories']
+    spatial_coverage = row['spatial_coverage']
+    temporal_coverage = row['temporal_coverage']
+
     remaining_keywords = 3 - len(keywords) if keywords is not None else 3
-    remaining_categories = 2 - len(categories) if categories is not None else 2
+    remaining_categories = 1 - len(categories) if categories is not None else 2
     remaining_themes = 2 - len(themes) if themes is not None else 2
     generate_keywords = True if remaining_keywords > 0 else False
     generate_themes = True if remaining_themes > 0 else False
     generate_categories = True if remaining_categories > 0 else False
+
+    generate_spatial_coverage = False if len(spatial_coverage) > 0 else True
+    generate_temporal_coverage = False if len(temporal_coverage) > 0 else True
 
     template = env.get_template("enrich_metadata.j2")
     prompt = template.render(intro=intro_prompt,
@@ -314,12 +319,14 @@ def enrich_metadata(row: Series, all_keywords: list, all_themes: list, categorie
                              generate_keywords=generate_keywords,
                              all_keywords=", ".join(all_keywords),
                              all_themes=", ".join(all_themes),
-                             categories=", ".join(categories),
+                             all_categories=", ".join(all_categories),
                              remaining_categories=remaining_categories,
                              generate_categories=generate_categories,
                              other_category=other_category,
                              remaining_themes=remaining_themes,
                              generate_themes=generate_themes,
+                             generate_spatial_coverage=generate_spatial_coverage,
+                             generate_temporal_coverage=generate_temporal_coverage,
                              title=title,
                              description=description,
                              themes=", ".join(themes) if themes is not None else "-",
@@ -327,7 +334,14 @@ def enrich_metadata(row: Series, all_keywords: list, all_themes: list, categorie
                              provider=provider,
                              return_json_instructions=return_json_instructions)
     retry = 0
-    metadata_keys = ["keywords", "themes", "categories", "regions", "time_periods"]
+    metadata_keys = ["keywords", "themes", "categories", "spatial_coverage", "temporal_coverage"]
+    if (generate_keywords is False and generate_themes is False and generate_categories is False and
+            generate_spatial_coverage is False and generate_temporal_coverage is False):
+        metadata = {}
+        for k in metadata_keys:
+            metadata[k] = []
+        return metadata
+
     while True:
         metadata_str = ollama.generate(model='mistral-small3.2',
                                    prompt=prompt,
@@ -338,7 +352,10 @@ def enrich_metadata(row: Series, all_keywords: list, all_themes: list, categorie
                                    ).response
         try:
             metadata = json.loads(metadata_str)
-            if all(k in metadata for k in metadata_keys):  # check that all metadata keys are present in the result
+            if all(k in metadata_keys for k in metadata):  # check that all returned keys are actually metadata keys
+                for k in metadata_keys:
+                    if k not in metadata:
+                        metadata[k] = []
                 break
             retry += 1  # the result is missing a key, retry
         except json.decoder.JSONDecodeError as e:
@@ -351,5 +368,4 @@ def enrich_metadata(row: Series, all_keywords: list, all_themes: list, categorie
                     metadata[k] = []
                 break
 
-    # logger.info(metadata)
     return metadata

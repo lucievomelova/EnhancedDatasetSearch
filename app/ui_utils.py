@@ -1,7 +1,5 @@
 from collections import defaultdict
 
-from data_processing.nkod_datasets import NKOD
-
 
 def get_common_metadata(metadata_category_list: list[str], metadata_a: dict, metadata_b: dict) -> dict[str, set[str]]:
     """Get common metadata between two datasets."""
