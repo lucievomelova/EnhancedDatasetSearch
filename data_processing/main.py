@@ -1,12 +1,11 @@
 import os
 
 import yaml
+from data_processing.NKOD.data_catalog import DataCatalog
 from llama_index.core import Settings
 from llama_index.embeddings.ollama import OllamaEmbedding
 from llama_index.llms.ollama import Ollama
 
-from data_processing.NKOD.spatial_and_temporal_data import add_metadata_to_datasets_from_sparql
-from data_processing.dataset_portal import DatasetPortal
 from data_processing.keywords import create_keyword_kg, clustering, get_representatives
 from data_processing.knowledge_graph import create_kg
 from data_processing.NKOD.nkod_data_catalog import NkodDataCatalog
@@ -20,8 +19,7 @@ class DataPreprocessingPipeline:
     def __init__(self, config: dict):
         self.config = config
         self.state_dir = config["state_dir"]
-        self.data_catalog = NkodDataCatalog(config)
-        self.dataset_portal = DatasetPortal(self.data_catalog)
+        self.data_catalog: DataCatalog = NkodDataCatalog(config)
         self.llm = Ollama(model=self.config['llm']['model_name'],
                           context_window=self.config['llm']['context_length'])
         Settings.llm = self.llm
@@ -38,11 +36,11 @@ class DataPreprocessingPipeline:
         if not os.path.exists(self.state_dir):
             os.makedirs(self.state_dir)
 
-        # datasets_documents = self.dataset_portal.get_new_datasets()
-        # self.database.load_documents(datasets_documents)
-        # self.data_catalog.init()
+        datasets_documents = self.data_catalog.prepare_documents_for_upload()
+        self.database.load_documents(datasets_documents)
 
-        create_kg(self.dataset_portal.data_catalog.datasets, self.database, self.config["data_processing"]["knowledge_graph"])
+        # self.data_catalog.init()
+        create_kg(self.data_catalog.datasets, self.database, self.config["data_processing"]["knowledge_graph"])
 
         # create_keyword_kg(self.database, self.dataset_portal._all_keywords, self.rag_config["db"]["embed_dim"])
         # get_representatives()

@@ -4,23 +4,24 @@ data:
     path: "data//datove_sady.csv"
     url: "https://data.gov.cz/soubor/datov%C3%A9-sady.csv"
   datasets:
-#    path: "data/golden/datasets_with_metadata_small.csv"
-    path: "data//datasets_with_metadata_large.csv"
+#    path: "data/golden/datasets_with_metadata_small.json"
+    path: "data//datasets_with_metadata_large.json"
   sparql_endpoint: "https://data.gov.cz/sparql"
 state_dir: "state"
 url: "http://127.0.0.1:5000/"
 db:
   host: "localhost"
   port: 5432
-  document_table: "documents_all_qwen_4b"
-  vector_table: "embeddings_all_qwen_4b"
-  embed_dim: 2560 #4096
+  document_table: "documents_large_better_preprocessing"
+  vector_table: "embeddings_large_better_preprocessing"
+  embed_dim: 4096  # 2560
 embedding:
-  model_name: "qwen3-embedding:4b" #"qwen3-embedding:latest"
+  model_name: "qwen3-embedding:latest"  # "qwen3-embedding:4b"
   base_url: "http://localhost:11434"
   chunk_size: 16192
   chunk_overlap: 50
   embed_batch_size: 100
+  url_to_node_id_mapping_file: "url_to_node_id_mapping.json"
 llm:
   model_name: "mistral-small3.2"
   base_url: "http://localhost:11434"

@@ -24,6 +24,7 @@ class Database:
         db_config = config["db"]
         embedding_config = config["embedding"]
         self.state_dir = state_dir
+        self.url_to_node_id_mapping_file = os.path.join(self.state_dir, config["embedding"]["url_to_node_id_mapping_file"])
         self.vector_store: PGVectorStore = PGVectorStore.from_params(
             database=os.environ['POSTGRES_DB'],
             host=db_config['host'],
@@ -82,7 +83,7 @@ class Database:
                 self.url_to_node_id_mapping[node.ref_doc_id].append(node.node_id)
 
         # save mapping to state
-        with open(os.path.join(self.state_dir, "url_to_node_id_mapping.json"), "w") as f:
+        with open(self.url_to_node_id_mapping_file, "w") as f:
             json.dump(self.url_to_node_id_mapping, f)
 
     def get_similar_datasets_by_embedding(self, dataset_url: str, similarity_threshold: int, k: int) -> dict[str, float]:
@@ -92,7 +93,7 @@ class Database:
             a dict, where keys are similar dataset urls and values are max similarity scores."""
         if self.url_to_node_id_mapping == {}:
             logger.info("Loading url_to_node_mapping from state.")
-            with open(os.path.join(self.state_dir, "url_to_node_id_mapping.json"), "r") as f:
+            with open(self.url_to_node_id_mapping_file, "r") as f:
                 self.url_to_node_id_mapping = json.load(f)
         node_ids = self.url_to_node_id_mapping.get(dataset_url, [])
         nodes = self.vector_store.get_nodes(node_ids=node_ids)

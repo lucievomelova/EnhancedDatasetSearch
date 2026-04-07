@@ -1,19 +1,11 @@
-import asyncio
 import pandas as pd
-from data_processing.NKOD.generic_data_catalog import DataCatalog
 from data_processing.metadata import create_documents
 from llama_index.core import Document
 
-from utils import setup_logger
 
-logger = setup_logger(__name__)
-
-class DatasetPortal:
-    """Representing the Dataset Portal."""
-    def __init__(self, data_catalog: DataCatalog):
-        data_catalog.init()
-        self.data_catalog: DataCatalog = data_catalog
-
+class DataCatalog:
+    def __init__(self):
+        self.datasets: pd.DataFrame = pd.DataFrame()
         """
         Dataset of datasets - contains all information about each dataset in the catalog. One row represents one dataset.
         
@@ -21,16 +13,23 @@ class DatasetPortal:
         keywords, themes, provider, categories, region, time_periods
         """
 
-        # self.all_keywords: list = list(self.datasets["keywords"].explode().dropna().unique())
-        # """List of all keywords present in the datasets metadata."""
-        #
-        # self.all_themes: list = list(self.datasets["themes"].explode().dropna().unique())
-        # """List of all themes present in the datasets metadata."""
+        self.all_keywords: list
+        """List of all keywords present in the datasets metadata."""
 
-    def get_new_datasets(self) -> list[Document]:
-        """Get the list of new datasets as llamaindex documents."""
-        # new_datasets = asyncio.run(self.data_catalog.get_new_datasets())
-        new_datasets = self.data_catalog.datasets  # upload all datasets to db
+        self.all_themes: list
+        """List of all themes present in the datasets metadata."""
+
+    async def get_new_datasets(self) -> pd.DataFrame | None:
+        pass
+
+    def init(self):
+        pass
+
+    def prepare_documents_for_upload(self) -> list[Document]:
+        """Get the list of llamaindex documents that should be uploaded to the knowledge base."""
+        self.init()
+        # new_datasets = asyncio.run(self.get_new_datasets())
+        new_datasets = self.datasets  # upload all datasets to db
         documents = create_documents(new_datasets)
         return documents
 
@@ -54,3 +53,4 @@ class DatasetPortal:
                 'provider': row['provider'] if 'provider' in row and not pd.isna(row['provider']) else '',
             }
         }
+

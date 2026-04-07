@@ -103,7 +103,9 @@ def dataset_detail(dataset_url):
                     # first sentence still too long or there is no "." char in the description
                     if len(text_preview) > 200 or len(text_preview) == 0:
                         index = sim_dataset['text'][:200].rfind(" ")
-                        text_preview = sim_dataset['text'][:index] + "..."
+                        text_preview = sim_dataset['text'][:index]
+                        if len(text_preview) > 0:
+                            text_preview += "..."  # if the preview is not empty, show it was cut off by appending ...
                 similar_dataset_info = {
                     'title': sim_dataset['title'],
                     'url': url,

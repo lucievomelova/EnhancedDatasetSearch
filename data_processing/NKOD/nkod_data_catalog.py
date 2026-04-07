@@ -13,7 +13,7 @@ import pandas as pd
 import requests
 import os
 
-from data_processing.NKOD.generic_data_catalog import DataCatalog
+from data_processing.NKOD.data_catalog import DataCatalog
 from data_processing.NKOD.spatial_and_temporal_data import add_metadata_to_datasets_from_sparql
 from llama_index.core import Document
 from pandas import Series
@@ -106,16 +106,12 @@ class NkodDataCatalog(DataCatalog):
             self.datasets = pd.DataFrame()
         else:
             logger.info("Loading datasets file.")
-            list_columns = ["keywords", "themes", "categories", "spatial_coverage", "temporal_coverage"]
-            self.datasets = pd.read_csv(self._data_config["datasets_path"], sep=",",
-                                           converters={col: pd.eval for col in list_columns})
-
-        pass
+            self.datasets = pd.read_json(self._data_config["datasets_path"], orient="split")
 
     def _load_datasets_raw(self) -> None:
         """Load the raw NKOD dataset of datasets.
 
-        Check if csv file exists and is up to date - if not, download it again, load it and return the loaded df."""
+        Check if csv file exists and is up to date - if not, download it again and load it."""
         today = datetime.today().date()
         if os.path.exists(self._data_config["datasets_raw_path"]):
             logger.info("File datasets_raw exists.")
@@ -236,19 +232,23 @@ class NkodDataCatalog(DataCatalog):
                 new_rows = await self.create_metadata_for_chunk(chunk)
                 new_rows_df = pd.DataFrame(new_rows)
 
-                # store the results in a csv file
+                # store the results as csv, because json doesnt have an append option
                 if not os.path.exists(self._data_config["datasets_path"]):
                     logger.info("Creating csv file for datasets.")
                     new_rows_df.to_csv(self._data_config["datasets_path"], index=False, header=True)
                 else:
                     new_rows_df.to_csv(self._data_config["datasets_path"], index=False, header=False, mode="a")
 
-        self._load_datasets()  # load from csv that we were gradually writing to
+        # load the csv that we were gradually writing to and store it in json, so that it can be
+        # loaded faster in subsequent loads, because we dont have to use pd converters for list columns
+        list_columns = ["keywords", "themes", "categories", "spatial_coverage", "temporal_coverage"]
+        self.datasets = pd.read_csv(self._data_config["datasets_path"], sep=",",
+                                           converters={col: pd.eval for col in list_columns})
 
         # validate that each list column truly contains a list - otherwise convert it to empty list
-        list_columns = ["keywords", "themes", "categories", "spatial_coverage", "temporal_coverage"]
         for col in list_columns:
             self.datasets[col] = self.datasets[col].apply(lambda x: x if isinstance(x, list) else [])
+        self.datasets.to_json(self._data_config["datasets_path"], orient="split", force_ascii=False)
 
         # metadata cleaning for the preprocessed datasets
         preprocess_temporal_coverage(self.datasets)

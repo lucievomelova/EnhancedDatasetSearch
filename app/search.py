@@ -41,8 +41,8 @@ class SearchEngine:
     async def search(self, user_query: str, extended_query: str | None = None, filters: dict | None = None) -> list[NodeWithScore]:
         """Search for relevant datasets."""
 
-        logger.info(f"Searching - query: {user_query}")
-        nodes = await self.retriever.aretrieve(f'{user_query}')
+        logger.info(f"Searching - query: {user_query} + extended query: {extended_query}")
+        nodes = await self.retriever.aretrieve(f'{user_query}, {extended_query}')
         node_ids = [n.id_ for n in nodes]
         logger.info(f"Retrieved {len(node_ids)} nodes.")
 

@@ -48,7 +48,7 @@ class SearchPipeline:
                                                           self.config["data_processing"]["categories"],
                                                           self.config["data_processing"]["other_category"])
         search_engine = SearchEngine(self.config["pipeline_config"]["search"], self.index, self.database.document_store)
-        search_results = await search_engine.search(extended_query, extended_query)
+        search_results = await search_engine.search(query, extended_query)
         postprocessor = PostProcessor(self.config["pipeline_config"]["postprocessing"])
         nodes = postprocessor.run(query, extended_query, search_results, intent)
         if nodes is not None:
