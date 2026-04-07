@@ -13,6 +13,10 @@ from urllib.parse import unquote
 
 from data_processing.knowledge_graph import get_similar_datasets
 from app.ui_utils import get_common_metadata
+from llama_index.core import Settings
+from llama_index.core.base.llms.types import ChatMessage
+from llama_index.embeddings.ollama import OllamaEmbedding
+from llama_index.llms.ollama import Ollama
 
 nest_asyncio.apply()  # allow nested event loops - each pipeline run would create a new event loop otherwise
 loop = asyncio.new_event_loop()
@@ -23,6 +27,14 @@ app.secret_key = os.environ['SECRET_KEY']
 
 with open("config.yaml", "r") as f:
     config = yaml.safe_load(f)
+
+Settings.llm = Ollama(model=config['chatbot']['llm']['model_name'], context_window=config['chatbot']['llm']['context_length'],
+                  request_timeout=300)
+Settings.embed_model = OllamaEmbedding(
+    model_name=config['embedding']['model_name'],
+    base_url=config['embedding']['base_url'],
+    embed_batch_size=config['embedding']['embed_batch_size'],
+)
 
 # lazy initialization to avoid event loop issues
 search_pipeline = None
@@ -44,7 +56,7 @@ def get_chatbot():
     # create a new chatbot instance for this session if it doesn't exist
     if session_id not in chatbot_instances:
         pipeline = get_search_pipeline()
-        chatbot_instances[session_id] = Chatbot(config, pipeline)
+        chatbot_instances[session_id] = Chatbot(config, pipeline, Settings.llm)
     
     return chatbot_instances[session_id]
 
@@ -80,7 +92,7 @@ def dataset_detail(dataset_url):
     """Display detailed view of a specific dataset by looking it up in extended_df."""
     dataset_url = unquote(dataset_url)
     pipeline = get_search_pipeline()
-    dataset_info = pipeline.dataset_portal.get_dataset_by_url(dataset_url)
+    dataset_info = pipeline.data_catalog.get_dataset_by_url(dataset_url)
 
     if not dataset_info:
         return redirect(url_for('home'))
@@ -91,7 +103,7 @@ def dataset_detail(dataset_url):
     for sim_category, url_score_list in similar_datasets_raw.items():
         similar_datasets[sim_category] = []
         for url, _ in url_score_list:
-            sim_dataset = pipeline.dataset_portal.get_dataset_by_url(url)
+            sim_dataset = pipeline.data_catalog.get_dataset_by_url(url)
             if sim_dataset:
                 text_preview = ""
                 if pd.notna(sim_dataset['text']):
@@ -135,6 +147,7 @@ def reset_chatbot():
     if 'session_id' in session:
         session_id = session['session_id']
         if session_id in chatbot_instances:
+            del chatbot_instances[session_id]
             chatbot_instances[session_id] = Chatbot(config, get_search_pipeline())
 
     return jsonify({'success': True, 'message': 'Chatbot memory cleared.'})

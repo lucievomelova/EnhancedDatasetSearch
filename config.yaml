@@ -23,7 +23,7 @@ embedding:
   embed_batch_size: 100
   url_to_node_id_mapping_file: "url_to_node_id_mapping.json"
 llm:
-  model_name: "mistral-small3.2"
+  model_name: "mistral-small3.2:latest"
   base_url: "http://localhost:11434"
   context_length: 30000
   memory_limit: 8192
@@ -31,8 +31,8 @@ chatbot:
   llm:
     model_name: "mistral-small3.2"
     base_url: "http://localhost:11434"
-    context_length: 65000
-    memory_limit: 65000
+    context_length: 1024
+    memory_limit: 1024
 pipeline_config:
   preprocessing:
     detect_intent: true

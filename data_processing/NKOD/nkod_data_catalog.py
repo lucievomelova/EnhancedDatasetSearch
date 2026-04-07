@@ -45,8 +45,6 @@ def download_df(path: str, url: str) -> pd.DataFrame:
 
 
 
-
-
 class NkodDataCatalog(DataCatalog):
     """Class for handling NKOD datasets."""
 
@@ -87,11 +85,26 @@ class NkodDataCatalog(DataCatalog):
             "datasets_path": config["data"]["datasets"]["path"],
         }
 
-        self._all_keywords: list | None = None
+        self.all_keywords: list | None = None
         """List of all keywords present in the datasets metadata."""
 
-        self._all_themes: list | None = None
+        self.all_themes: list | None = None
         """List of all themes present in the datasets metadata."""
+
+        self.all_categories: list = self._data_processing_config["categories"]
+        """List of all categories."""
+
+        self.all_providers: list | None = None
+        """List of all providers of datasets at NKOD."""
+
+        self.all_spatial_coverages: list | None = None
+        """List of all spatial_coverages used in the datasets."""
+
+        self.all_temporal_coverages: list | None = None
+        """List of all temporal coverages used in the datasets."""
+
+        self.all_categories_with_other_category = self.all_categories + [self._data_processing_config["other_category"]]
+        """List of all categories including "other" category used when a dataset does not belong into any category."""
 
         self._all_keywords_raw: list | None = None
         """List of all keywords present in datasets_raw."""
@@ -107,6 +120,12 @@ class NkodDataCatalog(DataCatalog):
         else:
             logger.info("Loading datasets file.")
             self.datasets = pd.read_json(self._data_config["datasets_path"], orient="split")
+
+        self.all_keywords = list(self.datasets["keywords"].explode().dropna().unique())
+        self.all_themes = list(self.datasets["themes"].explode().dropna().unique())
+        self.all_providers = list(self.datasets["provider"].dropna().unique())
+        self.all_spatial_coverages = list(self.datasets["spatial_coverage"].explode().dropna().unique())
+        self.all_temporal_coverages = list(self.datasets["temporal_coverage"].explode().dropna().unique())
 
     def _load_datasets_raw(self) -> None:
         """Load the raw NKOD dataset of datasets.

@@ -28,15 +28,8 @@ logging.getLogger("httpx").setLevel(logging.DEBUG)
 class SearchPipeline:
     def __init__(self, config: dict):
         self.config = config
-        self.dataset_portal = NkodDataCatalog(config)
-        self.dataset_portal.init()
-        self.llm = Ollama(model=self.config['llm']['model_name'], context_window=self.config['llm']['context_length'])
-        Settings.llm = self.llm
-        Settings.embed_model = OllamaEmbedding(
-            model_name=self.config['embedding']['model_name'],
-            base_url=self.config['embedding']['base_url'],
-            embed_batch_size=self.config['embedding']['embed_batch_size'],
-        )
+        self.data_catalog = NkodDataCatalog(config)
+        self.data_catalog.init()
         self.database = Database(self.config, self.config["state_dir"])
         self.index = self.database.index
 

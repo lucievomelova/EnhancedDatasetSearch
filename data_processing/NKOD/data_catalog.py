@@ -13,11 +13,26 @@ class DataCatalog:
         keywords, themes, provider, categories, region, time_periods
         """
 
-        self.all_keywords: list
+        self.all_keywords: list | None = None
         """List of all keywords present in the datasets metadata."""
 
-        self.all_themes: list
+        self.all_themes: list | None = None
         """List of all themes present in the datasets metadata."""
+
+        self.all_categories: list
+        """List of all categories."""
+
+        self.all_providers: list | None = None
+        """List of all providers of datasets at NKOD."""
+
+        self.all_spatial_coverages: list | None = None
+        """List of all spatial_coverages used in the datasets."""
+
+        self.all_temporal_coverages: list | None = None
+        """List of all temporal coverages used in the datasets."""
+
+        self.all_categories_with_other_category: list
+        """List of all categories including "other" category used when a dataset does not belong into any category."""
 
     async def get_new_datasets(self) -> pd.DataFrame | None:
         pass

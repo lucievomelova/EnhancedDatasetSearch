@@ -27,7 +27,7 @@ def setup_logger(name: str = 'app', level=logging.INFO):
     return logger
 
 
-def render_template(filename: str, args: dict, include_intro: bool = True, include_return_instructions: bool = True) -> str:
+def render_template(filename: str, args: dict = {}, include_intro: bool = True, include_return_instructions: bool = True) -> str:
     """Prepare a prompt from jinja template."""
 
     if include_intro:
