@@ -93,25 +93,6 @@ def extract_year_from_date(time_periods: list[str]) -> list[str]:
         new_time_periods.add(time_period)
     return list(new_time_periods)
 
-def year_range_to_year_list(time_periods: list[str]) -> list[str]:
-    """Extract concrete years from a range of years.
-
-    If the time period is e.g. 2022-2025, we want to have a list [2022, 2023, 2024, 2025]"""
-    pattern =  r'(\d{4})\s*-\s*(\d{4})'
-    new_time_periods = []
-    for time_period in time_periods:
-        match = re.search(pattern, time_period)
-        if match:
-            start_year = int(match.group(1))
-            end_year = int(match.group(2))
-            if end_year < start_year:
-                start_year, end_year = end_year, start_year
-            year_range = list(range(start_year, end_year + 1))
-            new_time_periods.extend([str(year) for year in year_range])
-        else:
-            new_time_periods.append(time_period)
-    return new_time_periods
-
 
 def preprocess_temporal_coverage(datasets: pd.DataFrame) -> None:
     """Preprocess temporal coverage column."""
@@ -123,13 +104,8 @@ def preprocess_temporal_coverage(datasets: pd.DataFrame) -> None:
     all_periods = datasets["temporal_coverage"].explode().dropna().unique()
     logger.info(f"Extracted years from time periods. Number of unique time periods: {len(all_periods)}")
 
-    datasets["temporal_coverage"] = datasets["temporal_coverage"].apply(
-        lambda temporal_coverage: year_range_to_year_list(temporal_coverage)
-    )
     all_periods = datasets["temporal_coverage"].explode().dropna().unique()
     logger.info(f"Expanded year ranges into individual years. Number of unique time periods: {len(all_periods)}")
-
-
 
 
 def preprocess_keywords_and_themes(datasets: pd.DataFrame, model_name: str, state_dir: str) -> None:
@@ -212,7 +188,7 @@ def preprocess_keywords_and_themes(datasets: pd.DataFrame, model_name: str, stat
         logger.info(f"Merged. Number of words: {len(all_words)}")
 
 def replace_nonfrequent_keywords_with_cluster_representatives(datasets: pd.DataFrame, model_name: str, state_dir: str) -> None:
-    """Some keywords occur only once - replace tehm with other representative keywords."""
+    """Some keywords occur only once - replace them with other representative keywords."""
 
     word_counts = datasets["keywords"].explode().value_counts()
     single_occurence_words = word_counts[word_counts <= 1].index.tolist()

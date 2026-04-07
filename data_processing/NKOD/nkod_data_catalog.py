@@ -58,6 +58,7 @@ class NkodDataCatalog(DataCatalog):
         self._download_new_data: bool = False
         self._always_download_new_data: bool = False  # TODO just for debugging
         self._update_datasets: bool = True
+        self._run_preprocessing: bool = False  # TODO just for debugging
 
         self.config = config
 
@@ -108,33 +109,34 @@ class NkodDataCatalog(DataCatalog):
             list_columns = ["keywords", "themes", "categories", "spatial_coverage", "temporal_coverage"]
             self.datasets = pd.read_csv(self._data_config["datasets_path"], sep=",",
                                            converters={col: pd.eval for col in list_columns})
+
         pass
 
     def _load_datasets_raw(self) -> None:
-        """Load the NKOD super dataset.
+        """Load the raw NKOD dataset of datasets.
 
         Check if csv file exists and is up to date - if not, download it again, load it and return the loaded df."""
         today = datetime.today().date()
         if os.path.exists(self._data_config["datasets_raw_path"]):
-            logger.info("File exists")
+            logger.info("File datasets_raw exists.")
             mod_time = os.path.getmtime(self._data_config["datasets_raw_path"])
             mod_datetime = datetime.fromtimestamp(mod_time)
             if mod_datetime.date() != today:
-                logger.info("Not modified today")
+                logger.info("Not modified today.")
                 # if the file is outdated, save a copy -> later compare the old and new df to find new / updated rows
                 self._old_datasets_raw = pd.read_csv(self._data_config["datasets_raw_path"], sep=",", dtype="string")
                 self._old_datasets_raw.to_csv(self._data_config["old_datasets_raw_path"], index=False)
         if not os.path.exists(self._data_config["datasets_raw_path"]) or mod_datetime.date() != today:
             self.datasets_raw = download_df(self._data_config["datasets_raw_path"], self._data_config["datasets_raw_url"])
         else:
-            logger.info("File is up to date, loading from disk.")
+            logger.info("File datasets_raw is up to date, loading from disk.")
             self.datasets_raw = pd.read_csv(self._data_config["datasets_raw_path"], sep=",", dtype="string")
             # self.db_up_to_date = True
 
         self.datasets_raw = self.datasets_raw.rename(columns=self._column_mapping)  # rename columns based on column mapping
         if self._old_datasets_raw is not None:
             self._old_datasets_raw = self._old_datasets_raw.rename(columns=self._column_mapping)
-        logger.info("Dataset info loaded.")
+        logger.info("Raw dataset info loaded.")
 
 
     def _merge_dataset_rows_into_one_row(self) -> None:
@@ -176,29 +178,29 @@ class NkodDataCatalog(DataCatalog):
 
     def init(self):
         """Initialize the NKOD class - datasets_raw, datasets, all_keywords, all_themes."""
-        if self._always_download_new_data:
+        if self._always_download_new_data:  # TODO debug option
             self.datasets_raw = download_df(self._data_config["datasets_raw_path"], self._data_config["datasets_raw_url"])
             self.datasets_raw = self.datasets_raw.rename(columns=self._column_mapping)  # rename columns based on column mapping
-            logger.info("Dataset info loaded.")
+            logger.info("Raw dataset info loaded.")
         elif self._download_new_data:
             self._load_datasets_raw()
         else:  # TODO this is just for debugging, old file should not be used
-            logger.info("Using old dataset file, loading from disk - DEBUG OPTION.")
+            logger.info("Using old datasets_raw file, loading from disk - DEBUG OPTION.")
             self.datasets_raw = pd.read_csv(self._data_config["datasets_raw_path"], sep=",", dtype="string")
             self.datasets_raw = self.datasets_raw.rename(columns=self._column_mapping)  # rename columns based on column mapping
             # self.db_up_to_date = True
 
-        # todo now for debugging we use preprocessed file
-        self._merge_dataset_rows_into_one_row()
-        self._preprocess_metadata()
-        add_metadata_to_datasets_from_sparql(self.config, self.datasets_raw)
-        self._load_datasets()
+        if self._run_preprocessing:  # TODO debug option, to skip datasets_raw preprocessing
+            self._merge_dataset_rows_into_one_row()
+            self._preprocess_metadata()
+            add_metadata_to_datasets_from_sparql(self.config, self.datasets_raw)
 
-        # metadata cleaned -> find all unique keywords and themes, which will be used for metadata enrichment
-        self._all_keywords_raw = list(self.datasets_raw["keywords"].explode().dropna().unique())
-        logger.info(f"Number of unique keywords in datasets_raw: {len(self._all_keywords_raw)}")
-        self._all_themes_raw = list(self.datasets_raw["themes"].explode().dropna().unique())
-        logger.info(f"Number of unique themes in datasets_raw: {len(self._all_themes_raw)}")
+            # metadata cleaned -> find all unique keywords and themes, which will be used for metadata enrichment
+            self._all_keywords_raw = list(self.datasets_raw["keywords"].explode().dropna().unique())
+            logger.info(f"Number of unique keywords in datasets_raw: {len(self._all_keywords_raw)}")
+            self._all_themes_raw = list(self.datasets_raw["themes"].explode().dropna().unique())
+            logger.info(f"Number of unique themes in datasets_raw: {len(self._all_themes_raw)}")
+        self._load_datasets()
 
 
     async def get_new_datasets(self) -> pd.DataFrame:

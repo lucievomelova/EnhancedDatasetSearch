@@ -1,8 +1,11 @@
 import asyncio
+import os
+
 import nest_asyncio
 import pandas as pd
+import uuid
 
-from flask import Flask, render_template, request, redirect, url_for, jsonify
+from flask import Flask, render_template, request, redirect, url_for, jsonify, session
 from app.pipeline import SearchPipeline
 from app.chatbot import Chatbot
 import yaml
@@ -16,13 +19,14 @@ loop = asyncio.new_event_loop()
 asyncio.set_event_loop(loop)  # single event loop for the whole app
 
 app = Flask(__name__)
+app.secret_key = os.environ['SECRET_KEY']
 
 with open("config.yaml", "r") as f:
     config = yaml.safe_load(f)
 
 # lazy initialization to avoid event loop issues
 search_pipeline = None
-chatbot_instance = None
+chatbot_instances = {}  # dictionary to store chatbot instances per session
 
 def get_search_pipeline():
     global search_pipeline
@@ -31,14 +35,20 @@ def get_search_pipeline():
     return search_pipeline
 
 def get_chatbot():
-    global chatbot_instance
-    if chatbot_instance is None:
+    """Get or create a chatbot instance for the current session."""
+    if 'session_id' not in session:
+        session['session_id'] = str(uuid.uuid4())
+    
+    session_id = session['session_id']
+    
+    # create a new chatbot instance for this session if it doesn't exist
+    if session_id not in chatbot_instances:
         pipeline = get_search_pipeline()
-        chatbot_instance = Chatbot(config, pipeline)
-    return chatbot_instance
+        chatbot_instances[session_id] = Chatbot(config, pipeline)
+    
+    return chatbot_instances[session_id]
 
 search_pipeline = get_search_pipeline()
-chatbot_instance = get_chatbot()
 
 
 @app.route('/', methods=['GET', 'POST'])
@@ -86,18 +96,14 @@ def dataset_detail(dataset_url):
                 text_preview = ""
                 if pd.notna(sim_dataset['text']):
                     print(sim_dataset['text'])
-                    text_preview = sim_dataset['text'][:sim_dataset['text'].find(".")+1]
-                    if len(text_preview) > 200:  # we dont want too long description text preview
-                        index = text_preview[:200].rfind(" ")
-                        text_preview = text_preview[:index] + "..."
-                    elif len(text_preview) == 0:
+                    text_preview = sim_dataset['text']
+                    if len(text_preview) > 200:  # too long description text preview -> take just first sentence
+                        text_preview = sim_dataset['text'][:sim_dataset['text'].find(".")+1]
+
+                    # first sentence still too long or there is no "." char in the description
+                    if len(text_preview) > 200 or len(text_preview) == 0:
                         index = sim_dataset['text'][:200].rfind(" ")
-                        text_preview = sim_dataset['text'][:index]
-                        if len(sim_dataset['text']) > 200:
-                            index = sim_dataset['text'][:200].rfind(" ")
-                            text_preview = sim_dataset['text'][:index] + "..."
-                        else:
-                            text_preview = sim_dataset['text']
+                        text_preview = sim_dataset['text'][:index] + "..."
                 similar_dataset_info = {
                     'title': sim_dataset['title'],
                     'url': url,
@@ -119,6 +125,17 @@ def dataset_detail(dataset_url):
 def chatbot():
     """Display the chatbot page."""
     return render_template("chatbot.html")
+
+
+@app.route('/chatbot/reset', methods=['POST'])
+def reset_chatbot():
+    """Reset the chatbot memory for the current session."""
+    if 'session_id' in session:
+        session_id = session['session_id']
+        if session_id in chatbot_instances:
+            chatbot_instances[session_id] = Chatbot(config, get_search_pipeline())
+
+    return jsonify({'success': True, 'message': 'Chatbot memory cleared.'})
 
 
 @app.route('/chatbot/query', methods=['POST'])

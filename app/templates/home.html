@@ -5,8 +5,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dataset Search</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='styles/styles.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles/loading.css') }}">
 </head>
 <body class="home-page">
+    <!-- Display loading circle -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-spinner">
+            <div class="spinner"></div>
+            <div class="loading-text">Searching</div>
+        </div>
+    </div>
+
     <div class="language-selector">
         <select id="language" name="language" class="language-dropdown">
             <option value="en">🇬🇧</option>
@@ -17,7 +26,7 @@
     <div class="container">
         <h1 class="title">Dataset Search</h1>
 
-        <form method="POST" action="/search" class="search-form">
+        <form method="POST" action="/search" class="search-form" id="searchForm">
             <div class="search-container">
                 <input
                     type="text"
@@ -40,5 +49,15 @@
     </div>
 
     {% include 'footer.html' %}
+
+    <script>
+        // Show loading overlay on form submit
+        document.getElementById('searchForm').addEventListener('submit', function() {
+            const overlay = document.getElementById('loadingOverlay');
+            if (overlay) {
+                overlay.classList.add('active');
+            }
+        });
+    </script>
 </body>
 </html>
