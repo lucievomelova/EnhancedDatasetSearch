@@ -6,24 +6,21 @@ data:
   datasets:
 #    path: "data/golden/datasets_with_metadata_small.csv"
     path: "data//datasets_with_metadata_large.csv"
-  distribution:
-    path: "data/distribuce.csv"
-    url: "https://data.gov.cz/soubor/distribuce.csv"
   sparql_endpoint: "https://data.gov.cz/sparql"
 state_dir: "state"
 url: "http://127.0.0.1:5000/"
 db:
   host: "localhost"
   port: 5432
-  document_table: "documents_large_better_preprocessing"
-  vector_table: "embeddings_large_better_preprocessing"
-  embed_dim: 4096
+  document_table: "documents_all_qwen_4b"
+  vector_table: "embeddings_all_qwen_4b"
+  embed_dim: 2560 #4096
 embedding:
-  model_name: "qwen3-embedding"
+  model_name: "qwen3-embedding:4b" #"qwen3-embedding:latest"
   base_url: "http://localhost:11434"
   chunk_size: 16192
   chunk_overlap: 50
-  embed_batch_size: 200
+  embed_batch_size: 100
 llm:
   model_name: "mistral-small3.2"
   base_url: "http://localhost:11434"

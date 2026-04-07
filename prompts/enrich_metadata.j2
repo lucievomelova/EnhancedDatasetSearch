@@ -13,7 +13,7 @@ If none of the provided keywords are appropriate, you can generate 1 new keyword
 
 {% if generate_themes %}## Theme
 The dataset already has assigned the following themes: {{ themes }}.
-Assign at most {{ remaining_themes }} themes that best categorize the dataset.
+Assign at most {{ remaining_themes }} different themes that best categorize the dataset.
 Pick the most relevant themes from this list: {{ all_themes }}
 
 Only include themes that are really relevant. If none of the provided themes are appropriate,
@@ -55,11 +55,11 @@ Description: {{ description }}
 ## Output Instructions
 Return the metadata in the following JSON format:
 {
-    {% if generate_keywords %}"keywords": [list of keywords (in Czech)],{% endif %}
-    {% if generate_themes %}"themes": [list of themes (in Czech)],{% endif %}
-    {% if generate_categories %}"categories": [list of categories (in Czech)],{% endif %}
-    {% if generate_spatial_coverage %}"spatial_coverage": [list of regions (in Czech)],{% endif %}
-    {% if generate_temporal_coverage %}"temporal_coverage": [list of time periods (in Czech)]{% endif %}
+    {% if generate_keywords %}"keywords": [list of assigned keywords (in Czech)],{% endif %}
+    {% if generate_themes %}"themes": [list of assigned themes (in Czech)],{% endif %}
+    {% if generate_categories %}"categories": [list of assigned categories (in Czech)],{% endif %}
+    {% if generate_spatial_coverage %}"spatial_coverage": [list of assigned spatial coverage (in Czech)],{% endif %}
+    {% if generate_temporal_coverage %}"temporal_coverage": [list of assigned temporal coverage (in Czech)]{% endif %}
 }
 
 {{ return_json_instructions }}

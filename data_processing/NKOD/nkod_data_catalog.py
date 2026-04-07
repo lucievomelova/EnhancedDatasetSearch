@@ -243,6 +243,11 @@ class NkodDataCatalog(DataCatalog):
 
         self._load_datasets()  # load from csv that we were gradually writing to
 
+        # validate that each list column truly contains a list - otherwise convert it to empty list
+        list_columns = ["keywords", "themes", "categories", "spatial_coverage", "temporal_coverage"]
+        for col in list_columns:
+            self.datasets[col] = self.datasets[col].apply(lambda x: x if isinstance(x, list) else [])
+
         # metadata cleaning for the preprocessed datasets
         preprocess_temporal_coverage(self.datasets)
         clean_metadata(self.datasets, self._data_processing_config["categories"],

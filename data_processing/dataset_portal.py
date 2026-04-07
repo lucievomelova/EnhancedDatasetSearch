@@ -29,7 +29,8 @@ class DatasetPortal:
 
     def get_new_datasets(self) -> list[Document]:
         """Get the list of new datasets as llamaindex documents."""
-        new_datasets = asyncio.run(self.data_catalog.get_new_datasets())
+        # new_datasets = asyncio.run(self.data_catalog.get_new_datasets())
+        new_datasets = self.data_catalog.datasets  # upload all datasets to db
         documents = create_documents(new_datasets)
         return documents
 

@@ -74,7 +74,7 @@ class Database:
     def load_documents(self, new_documents: list[Document]) -> None:
         """Load documents from data_df into the database."""
         logger.info("Ingestion pipeline created. Loading %d new documents to RAG DB.", len(new_documents))
-        nodes = self.pipeline.run(documents=new_documents, show_progress=True)
+        nodes = self.pipeline.run(documents=new_documents, show_progress=True, num_workers=8)
         for node in nodes:
             if node.ref_doc_id not in self.url_to_node_id_mapping:
                 self.url_to_node_id_mapping[node.ref_doc_id] = [node.node_id]
@@ -90,7 +90,10 @@ class Database:
 
         Returns:
             a dict, where keys are similar dataset urls and values are max similarity scores."""
-
+        if self.url_to_node_id_mapping == {}:
+            logger.info("Loading url_to_node_mapping from state.")
+            with open(os.path.join(self.state_dir, "url_to_node_id_mapping.json"), "r") as f:
+                self.url_to_node_id_mapping = json.load(f)
         node_ids = self.url_to_node_id_mapping.get(dataset_url, [])
         nodes = self.vector_store.get_nodes(node_ids=node_ids)
         similar_nodes = {}

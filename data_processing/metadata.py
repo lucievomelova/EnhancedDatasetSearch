@@ -272,6 +272,7 @@ def create_documents(datasets: pd.DataFrame) -> list[Document]:
     descriptions = datasets["description"]
     datasets = datasets.where(datasets.notna(), None)
     metadata_df = datasets.drop(columns="description").to_dict(orient="records")
+    logger.info(f"Creating {len(datasets)} llamaindex Documents.")
 
     for description, metadata in zip(descriptions, metadata_df):
         text = f"""
@@ -282,8 +283,8 @@ def create_documents(datasets: pd.DataFrame) -> list[Document]:
             Klíčová slova: {metadata['keywords']}
             Témata: {metadata['themes']}
             Kategorie: {metadata['categories']}
-            Region" : {metadata['spatial_coverage']}
-            Časová období: {metadata['temporal_coverage']}
+            Prostorové pokrytí": {metadata['spatial_coverage']}
+            Časové pokrytí: {metadata['temporal_coverage']}
         """
         document = Document(text=text, metadata=metadata, id_=metadata["url"])
         documents.append(document)
@@ -303,27 +304,29 @@ def enrich_metadata(row: Series, all_keywords: list, all_themes: list, all_categ
     spatial_coverage = row['spatial_coverage']
     temporal_coverage = row['temporal_coverage']
 
-    remaining_keywords = 3 - len(keywords) if keywords is not None else 3
-    remaining_categories = 1 - len(categories) if categories is not None else 2
-    remaining_themes = 2 - len(themes) if themes is not None else 2
-    generate_keywords = True if remaining_keywords > 0 else False
-    generate_themes = True if remaining_themes > 0 else False
-    generate_categories = True if remaining_categories > 0 else False
+    num_remaining = {
+        "keywords": 3 - len(keywords) if keywords is not None else 3,
+        "categories": 1 - len(categories) if categories is not None else 2,
+        "themes": 2 - len(themes) if themes is not None else 2
+    }
+    generate_keywords = True if num_remaining["keywords"] > 0 else False
+    generate_themes = True if num_remaining["themes"] > 0 else False
+    generate_categories = True if num_remaining["categories"] > 0 else False
 
     generate_spatial_coverage = False if len(spatial_coverage) > 0 else True
     generate_temporal_coverage = False if len(temporal_coverage) > 0 else True
 
     template = env.get_template("enrich_metadata.j2")
     prompt = template.render(intro=intro_prompt,
-                             remaining_keywords=remaining_keywords,
+                             remaining_keywords=num_remaining["keywords"],
                              generate_keywords=generate_keywords,
                              all_keywords=", ".join(all_keywords),
                              all_themes=", ".join(all_themes),
                              all_categories=", ".join(all_categories),
-                             remaining_categories=remaining_categories,
+                             remaining_categories=num_remaining["categories"],
                              generate_categories=generate_categories,
                              other_category=other_category,
-                             remaining_themes=remaining_themes,
+                             remaining_themes=num_remaining["themes"],
                              generate_themes=generate_themes,
                              generate_spatial_coverage=generate_spatial_coverage,
                              generate_temporal_coverage=generate_temporal_coverage,
@@ -350,10 +353,16 @@ def enrich_metadata(row: Series, all_keywords: list, all_themes: list, all_categ
                                        "temperature": 0
                                    }
                                    ).response
+        metadata = {}
         try:
             metadata = json.loads(metadata_str)
             if all(k in metadata_keys for k in metadata):  # check that all returned keys are actually metadata keys
-                for k in metadata_keys:
+                # check that the model did not generate more metadata than we specified
+                for k in num_remaining.keys():
+                    if len(metadata[k]) > num_remaining[k]:
+                        retry += 1
+                        continue
+                for k in metadata_keys:  # fill in missing values with empty lists
                     if k not in metadata:
                         metadata[k] = []
                 break
@@ -362,10 +371,11 @@ def enrich_metadata(row: Series, all_keywords: list, all_themes: list, all_categ
             retry += 1
             logger.error(f"Error: {e}. Retrying...")
             if retry >= 3:
-                # if the llm cannot generate correct json format, return empty metadata to avoid blocking the pipeline
-                metadata = {}
+                # if the llm keeps making mistakes, fill problematic metadata categories with emty list and
+                # return it to avoid blocking the pipeline
                 for k in metadata_keys:
-                    metadata[k] = []
+                    if k not in metadata:
+                        metadata[k] = []
                 break
 
     return metadata
