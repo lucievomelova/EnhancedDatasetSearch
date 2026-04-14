@@ -31,8 +31,8 @@ chatbot:
   llm:
     model_name: "mistral-small3.2"
     base_url: "http://localhost:11434"
-    context_length: 1024
-    memory_limit: 1024
+    context_length: 4096
+    memory_limit: 4096
 pipeline_config:
   preprocessing:
     detect_intent: true
@@ -61,7 +61,6 @@ data_processing:
     klíčová_slova: keywords
     téma: themes
     poskytovatel: provider
-    právní_předpis: legal_regulations
     prostorové_pokrytí: spatial_coverage
     časové_pokrytí: temporal_coverage
   unwanted_columns:

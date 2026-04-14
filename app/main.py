@@ -28,8 +28,9 @@ app.secret_key = os.environ['SECRET_KEY']
 with open("config.yaml", "r") as f:
     config = yaml.safe_load(f)
 
-Settings.llm = Ollama(model=config['chatbot']['llm']['model_name'], context_window=config['chatbot']['llm']['context_length'],
+llm = Ollama(model=config['chatbot']['llm']['model_name'], context_window=config['chatbot']['llm']['context_length'],
                   request_timeout=300)
+Settings.llm = llm
 Settings.embed_model = OllamaEmbedding(
     model_name=config['embedding']['model_name'],
     base_url=config['embedding']['base_url'],
@@ -43,7 +44,7 @@ chatbot_instances = {}  # dictionary to store chatbot instances per session
 def get_search_pipeline():
     global search_pipeline
     if search_pipeline is None:
-        search_pipeline = SearchPipeline(config)
+        search_pipeline = SearchPipeline(config, llm)
     return search_pipeline
 
 def get_chatbot():
@@ -56,7 +57,7 @@ def get_chatbot():
     # create a new chatbot instance for this session if it doesn't exist
     if session_id not in chatbot_instances:
         pipeline = get_search_pipeline()
-        chatbot_instances[session_id] = Chatbot(config, pipeline, Settings.llm)
+        chatbot_instances[session_id] = Chatbot(config, pipeline, llm)
     
     return chatbot_instances[session_id]
 

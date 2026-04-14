@@ -1,24 +1,23 @@
 {{ intro }}
 
 # Input
-The user has provided the following search query: "{{ user_query }}".
+The user query: "{{ user_query }}".
 
 ## Detected User Intent
 You know that the user is looking for data with the following intent:
 - Categories: {{ categories_intent }}
-- Geographical regions: {{ regions_intent }}
-- Time Periods: {{ time_periods_intent }}
+- Spatial coverage: {{ regions_intent }}
+- Temporal coverage: {{ time_periods_intent }}
 
 # Your Task
-Rewrite the search query to improve its effectiveness for searching datasets in the catalogue.
+Expand the search query to improve its effectiveness for searching datasets in the catalog.
 When rewriting the query, consider the following guidelines:
-1. Maintain and emphasize user intent: ensure that the rewritten query reflects and emphasizes the user's intent.
-2. Optimize for search: structure the query in a way that enhances search engine performance.
-3. Expand or refine terms: use synonyms, related terms, or more specific phrases to improve search results.
+1. Maintain and emphasize user intent.
+2. Structure the query in a way that enhances search engine performance.
+3. Use synonyms, related terms, or more specific phrases.
 
 Return ONLY the rewritten query as a plain text string without any additional explanations or formatting.
-The query should be in natural language and also in the same language as the original query. You can add multiple
-queries and separate them by commas if you think it will improve the search results. Make sure the original query
-is included in the rewritten query.
+The query should be in natural language and in the same language as the original query. You can add multiple
+queries and separate them by commas if you think it will improve the search results.
 
-If the original query is already longer than 100 words, do not extend it. The extended query should not exceed 100 words.
+The extended query should not exceed 50 words.

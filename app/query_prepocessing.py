@@ -1,6 +1,7 @@
 import json
 
 import ollama
+from ollama import Client
 from utils import setup_logger
 from jinja2 import Environment, FileSystemLoader
 
@@ -9,6 +10,10 @@ env = Environment(loader=FileSystemLoader('prompts'))
 intro_template = env.get_template("intro.j2")
 intro_prompt = intro_template.render()
 
+client = Client(
+        host='http://localhost:11434',
+        timeout=10
+    )
 
 def query_preprocessing(user_query: str, categories: list[str], other_category: str) -> (str, list):
     """Preprocess the user query."""
@@ -27,7 +32,10 @@ def extend_user_query(user_query: str) -> str:
     prompt = template.render(intro=intro_prompt, user_query=user_query)
     logger.info(f"Extending user query: {user_query}")
 
-    extended_query = ollama.generate(model='mistral-small3.2', prompt=prompt).response
+    # extended_query = ollama.generate(model='mistral-small3.2', prompt=prompt).response
+    extended_query = client.generate(model='mistral-small3.2', prompt=prompt).response
+
+
     logger.info(f"Extended query: {extended_query}")
     return extended_query
 

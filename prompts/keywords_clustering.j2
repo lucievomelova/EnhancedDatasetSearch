@@ -1,24 +1,21 @@
-You will be given a list of keywords that belong to the same cluster.
+Here is a list of words that belong to the same cluster: {{ keywords }}
+
+---
+
 The clustering is based on semantic similarity of their embeddings.
-Your task is to:
-- decide if all keywords in the cluster are related enough to have a common representative
+Your task is to decide if all words in the cluster are related enough to have a common representative
 - if they are related enough, generate a single keyword that best represents the entire cluster
-- if they are not related enough, split the cluster into multiple clusters and for each smaller cluster,
-generate a representative keyword
+- otherwise split the cluster into multiple clusters and for each smaller cluster, generate a representative keyword
 - DO NOT create overly specific clusters, too small clusters are not useful. If you decide to split the cluster,
 make sure the split is truly necessary.
 
-The representative keyword should capture the common theme or concept shared by all keywords in the cluster.
-It can be one of the existing keywords or a new keyword that represents them well. The representatives
-should be in the same language as the keywords.
+The representative keyword should capture the common theme or concept shared by all words in the cluster.
+It can be one of the existing words or a new word that represents them well.
 
-Here are the keywords: {{ keywords }}
-
-Split the keywords into smaller clusters if needed, and for each cluster, find a representative keyword.
 Return the result as a JSON object in the following format:
 {
-    "representative1": [cluster1 keywords],
-    "representative2": [cluster2 keywords],
+    "representative1": [cluster1 words],
+    "representative2": [cluster2 words],
     ...
 }
 

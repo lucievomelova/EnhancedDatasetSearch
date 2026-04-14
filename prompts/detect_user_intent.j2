@@ -1,41 +1,36 @@
 {{ intro }}
 
-# Your task
-The user is searching for datasets in the catalogue.
-Your task is to identify the user's intent behind their search query. Classify the intent into
-predefined categories, and identify if the user is looking for data related to specific geographical regions or time periods.
+The user is searching for datasets in the catalogue.  The user query is: {{ user_query }}
 
-The user query is: {{ user_query }}
+
+# Your task
+Identify the user's intent behind their search query. Classify the intent into
+predefined categories and identify if its related to specific spatial or temporal coverage.
 
 ## Category
 Classify the query intent into at most {{ num_categories }} of the following predefined
-categories: {{ categories }}. You can choose up to {{ num_categories }} categories if all are equally relevant.
-But if one category is clearly more relevant than all other, choose only that one.
-If none of the provided categories is appropriate, classify it into one category called {{ other_category }}.
+categories: {{ categories }}. If none of the provided categories is appropriate, classify it as {{ other_category }}.
 
-## Region
-Find out if the user is looking for data for a specific geographical region-
+## Spatial coverage
+Is the user looking for data for a specific geographical region?
 e.g. a city, region, places with specific geographical attributes (like rivers, mountains, etc.).
 If yes, return the place name or names separated by commas. Be sure to:
-- Use the Czech names of the places
 - Return the basic place name without additional descriptions
-    - e.g. return "Praha" instead of "Hlavní město Praha"
 - if there are multiple related places, return all of them - e.g. if the region is "Praha 1", return both "Praha" and "Praha 1"
-- do not return "ČR" or "Česká republika" unless the user specifically asks for data about the whole country
+- do not return "ČR" or "Česká republika" as spatial coverage
 
-## Time Period
+## Temporal coverage
 Is the user looking for data from a specific time period or date range?
-e.g. historical data from a specific decade or year, data from the last year, data from winter months, etc.
+e.g. historical data from a specific decade or year, data from the last year, data from February, etc.
 If yes, return the time period or date range. Be sure to:
-- use Czech terms for time periods
-- if there are multiple time periods mentioned, return all of them separated by commas
+- if there are multiple periods mentioned, return all of them separated by commas
 - if the time period is vague (e.g. "recent data"), do not return it
 
 Return the intent in the following JSON format:
 {
     "categories": [list of categories (in Czech)],
-    "regions": [list of regions (in Czech)],
-    "time_periods": [list of time periods (in Czech)]
+    "spatial_coverage": [list of regions (in Czech)],
+    "temporal_coverage": [list of time periods (in Czech)]
 }
 
 {{ return_json_instructions }}

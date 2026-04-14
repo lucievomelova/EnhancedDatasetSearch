@@ -26,12 +26,13 @@ logging.getLogger("httpx").setLevel(logging.DEBUG)
 
 
 class SearchPipeline:
-    def __init__(self, config: dict):
+    def __init__(self, config: dict, llm: Ollama):
         self.config = config
         self.data_catalog = NkodDataCatalog(config)
         self.data_catalog.init()
         self.database = Database(self.config, self.config["state_dir"])
         self.index = self.database.index
+        Settings.llm = llm
 
 
     async def run(self, query: str) -> list[dict[str, str | list | None]] | None:

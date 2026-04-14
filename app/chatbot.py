@@ -1,6 +1,7 @@
 import json
 
 from data_processing.NKOD.data_catalog import DataCatalog
+from data_processing.knowledge_graph import get_similar_datasets
 from llama_index.core.agent import AgentWorkflow
 from llama_index.core.llms.function_calling import FunctionCallingLLM
 from llama_index.core.memory import ChatMemoryBuffer
@@ -15,6 +16,7 @@ logger = setup_logger(__name__)
 
 class Chatbot:
     def __init__(self, config: dict, search_pipeline: SearchPipeline, llm: FunctionCallingLLM):
+        self.config = config
         self.search_pipeline = search_pipeline
         self.data_catalog = search_pipeline.data_catalog
         self.dataset_detail_url = config["url"] + "dataset"
@@ -32,35 +34,60 @@ class Chatbot:
 
     def create_tools(self) -> list[FunctionTool]:
         search_in_data_catalog = FunctionTool.from_defaults(
-            async_fn=self.search_pipeline.run,
+            async_fn=self._tool_search,
             name="search_in_data_catalog",
-            description="Search the data catalog for most relevant datasets based on th search query."
+            description="Search the data catalog for most relevant datasets based on th search query." +
+                        "Input should be an effective search query about what datasets the user is looking for."
         )
         get_list_of_all_values_for_metadata_category = FunctionTool.from_defaults(
             fn=self._tool_get_list_of_all_values_for_metadata_category,
             name="get_list_of_all_values_for_metadata_category",
-            description="Get a list of all values occurring in the data catalog for a given metadata category." +
+            description="Get a list of all values occurring in the data catalog for a given metadata category. " +
             "Possible category values are: keywords, themes, categories, providers, spatial_coverages, temporal_coverages."
         )
         extract_data_catalog_information = FunctionTool.from_defaults(
             fn=self._tool_read_info_file,
             name="get_general_information_from_file",
-            description="Get general information about how the data catalog works from an information file."+
+            description="Get general information about how the data catalog works from an information file. "+
             "Specify the type of information needed, possible values are:\n" +
             "- metadata: to get information about the metadata structure.\n" +
             "- NKOD: to get general information about the Czech national open data catalog NKOD."
         )
-        keep_only_title_and_url = FunctionTool.from_defaults(
-            fn=self._tool_keep_only_title_and_url,
-            name="keep_only_title_and_url",
-            description="Keep only title of returned datasets and their url link to the dataset_detail page."+
-            "This tool is used after search in data catalog is performed, to format the response to the user."
+        get_dataset_info = FunctionTool.from_defaults(
+            fn=self._tool_get_dataset_info,
+            name="get_dataset_info",
+            description="Get dataset information based on the dataset URL. "+
+            "Returns a dict, where key is the type of information (e.g. dataset title, description or some metadata) " +
+            "and value is the associated information."
+        )
+
+        get_similar_datasets = FunctionTool.from_defaults(
+            fn=self._tool_get_similar_datasets,
+            name="get_similar_datasets",
+            description="Get datasets similar to the given dataset (based on its URL). "+
+            "Optionally, a type of similarity can be specified - 'description', 'keywords' or themes'. " +
+            "If no category is specified, returns a dict with similarity type as key and similar datasets as value. " +
+            "Otherwise returns a list of similar datasets for the specified category."
         )
 
         return [search_in_data_catalog,
                 get_list_of_all_values_for_metadata_category,
                 extract_data_catalog_information,
-                keep_only_title_and_url]
+                get_dataset_info]
+
+    async def react_to_message(self, user_message: str) -> str:
+        """Run the chatbot in a loop."""
+        error_message = "There was an error during answer generation. Try rewriting your message or start a new chat."
+        logger.info("Reacting.")
+        try:
+            response = str(await self.agent.run(user_msg=user_message, memory=self.memory))
+            logger.info(f"Response: {response}")
+            if not response:  # there was an error during response generation
+                return error_message
+            return response
+        except Exception as e:
+            logger.error(f"Error in chatbot response generation: {str(e)}", exc_info=True)
+            return error_message
 
     def _tool_get_list_of_all_values_for_metadata_category(self, metadata_category: str) -> list[str] | str:
         """Get a list of all values for a given metadata category.
@@ -82,29 +109,65 @@ class Chatbot:
         except FileNotFoundError:
             return "Invalid information type. No such information file. Possible values are: metadata, NKOD."
 
-    async def react_to_message(self, user_message: str) -> str:
-        """Run the chatbot in a loop."""
-        error_message = "There was an error during answer generation. Try rewriting your message or start a new chat."
-        logger.info("Reacting.")
-        try:
-            response = str(await self.agent.run(user_msg=user_message, memory=self.memory))
-            logger.info(f"Response: {response}")
-            if not response:  # there was an error during response generation
-                return error_message
-            return response
-        except Exception as e:
-            logger.error(f"Error in chatbot response generation: {str(e)}", exc_info=True)
-            return error_message
+    async def _tool_search(self, query: str) -> str | list:
+        """Search the data catalog for relevant datasets based on the query.
 
-    def _tool_keep_only_title_and_url(self, search_results: list[dict]) -> str:
+        Returns:
+            a of dicts, where each item represents one dataset. For each dataset there is its title and URL."""
+        try:
+            search_results = await self.search_pipeline.run(query)
+            formatted_results = self._keep_only_title_and_url(search_results)
+            return formatted_results
+        except Exception as e:
+            logger.error(f"Error during search in data catalog: {str(e)}", exc_info=True)
+            return "An error occurred during search in data catalog."
+
+    def _tool_get_dataset_info(self, dataset_url: str) -> dict | str:
+        """Get detailed information about a dataset based on its URL."""
+        try:
+            dataset_info = self.data_catalog.get_dataset_by_url(dataset_url)
+            if dataset_info is None:
+                return "No dataset found with the given URL."
+            dataset_info["url"] = self.dataset_detail_url + "/" + dataset_url
+            dataset_info["url_on_NKOD"] = "https://data.gov.cz/datová-sada?iri=" + dataset_info["url"]
+            return dataset_info
+        except Exception as e:
+            logger.error(f"Error during getting dataset info: {str(e)}", exc_info=True)
+            return "An error occurred during retrieving dataset information."
+
+    def _tool_get_similar_datasets(self, dataset_url: str, similarity_type: str | None = None) -> list | dict | str:
+        """Get similar datasets for a given dataset based on its URL."""
+        try:
+            similar_datasets = get_similar_datasets(dataset_url, self.config["data_processing"]["knowledge_graph"]["top_k"], similarity_type)
+            results = {}
+            for sim_type, url_score_list in similar_datasets.items():
+                results_per_sim_type = []
+                for url, _ in url_score_list:
+                    sim_dataset = self.search_pipeline.data_catalog.get_dataset_by_url(url)
+                    results_per_sim_type.append({
+                        "title": sim_dataset["title"],
+                        "url": self.dataset_detail_url + "/" + sim_dataset["url"]
+                    })
+                results[sim_type] = results_per_sim_type
+
+            if similarity_type is not None:
+                similar_datasets = results[similarity_type]
+            return similar_datasets
+        except Exception as e:
+            logger.error(f"Error during getting similar datasets: {str(e)}", exc_info=True)
+            return "An error occurred during retrieving similar datasets."
+
+    def _keep_only_title_and_url(self, search_results: list[dict] | None) -> list[dict[str, str]]:
         """Keep only title of a dataset and its url to the dataset_detail page.
 
         Returns:
-            Processed search results, already converted to json string."""
+            Processed search results as a list of dicts."""
+        if search_results is None:
+            return []
         processed_results = []
         for result in search_results:
             processed_results.append({
                 "title": result["title"],
                 "url": self.dataset_detail_url + "/" + result["url"]
             })
-        return json.dumps(processed_results)
+        return processed_results

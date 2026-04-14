@@ -324,6 +324,8 @@ class NkodDataCatalog(DataCatalog):
 
     def get_dataset_by_url(self, url: str) -> dict | None:
         """Get extended dataset info by URL."""
+        if url.startswith("http://127.0.0.1:5000/dataset/"):  # so the method works for our app links as well
+            url = url.replace("http://127.0.0.1:5000/dataset/", "")
         dataset_row = self.datasets[self.datasets['url'] == url]
         if dataset_row.empty:
             return None

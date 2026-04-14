@@ -1,7 +1,7 @@
 {{ intro }}
 
 # Your Task
-Enrich metadata for the given dataset based on the instructions provided below. Generated words MUST BE in Czech.
+Enrich metadata for the given dataset based on the instructions provided below.
 
 {% if generate_keywords %}## Keywords
 The dataset already has assigned the following keywords: {{ keywords }}.
@@ -20,29 +20,27 @@ Only include themes that are really relevant. If none of the provided themes are
 you can generate 1 new theme based on the description.{% endif %}
 
 {% if generate_categories %}## Category
-Classify the dataset into at most {{ remaining_categories }} of the following predefined categories: {{ all_categories }}.
+Classify the dataset into at most {{ remaining_categories }} of the following categories: {{ all_categories }}.
 
 You can choose up to {{ remaining_categories }} categories if all are equally relevant.
-But if one category is clearly more relevant than others, choose only that one.
+If one category is clearly more relevant than others, choose only that one.
 If none of the provided categories is appropriate, classify it as "{{ other_category }}".{% endif %}
 
 {% if generate_spatial_coverage %}## Spatial Coverage
 The dataset might be associated with a geographical region. Detect this region if applicable. The types of regions can
-be: a city, a village, a general geographical area (e.g. mountains, rivers, etc.) or a czech region ("kraj" in Czech).
+be: a city, a village, a general geographical area (e.g. mountains, rivers, etc.) or a Czech region ("kraj" in Czech).
 
-There can be more than one region associated with the dataset. For example, if the dataset is about a small village
-in a specific region, both the village and the region should be returned. Or if the dataset is focused on one
-part of Prague (e.g. Prague 10), return also Prague as a whole.
+There can be more than one region associated.
 
-Ignore if the dataset is associated with Czech Republic as a whole - all datasets are associated with it, so
-it's irrelevant. Do not include "Czech Republic" or variants of it in your response.{% endif %}
+Ignore if the dataset is associated with Czech Republic as a whole - it's irrelevant.
+Do not include "Czech Republic" or variants of it in your response.{% endif %}
 
 {% if generate_temporal_coverage %}## Temporal Coverage
 The dataset might be associated with a specific time period. Detect this time period if applicable.
 The types of time periods can be: a specific year, a range of years, a decade, a specific month every year
 (e.g. February), or any other relevant time frame. The time period is usually mentioned in the dataset title.
 
-There can be more than one time period associated with the dataset. For example, if the dataset contains data for
+There can be more than one time period associated. For example, if the dataset contains data for
 each March in 2022-2025, return BOTH the range (2022-2025) and March.
 Do NOT assign time periods that correspond to some type of frequency - e.g. "annual", "monthly", etc.
 DO NOT assign a specific date - we are interested in general time periods, NOT CONCRETE DATES.{% endif %}
