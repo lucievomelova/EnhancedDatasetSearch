@@ -82,7 +82,7 @@
                         <div class="similar-dataset-card">
                             <div class="similar-dataset-content">
                                 <div>
-                                    <a href="{{ url_for('dataset_detail', dataset_url=similar.url) }}" class="similar-dataset-link">
+                                    <a href="{{ url_for('dataset_detail', source=similar.url) }}" class="similar-dataset-link">
                                         <p class="similar-title">{{ similar.title }}</p>
                                     </a>
                                     <p class="similar-text-preview">{{ similar.text_preview }}</p>

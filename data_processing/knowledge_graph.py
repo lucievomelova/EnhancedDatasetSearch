@@ -275,9 +275,9 @@ def get_similar_datasets(dataset_url: str, top_k: int, similarity_type: str | No
         if "description" in types:
             similar_datasets_results["description"] = session.execute_read(_run_similarity_query, dataset_url, top_k)
             logger.info("Retrieved similar datasets based on description")
-        if "keywords" in types:
-            similar_datasets_results["keywords"] = _get_similar_datasets_based_on_metadata_category(session, dataset_url, "keywords", top_k)
-            logger.info("Retrieved similar datasets based on common keywords")
+        # if "keywords" in types:
+        #     similar_datasets_results["keywords"] = _get_similar_datasets_based_on_metadata_category(session, dataset_url, "keywords", top_k)
+        #     logger.info("Retrieved similar datasets based on common keywords")
         if "themes" in types:
             similar_datasets_results["themes"] = _get_similar_datasets_based_on_metadata_category(session, dataset_url, "themes", top_k)
             logger.info("Retrieved similar datasets based on common themes")

@@ -1,7 +1,7 @@
 import json
 
 from data_processing.NKOD.data_catalog import DataCatalog
-from data_processing.knowledge_graph import get_similar_datasets
+import data_processing.knowledge_graph as kg
 from llama_index.core.agent import AgentWorkflow
 from llama_index.core.llms.function_calling import FunctionCallingLLM
 from llama_index.core.memory import ChatMemoryBuffer
@@ -9,7 +9,7 @@ from llama_index.core.agent.workflow import FunctionAgent
 from llama_index.core.tools import FunctionTool
 
 from app.pipeline import SearchPipeline
-from utils import setup_logger, render_template
+from utils import setup_logger, render_template, dataset_detail_url, get_nkod_url
 
 logger = setup_logger(__name__)
 
@@ -19,7 +19,6 @@ class Chatbot:
         self.config = config
         self.search_pipeline = search_pipeline
         self.data_catalog = search_pipeline.data_catalog
-        self.dataset_detail_url = config["url"] + "dataset"
         self.memory = ChatMemoryBuffer.from_defaults(token_limit=config["chatbot"]["llm"]["memory_limit"])
         tools = self.create_tools()
         system_prompt = render_template("chatbot/chat.j2")
@@ -70,10 +69,18 @@ class Chatbot:
             "Otherwise returns a list of similar datasets for the specified category."
         )
 
+        get_nkod_url = FunctionTool.from_defaults(
+            fn=self._tool_get_nkod_url,
+            name="get_nkod_url",
+            description="Get link to the dataset detail page on NKOD on the Czech Dataset Portal."
+        )
+
         return [search_in_data_catalog,
                 get_list_of_all_values_for_metadata_category,
                 extract_data_catalog_information,
-                get_dataset_info]
+                get_dataset_info,
+                get_similar_datasets,
+                get_nkod_url]
 
     async def react_to_message(self, user_message: str) -> str:
         """Run the chatbot in a loop."""
@@ -128,8 +135,7 @@ class Chatbot:
             dataset_info = self.data_catalog.get_dataset_by_url(dataset_url)
             if dataset_info is None:
                 return "No dataset found with the given URL."
-            dataset_info["url"] = self.dataset_detail_url + "/" + dataset_url
-            dataset_info["url_on_NKOD"] = "https://data.gov.cz/datová-sada?iri=" + dataset_info["url"]
+            dataset_info["url"] = dataset_detail_url(self.config, dataset_url)
             return dataset_info
         except Exception as e:
             logger.error(f"Error during getting dataset info: {str(e)}", exc_info=True)
@@ -138,7 +144,7 @@ class Chatbot:
     def _tool_get_similar_datasets(self, dataset_url: str, similarity_type: str | None = None) -> list | dict | str:
         """Get similar datasets for a given dataset based on its URL."""
         try:
-            similar_datasets = get_similar_datasets(dataset_url, self.config["data_processing"]["knowledge_graph"]["top_k"], similarity_type)
+            similar_datasets = kg.get_similar_datasets(dataset_url, self.config["data_processing"]["knowledge_graph"]["top_k"], similarity_type)
             results = {}
             for sim_type, url_score_list in similar_datasets.items():
                 results_per_sim_type = []
@@ -146,7 +152,7 @@ class Chatbot:
                     sim_dataset = self.search_pipeline.data_catalog.get_dataset_by_url(url)
                     results_per_sim_type.append({
                         "title": sim_dataset["title"],
-                        "url": self.dataset_detail_url + "/" + sim_dataset["url"]
+                        "url": dataset_detail_url(self.config, sim_dataset["url"])
                     })
                 results[sim_type] = results_per_sim_type
 
@@ -156,6 +162,10 @@ class Chatbot:
         except Exception as e:
             logger.error(f"Error during getting similar datasets: {str(e)}", exc_info=True)
             return "An error occurred during retrieving similar datasets."
+
+    def _tool_get_nkod_url(self, dataset_url: str) -> str:
+        """Get the NKOD url for the given dataset URL."""
+        return get_nkod_url(self.config, dataset_url)
 
     def _keep_only_title_and_url(self, search_results: list[dict] | None) -> list[dict[str, str]]:
         """Keep only title of a dataset and its url to the dataset_detail page.
@@ -168,6 +178,6 @@ class Chatbot:
         for result in search_results:
             processed_results.append({
                 "title": result["title"],
-                "url": self.dataset_detail_url + "/" + result["url"]
+                "url": dataset_detail_url(self.config, result["url"])
             })
         return processed_results

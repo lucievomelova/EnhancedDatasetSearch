@@ -27,4 +27,3 @@ def get_all_metadata(search_results: list[dict[str, str | list | None]]) -> dict
             elif isinstance(metadata_values, list):
                 all_metadata[metadata_category].update(metadata_values)
     return all_metadata
-

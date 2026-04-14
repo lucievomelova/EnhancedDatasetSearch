@@ -20,7 +20,7 @@ from pandas import Series
 
 from data_processing.metadata import create_documents, enrich_metadata, clean_metadata, preprocess_temporal_coverage, \
     replace_nonfrequent_keywords_with_cluster_representatives
-from utils import setup_logger
+from utils import setup_logger, dataset_detail_url
 
 logger = setup_logger(__name__)
 executor = ThreadPoolExecutor(max_workers=4)
@@ -324,11 +324,11 @@ class NkodDataCatalog(DataCatalog):
 
     def get_dataset_by_url(self, url: str) -> dict | None:
         """Get extended dataset info by URL."""
-        if url.startswith("http://127.0.0.1:5000/dataset/"):  # so the method works for our app links as well
-            url = url.replace("http://127.0.0.1:5000/dataset/", "")
         dataset_row = self.datasets[self.datasets['url'] == url]
+        if dataset_row.empty:  # try also the url used on dataset detail page
+            dataset_row = self.datasets[dataset_detail_url(self.config, url) == url]
         if dataset_row.empty:
-            return None
+            return None  # still no result -> dataset with the given URL not found
 
         row = dataset_row.iloc[0]
         return {

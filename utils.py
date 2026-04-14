@@ -37,3 +37,13 @@ def render_template(filename: str, args: dict = {}, include_intro: bool = True, 
     template = env.get_template(filename)
     prompt = template.render(**args)
     return prompt
+
+def dataset_detail_url(config: dict, dataset_url: str):
+    """Construct url for dataset detail page from the original source url."""
+    return config["app_url"] + "dataset_detail?source=" + dataset_url
+
+def get_nkod_url(config: dict, dataset_url: str):
+    """Construct url for NKOD page from the original source url."""
+    if dataset_url.startswith(config["app_url"]):
+        dataset_url = dataset_url.replace(config["app_url"], "")
+    return "https://data.gov.cz/datová-sada?iri=" + dataset_url

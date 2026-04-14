@@ -88,10 +88,10 @@ def search():
     return render_template("search_results.html", query=query, results=results)
 
 
-@app.route('/dataset/<path:dataset_url>')
-def dataset_detail(dataset_url):
+@app.route('/dataset_detail')
+def dataset_detail():
     """Display detailed view of a specific dataset by looking it up in extended_df."""
-    dataset_url = unquote(dataset_url)
+    dataset_url = request.args.get('source', '')
     pipeline = get_search_pipeline()
     dataset_info = pipeline.data_catalog.get_dataset_by_url(dataset_url)
 
