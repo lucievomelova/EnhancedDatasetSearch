@@ -1,3 +1,4 @@
+from data_processing.NKOD.data_catalog import DataCatalog
 from llama_index.core.schema import NodeWithScore
 from llama_index.core.postprocessor import SimilarityPostprocessor, SentenceTransformerRerank
 
@@ -8,44 +9,14 @@ logger = setup_logger(__name__)
 class PostProcessor():
     """Search result postprocessor."""
 
-    def __init__(self, postprocessing_config: dict):
+    def __init__(self, postprocessing_config: dict, data_catalog: DataCatalog) -> None:
         self.postprocessing_config = postprocessing_config
-
-
-    def _remove_title_and_metadata_from_text(self, text: str) -> str:
-        """Remove dataset title from the text chunk."""
-        without_title = text.split("\n")[1:]  # title is on the first line
-        joined_string = '\n'.join(without_title)  # join the split string back into one
-        without_metadata = joined_string.split("Poskytovatel: ")[0]  # metadata is starting from "Poskytovatel: "
-        return without_metadata
-
-
-    def _format_nodes(self, nodes: list[NodeWithScore]) -> list[dict[str, str | list | None]]:
-        formatted_nodes = []
-        for node in nodes:
-            text = self._remove_title_and_metadata_from_text(node.text)
-            formatted_node = {
-                "title": node.metadata["title"],
-                "url": node.metadata["url"],
-                "text": text,
-                "explanation": "",
-                "metadata": {
-                    "themes": node.metadata.get("themes", []),
-                    "keywords": node.metadata.get("keywords", []),
-                    "categories": node.metadata.get("categories", []),
-                    "regions": node.metadata.get("regions", []),
-                    "time periods": node.metadata.get("time_periods", []),
-                    "provider": node.metadata.get("provider", ""),
-                }
-            }
-            formatted_nodes.append(formatted_node)
-
-        return formatted_nodes
+        self.data_catalog = data_catalog
 
     def run(self, user_query: str,
                               extended_query: str,
                               results: list[NodeWithScore],
-                              intent: dict[str, str]) -> list[dict[str, str | list | None]] | None:
+                              intent: dict[str, str]) -> list[dict]:
         """Post-process search results."""
         if not results:
             logger.info("No results found.")
@@ -53,11 +24,11 @@ class PostProcessor():
 
         logger.info(f"Post-processing {len(results)} results.")
         results = self.rerank(user_query, results, intent)
-        results = self._format_nodes(results)
+        results = [self.data_catalog.get_dataset_by_url(str(res.metadata["url"])) for res in results]
         return results
 
 
-    def rerank(self, user_query: str, results: list[NodeWithScore], intent: dict[str, str]) -> list[NodeWithScore] | None:
+    def rerank(self, user_query: str, results: list[NodeWithScore], intent: dict[str, str]) -> list[NodeWithScore]:
         """ Rerank search results."""
         # cut off nodes with low score
         cutoff = self.postprocessing_config["score_cutoff"]

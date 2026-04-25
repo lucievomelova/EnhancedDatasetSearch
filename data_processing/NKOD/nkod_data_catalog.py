@@ -15,7 +15,6 @@ import os
 
 from data_processing.NKOD.data_catalog import DataCatalog
 from data_processing.NKOD.spatial_and_temporal_data import add_metadata_to_datasets_from_sparql
-from llama_index.core import Document
 from pandas import Series
 
 from data_processing.metadata import create_documents, enrich_metadata, clean_metadata, preprocess_temporal_coverage, \
@@ -48,15 +47,22 @@ def download_df(path: str, url: str) -> pd.DataFrame:
 class NkodDataCatalog(DataCatalog):
     """Class for handling NKOD datasets."""
 
-    def __init__(self, config: dict):
+    def __init__(self, config: dict, download_new_data: bool = False) -> None:
+        """Initialize the NKOD data catalog class.
+
+        Args:
+            config: the loaded config
+            download_new_data: specifies if new datasets should be downloaded from NKOD. This should be True if data
+            processing will be started, otherwise it should be False, because it will trigger a knowledge base update.
+        """
         super().__init__()
-        # indicates whether the dataset DB is up to date - if True, there are no new or updated datasets so
-        # no new documents need to be added to dataset DB
-        self.db_up_to_date: bool = False
-        self._download_new_data: bool = False
-        self._always_download_new_data: bool = False  # TODO just for debugging
-        self._update_datasets: bool = True
-        self._run_preprocessing: bool = False  # TODO just for debugging
+        self._db_up_to_date: bool = False
+        """Indicates whether the knowledge base is up to date - if True, no new documents need to be added"""
+
+        self._download_new_data: bool = download_new_data
+        """Indicates if new datasets_raw file should be downloaded and processed or not."""
+
+        self._run_preprocessing: bool = True  # TODO just for debugging
 
         self.config = config
 
@@ -65,18 +71,15 @@ class NkodDataCatalog(DataCatalog):
         self._state_dir = config["state_dir"]
         self._column_mapping: dict = self._data_processing_config["column_mapping"]
 
-        self.datasets_raw: pd.DataFrame | None = None
+        self.datasets_raw: pd.DataFrame
         """Dataset of datasets - contains information about each dataset on NKOD."""
 
         self._old_datasets_raw: pd.DataFrame | None = None
         """Old version of datasets_raw. Used to find new datasets by comparing it to the new datasets_raw."""
 
-        self.datasets: pd.DataFrame | None = None
+        self.datasets: pd.DataFrame
         """Dataset of datasets containing also dataset metadata, with renamed columns based on column mapping.
         Obtained by processing datasets_raw."""
-
-        self.preprocessed_datasets_raw: pd.DataFrame | None = None
-        """The preprocessed dataset that has cleaned metadata and merged list columns."""
 
         self._data_config = {
             "datasets_raw_path": config["data"]["datasets_raw"]["path"],
@@ -106,17 +109,23 @@ class NkodDataCatalog(DataCatalog):
         self.all_categories_with_other_category = self.all_categories + [self._data_processing_config["other_category"]]
         """List of all categories including "other" category used when a dataset does not belong into any category."""
 
-        self._all_keywords_raw: list | None = None
+        self._all_keywords_raw: list
         """List of all keywords present in datasets_raw."""
 
-        self._all_themes_raw: list | None = None
+        self._all_themes_raw: list
         """List of all themes present in the datasets_raw."""
 
+        self._load_datasets_raw()
+        self._load_datasets()
+
     def _load_datasets(self) -> None:
-        """Load datasets from csv file."""
+        """Load datasets file.
+
+        This file contains the preprocessed and enriched data about all datasets in NKOD."""
         if not os.path.exists(self._data_config["datasets_path"]):
             logger.warning("Datasets file not found.")
             self.datasets = pd.DataFrame()
+            return
         else:
             logger.info("Loading datasets file.")
             self.datasets = pd.read_json(self._data_config["datasets_path"], orient="split")
@@ -131,6 +140,14 @@ class NkodDataCatalog(DataCatalog):
         """Load the raw NKOD dataset of datasets.
 
         Check if csv file exists and is up to date - if not, download it again and load it."""
+
+        if not self._download_new_data:  # TODO this is just for debugging, old file should not be used
+            logger.info("Using old datasets_raw file, loading from disk.")
+            self.datasets_raw = pd.read_csv(self._data_config["datasets_raw_path"], sep=",", dtype="string")
+            self.datasets_raw = self.datasets_raw.rename(columns=self._column_mapping)  # rename columns based on column mapping
+            # self._db_up_to_date = True
+            return
+
         today = datetime.today().date()
         if os.path.exists(self._data_config["datasets_raw_path"]):
             logger.info("File datasets_raw exists.")
@@ -146,23 +163,44 @@ class NkodDataCatalog(DataCatalog):
         else:
             logger.info("File datasets_raw is up to date, loading from disk.")
             self.datasets_raw = pd.read_csv(self._data_config["datasets_raw_path"], sep=",", dtype="string")
-            # self.db_up_to_date = True
+            # self._db_up_to_date = True
 
         self.datasets_raw = self.datasets_raw.rename(columns=self._column_mapping)  # rename columns based on column mapping
         if self._old_datasets_raw is not None:
             self._old_datasets_raw = self._old_datasets_raw.rename(columns=self._column_mapping)
-        logger.info("Raw dataset info loaded.")
+        logger.info("Raw dataset info loaded, starting preprocessing.")
 
+        if not self._run_preprocessing:  # TODO debug option, to skip datasets_raw preprocessing
+            return
 
-    def _merge_dataset_rows_into_one_row(self) -> None:
-        """Merge rows about the same dataset into one so that we have one row per dataset in datasets_raw.
+        self._merge_datasets_raw_rows()
+        self.drop_irrelevant_columns()
+        # add category column, now empty for each dataset
+        self.datasets_raw["categories"] = [[] for _ in range(len(self.datasets_raw))]
+        clean_metadata(self.datasets_raw,
+                       self._data_processing_config["categories"],
+                       self._llm_config["model_name"],
+                       self._state_dir)
+        add_metadata_to_datasets_from_sparql(self.config, self.datasets_raw)
 
-        Right now, there is a separate row for the same dataset for each keyword, theme, location,
-        and category associated with it. We want a single row per dataset with all keywords merged into one column.
-        """
+        # metadata cleaned -> find all unique keywords and themes, which will be used for metadata enrichment
+        self._all_keywords_raw = list(self.datasets_raw["keywords"].explode().dropna().unique())
+        logger.info(f"Number of unique keywords in datasets_raw: {len(self._all_keywords_raw)}")
+        self._all_themes_raw = list(self.datasets_raw["themes"].explode().dropna().unique())
+        logger.info(f"Number of unique themes in datasets_raw: {len(self._all_themes_raw)}")
+
+    def drop_irrelevant_columns(self):
+        """Drop irrelevant columns from datasets_raw."""
         unwanted_columns = self._data_processing_config["unwanted_columns"]
         if all(col in self.datasets_raw.columns for col in unwanted_columns):
             self.datasets_raw = self.datasets_raw.drop(columns=unwanted_columns)
+
+    def _merge_datasets_raw_rows(self) -> None:
+        """Merge rows about the same dataset into one so that we have one row per dataset in datasets_raw.
+
+        Right now, there is a separate row for the same dataset for each keyword and theme
+        associated with it. We want a single row per dataset with all keywords and themes merged into one list.
+        """
 
         # columns that contain multiple values per dataset -> merge the values into one list
         list_columns = ["keywords", "themes"]
@@ -180,120 +218,90 @@ class NkodDataCatalog(DataCatalog):
         # if a list contains NaN value, remove it from the list
         self.datasets_raw = self.datasets_raw.map(lambda x: x if not isinstance(x, list) else [i for i in x if pd.notna(i)])
         self.datasets_raw = self.datasets_raw.replace(np.nan, None)  # remaining NaNs to None
-        logger.info(f"Number of rows: {self.datasets_raw.shape[0]}.")
-
-    def _preprocess_metadata(self):
-        """Preprocess metadata columns in the datasets_raw."""
-        # init new columns as empty lists
-        self.datasets_raw["categories"] = [[] for _ in range(len(self.datasets_raw))]
-        self.datasets_raw["keyword_cluster_representatives"] = [[] for _ in range(len(self.datasets_raw))]
-
-        clean_metadata(self.datasets_raw, self._data_processing_config["categories"], self._llm_config["model_name"], self._state_dir)
-
-
-    def init(self):
-        """Initialize the NKOD class - datasets_raw, datasets, all_keywords, all_themes."""
-        if self._always_download_new_data:  # TODO debug option
-            self.datasets_raw = download_df(self._data_config["datasets_raw_path"], self._data_config["datasets_raw_url"])
-            self.datasets_raw = self.datasets_raw.rename(columns=self._column_mapping)  # rename columns based on column mapping
-            logger.info("Raw dataset info loaded.")
-        elif self._download_new_data:
-            self._load_datasets_raw()
-        else:  # TODO this is just for debugging, old file should not be used
-            logger.info("Using old datasets_raw file, loading from disk - DEBUG OPTION.")
-            self.datasets_raw = pd.read_csv(self._data_config["datasets_raw_path"], sep=",", dtype="string")
-            self.datasets_raw = self.datasets_raw.rename(columns=self._column_mapping)  # rename columns based on column mapping
-            # self.db_up_to_date = True
-
-        if self._run_preprocessing:  # TODO debug option, to skip datasets_raw preprocessing
-            self._merge_dataset_rows_into_one_row()
-            self._preprocess_metadata()
-            add_metadata_to_datasets_from_sparql(self.config, self.datasets_raw)
-
-            # metadata cleaned -> find all unique keywords and themes, which will be used for metadata enrichment
-            self._all_keywords_raw = list(self.datasets_raw["keywords"].explode().dropna().unique())
-            logger.info(f"Number of unique keywords in datasets_raw: {len(self._all_keywords_raw)}")
-            self._all_themes_raw = list(self.datasets_raw["themes"].explode().dropna().unique())
-            logger.info(f"Number of unique themes in datasets_raw: {len(self._all_themes_raw)}")
-        self._load_datasets()
-
+        logger.info(f"Keywords and themes merged, number of rows: {self.datasets_raw.shape[0]}.")
 
     async def get_new_datasets(self) -> pd.DataFrame:
         """Get the list of new or updated datasets."""
-        self.init()
-        if self.db_up_to_date:
+        if self._db_up_to_date:
             logger.info("No new datasets found. DB is up to date.")
-            return []
+            return pd.DataFrame()
+
+        removed_urls = None
+        # find new or updated datasets by comparing new and old file
         if self._old_datasets_raw is not None:
-            merged_df = pd.merge(self.datasets_raw, self._old_datasets_raw, on="url", how='left', indicator=True)
-            new_datasets = merged_df[merged_df['_merge'] != 'both']
-            new_datasets = new_datasets[self.datasets_raw.columns]
+            merged_df = pd.merge(self.datasets_raw, self._old_datasets_raw, on="url", how='outer', indicator=True)
+            new_datasets = merged_df[merged_df['_merge'] == 'left_only'][self.datasets_raw.columns]
+            removed_urls = merged_df[merged_df['_merge'] == 'right_only']["url"].tolist()
             logger.info(f"Number of new or updated datasets: {new_datasets.shape[0]}.")
         else:
             logger.info(f"Old file not found. Adding all datasets to DB ({self.datasets_raw.shape[0]} datasets).")
             new_datasets = self.datasets_raw
 
+        # file for storing intermediate results - it must be csv, because json doesn't have an append option
+        tmp_file_name = self._data_config["datasets_path"].replace(".json", f"_tmp.csv")
+
         # update datasets - process new datasets and add them to the existing datasets dataframe
+        if not self.datasets.empty:
+            self.datasets.to_csv(tmp_file_name, index=False, header=True)  # store current state of datasets
+            if removed_urls:   # remove deleted datasets from self.datasets
+                self.datasets = self.datasets[~self.datasets['url'].isin(removed_urls)]
+                logger.info(f"Removed {len(removed_urls)} datasets from DB.")
+            # find which rows are already in the datasets based on url - don't add them again
+            merged_df = pd.merge(self.datasets["url"], new_datasets, on="url", how='outer', indicator=True)
+            new_datasets = merged_df.query("_merge == 'right_only'").drop('_merge', axis=1).reset_index(drop=True)
+        if new_datasets.empty:
+            return pd.DataFrame()
+
         # do the updates in chunks -> in case of script failure we can resume from the last chunk
-        if self._update_datasets:
-            if not self.datasets.empty:  # don't use rows that are already loaded in datasets
-                # find which rows are already in the datasets based on url
-                new_datasets = pd.merge(self.datasets["url"], new_datasets, on="url", how='outer', indicator=True)
-                # keep only rows that are not in both dataframes (=rows that do not have the merge label "_both")
-                new_datasets = new_datasets.query("_merge != 'both'").drop('_merge', axis=1).reset_index(drop=True)
-            chunks = split_dataframe(new_datasets, chunk_size=32)
-            logger.info(f"Extending dataset metadata.")
-            for i in range(len(chunks)):
-                chunk = chunks[i]
-                if chunk.empty:
-                    break
-                logger.info(f"Processing chunk {i+1}/{len(chunks)}.")
-                new_rows = await self.create_metadata_for_chunk(chunk)
-                new_rows_df = pd.DataFrame(new_rows)
+        chunks = split_dataframe(new_datasets, chunk_size=32)
+        logger.info(f"Extending dataset metadata.")
+        for index, chunk in enumerate(chunks, start=1):
+            if chunk.empty:
+                break
+            logger.info(f"Processing chunk {index}/{len(chunks)}.")
+            new_rows = await self._create_metadata_for_chunk(chunk)
+            new_rows_df = pd.DataFrame(new_rows)
 
-                # store the results as csv, because json doesnt have an append option
-                if not os.path.exists(self._data_config["datasets_path"]):
-                    logger.info("Creating csv file for datasets.")
-                    new_rows_df.to_csv(self._data_config["datasets_path"], index=False, header=True)
-                else:
-                    new_rows_df.to_csv(self._data_config["datasets_path"], index=False, header=False, mode="a")
+            # store / append new results
+            if not os.path.exists(tmp_file_name):
+                logger.info("Creating csv file for datasets.")
+                new_rows_df.to_csv(tmp_file_name, index=False, header=True)
+            else:
+                new_rows_df.to_csv(tmp_file_name, index=False, header=False, mode="a")
 
-        # load the csv that we were gradually writing to and store it in json, so that it can be
-        # loaded faster in subsequent loads, because we dont have to use pd converters for list columns
-        list_columns = ["keywords", "themes", "categories", "spatial_coverage", "temporal_coverage"]
-        self.datasets = pd.read_csv(self._data_config["datasets_path"], sep=",",
-                                           converters={col: pd.eval for col in list_columns})
+        # load the csv that we were gradually writing to and save it as json, so that it can be
+        # loaded faster in subsequent loads, because we don't have to use pd converters for list columns
+        list_cols = ["keywords", "themes", "categories", "spatial_coverage", "temporal_coverage"]
+        self.datasets = pd.read_csv(tmp_file_name, sep=",", converters={col: pd.eval for col in list_cols})
 
-        # validate that each list column truly contains a list - otherwise convert it to empty list
-        for col in list_columns:
+        for col in list_cols:  # validate that each list column truly contains a list - otherwise set it as empty list
             self.datasets[col] = self.datasets[col].apply(lambda x: x if isinstance(x, list) else [])
-        self.datasets.to_json(self._data_config["datasets_path"], orient="split", force_ascii=False)
 
-        # metadata cleaning for the preprocessed datasets
+        # metadata cleaning for the enhanced datasets
         preprocess_temporal_coverage(self.datasets)
         clean_metadata(self.datasets, self._data_processing_config["categories"],
                        self._llm_config["model_name"], self._state_dir)
         replace_nonfrequent_keywords_with_cluster_representatives(self.datasets, self._llm_config["model_name"],
                                                                   self._state_dir)
 
-        # store datasets after metadata cleaning
-        self.datasets.to_csv(self._data_config["datasets_path"], index=False, header=True)
+        # save after metadata cleaning as json
+        self.datasets.to_json(self._data_config["datasets_path"], orient="split", force_ascii=False)
 
         new_datasets = self.datasets[self.datasets["url"].isin(new_datasets["url"])]
         return new_datasets
 
-    async def create_metadata_for_chunk(self, new_datasets:  pd.DataFrame):
+    async def _create_metadata_for_chunk(self, new_datasets:  pd.DataFrame):
         """Create metadata dict for a chunk of new datasets asynchronously."""
-        new_rows = [self.get_metadata_for_row_async(row) for _, row in new_datasets.iterrows()]
+        new_rows = [self._get_metadata_for_row_async(row) for _, row in new_datasets.iterrows()]
         return await asyncio.gather(*new_rows)
 
-    async def get_metadata_for_row_async(self, row: Series) -> dict:
+    async def _get_metadata_for_row_async(self, row: Series) -> dict:
         """Asynchronous wrapper for get_metadata_for_row method."""
         # this method is needed for the async code to work properly
         loop = asyncio.get_running_loop()
-        return await loop.run_in_executor(executor, self.get_metadata_for_row, row)
+        return await loop.run_in_executor(executor, self._get_metadata_for_row, row)
 
-    def get_metadata_for_row(self, row: Series) -> dict:
+    def _get_metadata_for_row(self, row: Series) -> dict:
         """Get metadata for a row which represents one dataset.
 
         The metadata are enriched with keywords, themes, categories, spatial_coverages and time periods

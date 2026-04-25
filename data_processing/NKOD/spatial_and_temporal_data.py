@@ -1,9 +1,14 @@
-from collections import defaultdict
 from datetime import datetime
+from urllib.error import HTTPError
 
 import pandas as pd
 from rdflib import Graph
 from rdflib.plugins.stores.sparqlstore import SPARQLStore
+
+from utils import setup_logger
+
+logger = setup_logger(__name__)
+
 
 def get_spatial_and_temporal_coverage(graph: Graph) -> tuple[dict, dict]:
     """Run a sparql query to get spatial and temporal coverage from NKOD for all datasets."""
@@ -71,15 +76,27 @@ def get_range_from_start_and_end(temporal_start: str, temporal_end: str) -> str:
     return f"{year_start} - {year_end}"
 
 
-def add_metadata_to_datasets_from_sparql(config: dict, datasets: pd.DataFrame) -> None:
+def add_metadata_to_datasets_from_sparql(config: dict, datasets: pd.DataFrame | None) -> None:
     """Add additional metadata to datasets - temporal and spatial coverage.
     
     These metadata will be extracted using a sparql query"""
+    logger.info("Adding spatial and temporal coverage data.")
+    if datasets is None:
+        logger.error("No datasets provided.")
+        return
     endpoint = config["data"]["sparql_endpoint"]
     graph = Graph(SPARQLStore(endpoint))
-    temporal_data, spatial_data = get_spatial_and_temporal_coverage(graph)
 
-    datasets["temporal_coverage"] = datasets["url"].map(lambda x: temporal_data.get(x, []))
-    datasets["spatial_coverage"] = datasets["url"].map(lambda x: spatial_data.get(x, []))
-    pass
+    # TODO - sparql endpoint not working
+    # try:
+    #     temporal_data, spatial_data = get_spatial_and_temporal_coverage(graph)
+    #     datasets["temporal_coverage"] = datasets["url"].map(lambda x: temporal_data.get(x, []))
+    #     datasets["spatial_coverage"] = datasets["url"].map(lambda x: spatial_data.get(x, []))
+    #     logger.info("Spatial and temporal info added.")
+    # except Exception as e:
+    #     logger.error("NKOD SPARQL endpoint inaccessible. Cannot retrieve spatial and temporal coverage data. Error: " + str(e))
+    #     datasets["temporal_coverage"] = [[] for _ in range(len(datasets))]
+    #     datasets["spatial_coverage"] = [[] for _ in range(len(datasets))]
 
+    datasets["temporal_coverage"] = [[] for _ in range(len(datasets))]
+    datasets["spatial_coverage"] = [[] for _ in range(len(datasets))]

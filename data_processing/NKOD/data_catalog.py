@@ -1,3 +1,5 @@
+import asyncio
+
 import pandas as pd
 from data_processing.metadata import create_documents
 from llama_index.core import Document
@@ -43,29 +45,11 @@ class DataCatalog:
     def prepare_documents_for_upload(self) -> list[Document]:
         """Get the list of llamaindex documents that should be uploaded to the knowledge base."""
         self.init()
-        # new_datasets = asyncio.run(self.get_new_datasets())
-        new_datasets = self.datasets  # upload all datasets to db
+        new_datasets = asyncio.run(self.get_new_datasets())
+        # new_datasets = self.datasets  # upload all datasets to db
         documents = create_documents(new_datasets)
         return documents
 
     def get_dataset_by_url(self, url: str) -> dict | None:
         """Get dataset info by URL."""
-        dataset_row = self.datasets[self.datasets['url'] == url]
-        if dataset_row.empty:
-            return None
-
-        row = dataset_row.iloc[0]
-        return {
-            'title': row['title'],
-            'url': row['url'],
-            'text': row['description'] if pd.notna(row['description']) else "",
-            'metadata': {
-                'keywords': row['keywords'] if isinstance(row['keywords'], list) else [],
-                'themes': row['themes'] if isinstance(row['themes'], list) else [],
-                'categories': row['categories'] if isinstance(row['categories'], list) else [],
-                'region': row['region'] if isinstance(row['region'], list) else [],
-                'time_periods': row['time_periods'] if isinstance(row['time_periods'], list) else [],
-                'provider': row['provider'] if 'provider' in row and not pd.isna(row['provider']) else '',
-            }
-        }
-
+        pass

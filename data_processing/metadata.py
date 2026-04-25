@@ -334,8 +334,8 @@ def enrich_metadata(row: Series, all_keywords: list, all_themes: list, all_categ
             metadata = json.loads(metadata_str)
             if all(k in metadata_keys for k in metadata):  # check that all returned keys are actually metadata keys
                 # check that the model did not generate more metadata than we specified
-                for k in num_remaining.keys():
-                    if len(metadata[k]) > num_remaining[k]:
+                for k, num in num_remaining.items():
+                    if num > 0 and len(metadata[k]) > num_remaining[k]:
                         retry += 1
                         continue
                 for k in metadata_keys:  # fill in missing values with empty lists

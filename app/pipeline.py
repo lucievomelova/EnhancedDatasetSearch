@@ -29,22 +29,24 @@ class SearchPipeline:
     def __init__(self, config: dict, llm: Ollama):
         self.config = config
         self.data_catalog = NkodDataCatalog(config)
-        self.data_catalog.init()
         self.database = Database(self.config, self.config["state_dir"])
         self.index = self.database.index
         Settings.llm = llm
+        self.search_engine = SearchEngine(self.config["pipeline_config"]["search"],
+                                          self.index,
+                                          self.database.document_store)
+        self.postprocessor = PostProcessor(self.config["pipeline_config"]["postprocessing"], self.data_catalog)
 
 
     async def run(self, query: str) -> list[dict[str, str | list | None]] | None:
         """Run the search pipeline for the given query and return the results as a DataFrame."""
 
-        intent, extended_query = query_preprocessing(query,
-                                                          self.config["data_processing"]["categories"],
-                                                          self.config["data_processing"]["other_category"])
-        search_engine = SearchEngine(self.config["pipeline_config"]["search"], self.index, self.database.document_store)
-        search_results = await search_engine.search(query, extended_query)
-        postprocessor = PostProcessor(self.config["pipeline_config"]["postprocessing"])
-        nodes = postprocessor.run(query, extended_query, search_results, intent)
+        intent, extended_query = query_preprocessing(self.config,
+                                                     query,
+                                                     self.config["data_processing"]["categories"],
+                                                     self.config["data_processing"]["other_category"])
+        search_results = await self.search_engine.search(query, extended_query)
+        nodes = self.postprocessor.run(query, extended_query, search_results, intent)
         if nodes is not None:
             return nodes
         return None

@@ -26,7 +26,6 @@ class SearchEngine:
         bm25_retriever = BM25Retriever.from_defaults(docstore=self.docstore,
                                                      similarity_top_k=self.search_config["bm25_top_k"],
                                                      filters=filters)
-
         retriever = QueryFusionRetriever(
             [vector_retriever, bm25_retriever],
             similarity_top_k=self.search_config["top_k"],
@@ -36,6 +35,11 @@ class SearchEngine:
             verbose=True,
             retriever_weights=self.search_config["retriever_weights"],
         )
+
+        # we need to force the retriever to be initialized, otherwise the first user request will be slow, because
+        # by default bm25 uses lazy initialization, so it would be initialized only when the first search is performed
+        retriever.retrieve("warmup")
+
         return retriever
 
     async def search(self, user_query: str, extended_query: str | None = None, filters: dict | None = None) -> list[NodeWithScore]:

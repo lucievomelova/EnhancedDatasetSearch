@@ -15,26 +15,26 @@ client = Client(
         timeout=10
     )
 
-def query_preprocessing(user_query: str, categories: list[str], other_category: str) -> (str, list):
+def query_preprocessing(config: dict, user_query: str, categories: list[str], other_category: str) -> (str, list):
     """Preprocess the user query."""
 
     logger.info("User query: %s", user_query)
-    intent = detect_user_intent(user_query, categories, other_category)
+    intent = detect_user_intent(config, user_query, categories, other_category)
     # alternative_queries = get_alternative_queries(user_query, intent)
     # alternative_queries = []
-    extended_query = extend_user_query(user_query)
+    extended_query = extend_user_query(config, user_query)
 
     return intent, extended_query
 
 
-def extend_user_query(user_query: str) -> str:
+def extend_user_query(config: dict, user_query: str) -> str:
     template = env.get_template("rewrite_query.j2")
     prompt = template.render(intro=intro_prompt, user_query=user_query)
     logger.info(f"Extending user query: {user_query}")
 
-    # extended_query = ollama.generate(model='mistral-small3.2', prompt=prompt).response
-    extended_query = client.generate(model='mistral-small3.2', prompt=prompt).response
-
+    extended_query = ollama.generate(model=config["llm"]["model_name"], prompt=prompt,
+                                     options={"num_ctx": config["llm"]["context_length"]}).response
+    # extended_query = client.generate(model='mistral-small3.2', prompt=prompt).response
 
     logger.info(f"Extended query: {extended_query}")
     return extended_query
@@ -66,7 +66,7 @@ def get_alternative_queries(
     return alternative_queries
 
 
-def detect_user_intent(user_query: str, categories: list[str], other_category: str) -> dict[str, str]:
+def detect_user_intent(config: dict, user_query: str, categories: list[str], other_category: str) -> dict[str, str]:
     """Detect the user intent from the query using LLM."""
     logger.info("Detecting intent for query: %s", user_query)
 
@@ -78,7 +78,8 @@ def detect_user_intent(user_query: str, categories: list[str], other_category: s
                              categories=", ".join(categories),
                              other_category=other_category)
 
-    response = ollama.generate(model='mistral-small3.2', prompt=prompt).response
+    response = ollama.generate(model=config["llm"]["model_name"], prompt=prompt,
+                               options={"num_ctx": config["llm"]["context_length"]}).response
     if "```" in response:
         response = response.split("```")[1]
         if response.startswith("json"):
