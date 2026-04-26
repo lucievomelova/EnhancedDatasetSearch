@@ -11,7 +11,7 @@ from llama_index.core.vector_stores import MetadataFilters, ExactMatchFilter
 logger = setup_logger(__name__)
 
 
-class SearchEngine:
+class Search:
     def __init__(self, search_config: dict, index: VectorStoreIndex, docstore: PostgresDocumentStore):
         self.search_config = search_config
         self.index = index

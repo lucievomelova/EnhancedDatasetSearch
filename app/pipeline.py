@@ -17,7 +17,7 @@ from data_processing.NKOD.nkod_data_catalog import NkodDataCatalog
 from data_processing.database import Database
 from app.query_prepocessing import query_preprocessing
 from app.result_postprocessing import PostProcessor
-from app.search import SearchEngine
+from app.search import Search
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
@@ -32,9 +32,9 @@ class SearchPipeline:
         self.database = Database(self.config, self.config["state_dir"])
         self.index = self.database.index
         Settings.llm = llm
-        self.search_engine = SearchEngine(self.config["pipeline_config"]["search"],
-                                          self.index,
-                                          self.database.document_store)
+        self.search_engine = Search(self.config["pipeline_config"]["search"],
+                                    self.index,
+                                    self.database.document_store)
         self.postprocessor = PostProcessor(self.config["pipeline_config"]["postprocessing"], self.data_catalog)
 
 
