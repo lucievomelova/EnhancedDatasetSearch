@@ -11,7 +11,7 @@ from llama_index.core.vector_stores import MetadataFilters, ExactMatchFilter
 logger = setup_logger(__name__)
 
 
-class SearchEngine:
+class Retriever:
     def __init__(self, search_config: dict, index: VectorStoreIndex, docstore: PostgresDocumentStore):
         self.search_config = search_config
         self.index = index
@@ -38,11 +38,11 @@ class SearchEngine:
 
         # we need to force the retriever to be initialized, otherwise the first user request will be slow, because
         # by default bm25 uses lazy initialization, so it would be initialized only when the first search is performed
-        retriever.retrieve("warmup")
+        # retriever.retrieve("warmup")
 
         return retriever
 
-    async def search(self, user_query: str, extended_query: str | None = None, filters: dict | None = None) -> list[NodeWithScore]:
+    async def run(self, user_query: str, extended_query: str | None = None, filters: dict | None = None) -> list[NodeWithScore]:
         """Search for relevant datasets."""
 
         logger.info(f"Searching - query: {user_query} + extended query: {extended_query}")

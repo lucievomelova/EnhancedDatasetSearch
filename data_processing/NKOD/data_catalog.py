@@ -47,6 +47,8 @@ class DataCatalog:
         self.init()
         new_datasets = asyncio.run(self.get_new_datasets())
         # new_datasets = self.datasets  # upload all datasets to db
+        if new_datasets.empty:
+            return []
         documents = create_documents(new_datasets)
         return documents
 

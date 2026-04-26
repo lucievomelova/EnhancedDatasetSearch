@@ -19,7 +19,7 @@ class DataPreprocessingPipeline:
     def __init__(self, config: dict):
         self.config = config
         self.state_dir = config["state_dir"]
-        self.data_catalog: DataCatalog = NkodDataCatalog(config, True)
+        self.data_catalog: DataCatalog = NkodDataCatalog(config, False)
         self.llm = Ollama(model=self.config['llm']['model_name'],
                           context_window=self.config['llm']['context_length'])
         Settings.llm = self.llm

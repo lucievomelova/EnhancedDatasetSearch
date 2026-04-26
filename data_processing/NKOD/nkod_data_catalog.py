@@ -15,6 +15,7 @@ import os
 
 from data_processing.NKOD.data_catalog import DataCatalog
 from data_processing.NKOD.spatial_and_temporal_data import add_metadata_to_datasets_from_sparql
+from ollama_client import OllamaClient
 from pandas import Series
 
 from data_processing.metadata import create_documents, enrich_metadata, clean_metadata, preprocess_temporal_coverage, \
@@ -65,8 +66,9 @@ class NkodDataCatalog(DataCatalog):
         self._run_preprocessing: bool = True  # TODO just for debugging
 
         self.config = config
+        self.llm_config = config["llm"]
+        self.client = OllamaClient(self.llm_config)
 
-        self._llm_config = config["llm"]
         self._data_processing_config = config["data_processing"]
         self._state_dir = config["state_dir"]
         self._column_mapping: dict = self._data_processing_config["column_mapping"]
@@ -146,29 +148,29 @@ class NkodDataCatalog(DataCatalog):
             self.datasets_raw = pd.read_csv(self._data_config["datasets_raw_path"], sep=",", dtype="string")
             self.datasets_raw = self.datasets_raw.rename(columns=self._column_mapping)  # rename columns based on column mapping
             # self._db_up_to_date = True
-            return
 
-        today = datetime.today().date()
-        if os.path.exists(self._data_config["datasets_raw_path"]):
-            logger.info("File datasets_raw exists.")
-            mod_time = os.path.getmtime(self._data_config["datasets_raw_path"])
-            mod_datetime = datetime.fromtimestamp(mod_time)
-            if mod_datetime.date() != today:
-                logger.info("Not modified today.")
-                # if the file is outdated, save a copy -> later compare the old and new df to find new / updated rows
-                self._old_datasets_raw = pd.read_csv(self._data_config["datasets_raw_path"], sep=",", dtype="string")
-                self._old_datasets_raw.to_csv(self._data_config["old_datasets_raw_path"], index=False)
-        if not os.path.exists(self._data_config["datasets_raw_path"]) or mod_datetime.date() != today:
-            self.datasets_raw = download_df(self._data_config["datasets_raw_path"], self._data_config["datasets_raw_url"])
         else:
-            logger.info("File datasets_raw is up to date, loading from disk.")
-            self.datasets_raw = pd.read_csv(self._data_config["datasets_raw_path"], sep=",", dtype="string")
-            # self._db_up_to_date = True
+            today = datetime.today().date()
+            if os.path.exists(self._data_config["datasets_raw_path"]):
+                logger.info("File datasets_raw exists.")
+                mod_time = os.path.getmtime(self._data_config["datasets_raw_path"])
+                mod_datetime = datetime.fromtimestamp(mod_time)
+                if mod_datetime.date() != today:
+                    logger.info("Not modified today.")
+                    # if the file is outdated, save a copy -> later compare the old and new df to find new / updated rows
+                    self._old_datasets_raw = pd.read_csv(self._data_config["datasets_raw_path"], sep=",", dtype="string")
+                    self._old_datasets_raw.to_csv(self._data_config["old_datasets_raw_path"], index=False)
+            if not os.path.exists(self._data_config["datasets_raw_path"]) or mod_datetime.date() != today:
+                self.datasets_raw = download_df(self._data_config["datasets_raw_path"], self._data_config["datasets_raw_url"])
+            else:
+                logger.info("File datasets_raw is up to date, loading from disk.")
+                self.datasets_raw = pd.read_csv(self._data_config["datasets_raw_path"], sep=",", dtype="string")
+                # self._db_up_to_date = True
 
-        self.datasets_raw = self.datasets_raw.rename(columns=self._column_mapping)  # rename columns based on column mapping
-        if self._old_datasets_raw is not None:
-            self._old_datasets_raw = self._old_datasets_raw.rename(columns=self._column_mapping)
-        logger.info("Raw dataset info loaded, starting preprocessing.")
+            self.datasets_raw = self.datasets_raw.rename(columns=self._column_mapping)  # rename columns based on column mapping
+            if self._old_datasets_raw is not None:
+                self._old_datasets_raw = self._old_datasets_raw.rename(columns=self._column_mapping)
+            logger.info("Raw dataset info loaded, starting preprocessing.")
 
         if not self._run_preprocessing:  # TODO debug option, to skip datasets_raw preprocessing
             return
@@ -178,8 +180,9 @@ class NkodDataCatalog(DataCatalog):
         # add category column, now empty for each dataset
         self.datasets_raw["categories"] = [[] for _ in range(len(self.datasets_raw))]
         clean_metadata(self.datasets_raw,
+                       self.client,
                        self._data_processing_config["categories"],
-                       self._llm_config["model_name"],
+                       self.llm_config["model_name"],
                        self._state_dir)
         add_metadata_to_datasets_from_sparql(self.config, self.datasets_raw)
 
@@ -242,6 +245,8 @@ class NkodDataCatalog(DataCatalog):
 
         # update datasets - process new datasets and add them to the existing datasets dataframe
         if not self.datasets.empty:
+            if os.path.exists(tmp_file_name):
+                os.remove(tmp_file_name)
             self.datasets.to_csv(tmp_file_name, index=False, header=True)  # store current state of datasets
             if removed_urls:   # remove deleted datasets from self.datasets
                 self.datasets = self.datasets[~self.datasets['url'].isin(removed_urls)]
@@ -279,9 +284,9 @@ class NkodDataCatalog(DataCatalog):
 
         # metadata cleaning for the enhanced datasets
         preprocess_temporal_coverage(self.datasets)
-        clean_metadata(self.datasets, self._data_processing_config["categories"],
-                       self._llm_config["model_name"], self._state_dir)
-        replace_nonfrequent_keywords_with_cluster_representatives(self.datasets, self._llm_config["model_name"],
+        clean_metadata(self.datasets, self.client, self._data_processing_config["categories"],
+                       self.llm_config["model_name"], self._state_dir)
+        replace_nonfrequent_keywords_with_cluster_representatives(self.datasets, self.llm_config["model_name"],
                                                                   self._state_dir)
 
         # save after metadata cleaning as json
@@ -308,7 +313,7 @@ class NkodDataCatalog(DataCatalog):
         generated by a LLM."""
         categories = self._data_processing_config["categories"]
         other_category = self._data_processing_config["other_category"]
-        generated_metadata = enrich_metadata(row, self._all_keywords_raw, self._all_themes_raw, categories, other_category)
+        generated_metadata = enrich_metadata(row, self.client, self._all_keywords_raw, self._all_themes_raw, categories, other_category)
 
         keywords = row["keywords"] if row["keywords"] is not None else []
         keywords = list(set(keywords + generated_metadata["keywords"]))
@@ -333,6 +338,7 @@ class NkodDataCatalog(DataCatalog):
     def get_dataset_by_url(self, url: str) -> dict | None:
         """Get extended dataset info by URL."""
         dataset_row = self.datasets[self.datasets['url'] == url]
+        logger.info(url)
         if dataset_row.empty:  # try also the url used on dataset detail page
             dataset_row = self.datasets[dataset_detail_url(self.config, url) == url]
         if dataset_row.empty:

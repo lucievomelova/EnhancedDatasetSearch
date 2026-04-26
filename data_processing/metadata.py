@@ -4,8 +4,8 @@ import re
 
 import pandas as pd
 from llama_index.core import Document
+from ollama_client import OllamaClient
 from pandas import Series
-import ollama
 from jinja2 import Environment, FileSystemLoader
 from polyleven import levenshtein
 
@@ -20,7 +20,7 @@ return_json_template = env.get_template("return_json.j2")
 return_json_instructions = return_json_template.render()
 
 
-def preprocess_comma_separated_words(word_sequence: str, model_name: str, state_dir: str) -> list[str]:
+def preprocess_comma_separated_words(client: OllamaClient, word_sequence: str, state_dir: str) -> list[str]:
     """Preprocess words containing commas.
 
     Some keywords or themes like this truly contain commas, but others are actually multiple keywords
@@ -34,11 +34,11 @@ def preprocess_comma_separated_words(word_sequence: str, model_name: str, state_
 
     template = env.get_template("keywords_commas.j2")
     prompt = template.render(keyword=word_sequence, return_json_instructions=return_json_instructions)
-    response = ollama.generate(model=model_name,
-                               prompt=prompt, stream=False, format="json",
-                               options={"temperature": 0}).response
+    response = client.get_llm_json_response(prompt, num_retry_attempts=1)
+    if response is None:
+        return [word_sequence]  # return unprocessed sequence if the LLM couldn't process it
 
-    current_new_keywords = json.loads(response)[word_sequence]  # split sequence into keywords
+    current_new_keywords = response[word_sequence]  # split sequence into keywords
     logger.info(current_new_keywords)
     if not os.path.exists(state_file):  # add to file with already processed keywords
         with open(state_file, "w") as f:
@@ -50,6 +50,7 @@ def preprocess_comma_separated_words(word_sequence: str, model_name: str, state_
         with open(state_file, "w") as f:
             json.dump(content, f, indent=4, ensure_ascii=False)
     return current_new_keywords
+
 
 def extract_year_from_date(time_periods: list[str]) -> list[str]:
     """Extract year and possibly month from time_periods.
@@ -108,7 +109,7 @@ def preprocess_temporal_coverage(datasets: pd.DataFrame) -> None:
     logger.info(f"Expanded year ranges into individual years. Number of unique time periods: {len(all_periods)}")
 
 
-def preprocess_keywords_and_themes(datasets: pd.DataFrame, model_name: str, state_dir: str) -> None:
+def preprocess_keywords_and_themes(datasets: pd.DataFrame, client: OllamaClient, model_name: str, state_dir: str) -> None:
     """Preprocess datasets keywords and themes to make data preprocessing and searching more effective.
 
     Because there are a lot of keywords and themes, they need extra preprocessing. Some contain typos,
@@ -119,7 +120,7 @@ def preprocess_keywords_and_themes(datasets: pd.DataFrame, model_name: str, stat
     for col in columns:
         logger.info(f"Preprocessing {col}.")
         # some keywords or themes might be incorrectly formatted and contain commas separating multiple keywords/themes
-        datasets[col] = datasets[col].apply(lambda x: preprocess_comma_separated_words(x, model_name, state_dir) if "," in x else x)
+        datasets[col] = datasets[col].apply(lambda x: preprocess_comma_separated_words(client, x, state_dir) if "," in x else x)
         # strip whitespaces from beginning and end of each word
         datasets[col] = datasets[col].apply(lambda words: [w.strip() for w in words])
 
@@ -218,7 +219,7 @@ def replace_nonfrequent_keywords_with_cluster_representatives(datasets: pd.DataF
     logger.info(f"Removed single occurrence keywords. Number of words: {len(all_words)}")
 
 
-def clean_metadata(df: pd.DataFrame, categories: list[str], model_name: str, state_dir: str) -> None:
+def clean_metadata(df: pd.DataFrame, client: OllamaClient, categories: list[str], model_name: str, state_dir: str) -> None:
     """Clean the metadata of the datasets in the extended dataframe."""
 
     # we don't want reoccurring words in different metadata parts - we would just process more metadata unnecessarily
@@ -236,7 +237,7 @@ def clean_metadata(df: pd.DataFrame, categories: list[str], model_name: str, sta
     df["themes"] = df["themes"].apply(lambda themes: [t for t in themes if t not in categories])
     df["keywords"] = df["keywords"].apply(lambda keywords: list(set([k for k in keywords if k not in categories + all_themes])))
 
-    preprocess_keywords_and_themes(df, model_name, state_dir)
+    preprocess_keywords_and_themes(df, client, model_name, state_dir)
 
 
 def create_documents(datasets: pd.DataFrame) -> list[Document]:
@@ -269,7 +270,7 @@ def create_documents(datasets: pd.DataFrame) -> list[Document]:
     return documents
 
 
-def enrich_metadata(row: Series, all_keywords: list, all_themes: list, all_categories: list, other_category: str) -> dict:
+def enrich_metadata(row: Series, client: OllamaClient, all_keywords: list, all_themes: list, all_categories: list, other_category: str) -> dict:
     """Enrich the metadata of the datasets in the extended dataframe using LLM."""
     keywords = row['keywords']
     title = row['title']
@@ -282,7 +283,7 @@ def enrich_metadata(row: Series, all_keywords: list, all_themes: list, all_categ
 
     num_remaining = {
         "keywords": 3 - len(keywords) if keywords is not None else 3,
-        "categories": 1 - len(categories) if categories is not None else 2,
+        "categories": 0 if categories is not None else 2,
         "themes": 2 - len(themes) if themes is not None else 2
     }
     generate_keywords = True if num_remaining["keywords"] > 0 else False
@@ -321,37 +322,24 @@ def enrich_metadata(row: Series, all_keywords: list, all_themes: list, all_categ
             metadata[k] = []
         return metadata
 
-    while True:
-        metadata_str = ollama.generate(model='mistral-small3.2',
-                                   prompt=prompt,
-                                   format="json",
-                                   options = {
-                                       "temperature": 0
-                                   }
-                                   ).response
-        metadata = {}
-        try:
-            metadata = json.loads(metadata_str)
-            if all(k in metadata_keys for k in metadata):  # check that all returned keys are actually metadata keys
-                # check that the model did not generate more metadata than we specified
-                for k, num in num_remaining.items():
-                    if num > 0 and len(metadata[k]) > num_remaining[k]:
-                        retry += 1
-                        continue
-                for k in metadata_keys:  # fill in missing values with empty lists
-                    if k not in metadata:
-                        metadata[k] = []
-                break
-            retry += 1  # the result is missing a key, retry
-        except json.decoder.JSONDecodeError as e:
-            retry += 1
-            logger.error(f"Error: {e}. Retrying...")
-            if retry >= 3:
-                # if the llm keeps making mistakes, fill problematic metadata categories with emty list and
-                # return it to avoid blocking the pipeline
-                for k in metadata_keys:
-                    if k not in metadata:
-                        metadata[k] = []
-                break
+    num_retry_attempts = 3
+    metadata = {}  # initialize metadata to empty dict
+    while retry < 3:
+        remaining_attempts = num_retry_attempts - retry
+        metadata, retries = client.get_llm_json_response(prompt, num_retry_attempts=remaining_attempts)
+        if all(k in metadata_keys for k in metadata):  # check that all returned keys are actually metadata keys
+            # check that the model did not generate more metadata than we specified
+            for k, num in num_remaining.items():
+                if num > 0 and len(metadata[k]) > num_remaining[k]:
+                    continue
+            for k in metadata_keys:  # fill in missing values with empty lists
+                if k not in metadata:
+                    metadata[k] = []
+            break
+        retry += retries + 1 # the result is missing a key, retry
 
+    # fill missing metadata categories (if there are any) with emty list and return it to avoid blocking the pipeline
+    for k in metadata_keys:
+        if k not in metadata:
+            metadata[k] = []
     return metadata

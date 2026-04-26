@@ -1,12 +1,8 @@
 import os
 from collections import defaultdict
-from itertools import combinations
 
 import pandas as pd
 from neo4j import GraphDatabase, Session
-from scipy.sparse import vstack
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.metrics.pairwise import cosine_similarity
 
 from data_processing.database import Database
 from utils import setup_logger
@@ -17,7 +13,7 @@ logger = setup_logger(__name__)
 
 def ingest_dataset(tx, doc_id, description, metadata):
     tx.run("""
-        MERGE (d:Dataset {id: $id, graph: 'dataset_graph'})
+        MERGE (d:Dataset {id: $id, graph: 'dataset_graph_test'})
         SET d.title = $title,
             d.description = $description,
             d.url = $url
@@ -26,42 +22,42 @@ def ingest_dataset(tx, doc_id, description, metadata):
 
 def ingest_keyword(tx, dataset_id, keyword):
     tx.run("""
-        MATCH (d:Dataset {id: $id, graph: 'dataset_graph'})
+        MATCH (d:Dataset {id: $id, graph: 'dataset_graph_test'})
         MERGE (k:Keyword {name: $kw})
         MERGE (d)-[:HAS_KEYWORD]->(k)
         """, id=dataset_id, kw=keyword)
 
 def ingest_theme(tx, dataset_id, theme):
     tx.run("""
-        MATCH (d:Dataset {id: $id, graph: 'dataset_graph'})
+        MATCH (d:Dataset {id: $id, graph: 'dataset_graph_test'})
         MERGE (t:Theme {name: $theme})
         MERGE (d)-[:HAS_THEME]->(t)
         """, id=dataset_id, theme=theme)
 
 def ingest_provider(tx, dataset_id, provider):
     tx.run("""
-        MATCH (d:Dataset {id: $id, graph: 'dataset_graph'})
+        MATCH (d:Dataset {id: $id, graph: 'dataset_graph_test'})
         MERGE (p:Provider {name: $provider})
         MERGE (d)-[:PROVIDED_BY]->(p)
         """, id=dataset_id, provider=provider)
 
 def ingest_category(tx, dataset_id, category):
     tx.run("""
-        MATCH (d:Dataset {id: $id, graph: 'dataset_graph'})
+        MATCH (d:Dataset {id: $id, graph: 'dataset_graph_test'})
         MERGE (c:Category {name: $category})
         MERGE (d)-[:HAS_CATEGORY]->(c)
         """, id=dataset_id, category=category)
 
 def ingest_spatial_coverage(tx, dataset_id, spatial_coverage):
     tx.run("""
-        MATCH (d:Dataset {id: $id, graph: 'dataset_graph'})
+        MATCH (d:Dataset {id: $id, graph: 'dataset_graph_test'})
         MERGE (r:SpatialCoverage {name: $spatial_coverage})
         MERGE (d)-[:HAS_SPATIAL_COVERAGE]->(r)
         """, id=dataset_id, spatial_coverage=spatial_coverage)
 
 def ingest_temporal_coverage(tx, dataset_id, temporal_coverage):
     tx.run("""
-        MATCH (d:Dataset {id: $id, graph: 'dataset_graph'})
+        MATCH (d:Dataset {id: $id, graph: 'dataset_graph_test'})
         MERGE (t:TemporalCoverage {name: $temporal_coverage})
         MERGE (d)-[:HAS_TEMPORAL_COVERAGE]->(t)
         """, id=dataset_id, temporal_coverage=temporal_coverage)
@@ -72,9 +68,9 @@ def create_description_similarity_edges(tx, dataset_url: str, similar_datasets: 
     rows = [{"url": similar_dataset_url, "score": score} for similar_dataset_url, score in similar_datasets.items()]
     tx.run(
         """
-        MATCH (d1:Dataset {url: $url, graph: 'dataset_graph'})
+        MATCH (d1:Dataset {url: $url, graph: 'dataset_graph_test'})
         UNWIND $rows AS row
-        MATCH (d2:Dataset {url: row.url, graph: 'dataset_graph'})
+        MATCH (d2:Dataset {url: row.url, graph: 'dataset_graph_test'})
         MERGE (d1)-[r:SIMILAR]-(d2)
         ON CREATE SET r.score = row.score
         ON MATCH SET r.score = row.score
@@ -109,8 +105,8 @@ def create_metadata_similarity_edges(tx, similar_datasets: dict[tuple[str, str],
         tx.run(
             f"""
             UNWIND $edges AS e
-            MATCH (d1:Dataset {{url: e.from, graph: 'dataset_graph'}})
-            MATCH (d2:Dataset {{url: e.to, graph: 'dataset_graph'}})
+            MATCH (d1:Dataset {{url: e.from, graph: 'dataset_graph_test'}})
+            MATCH (d2:Dataset {{url: e.to, graph: 'dataset_graph_test'}})
             MERGE (d1)-[r:SIMILAR]-(d2)
             ON CREATE SET r.{metadata_name}_similarity = e.score
             ON MATCH SET r.{metadata_name}_similarity = e.score
@@ -128,8 +124,8 @@ def create_kg(datasets: pd.DataFrame, database: Database, kg_config: dict) -> No
     logger.info(f"Creating knowledge graph from dataset metadata for {len(datasets)} datasets.")
 
     # delete old data
-    # with driver.session() as session:
-    #     session.run("MATCH (n) WHERE n.graph = 'dataset_graph' DETACH DELETE n;")
+    with driver.session() as session:
+        session.run("MATCH (n) WHERE n.graph = 'dataset_graph_test' DETACH DELETE n;")
 
     with driver.session() as session:
         session.run("CREATE CONSTRAINT dataset_id IF NOT EXISTS FOR (d:Dataset) REQUIRE d.id IS UNIQUE;")
@@ -188,7 +184,7 @@ def _run_similarity_query(tx, dataset_url: str, top_k: int) -> list[tuple[str, f
     """Run a query to get similar datasets based on a specific similarity type."""
     result = tx.run(
         """
-        MATCH (d:Dataset {url: $url, graph: 'dataset_graph'})-[r:SIMILAR]-(similar:Dataset {graph: 'dataset_graph'})
+        MATCH (d:Dataset {url: $url, graph: 'dataset_graph_test'})-[r:SIMILAR]-(similar:Dataset {graph: 'dataset_graph_test'})
         WHERE r.score IS NOT NULL
         RETURN similar.url AS url, r.score AS sim
         ORDER BY r.score DESC
@@ -205,8 +201,8 @@ def _get_similar_datasets_based_on_metadata_category(session: Session, dataset_u
     if relationship[-1] == "S":
         relationship = relationship[:-1]  # remove plural form of the metadata
     query = f"""
-        MATCH (a:Dataset {{url: $url, graph: 'dataset_graph'}})-[:{relationship}]-(metadata_node)
-        MATCH (metadata_node)-[:{relationship}]-(b:Dataset {{graph: 'dataset_graph'}})
+        MATCH (a:Dataset {{url: $url, graph: 'dataset_graph_test'}})-[:{relationship}]-(metadata_node)
+        MATCH (metadata_node)-[:{relationship}]-(b:Dataset {{graph: 'dataset_graph_test'}})
         WHERE b <> a
         RETURN b.url as url, count(metadata_node) AS sharedMetadata,
                collect(DISTINCT metadata_node.name) AS sharedNeighborNames
@@ -221,7 +217,7 @@ def _get_similar_datasets_based_on_all_metadata(session: Session, dataset_url: s
     """Retrieve datasets that share the most neighbors when looking at all metadata types."""
     # look at all neighbors but exclude relationships of type "SIMILAR", because there datasets are neighbors directly
     query = """
-        MATCH (a:Dataset {url: $url, graph: 'dataset_graph'})-[rel]-(metadata_node)
+        MATCH (a:Dataset {url: $url, graph: 'dataset_graph_test'})-[rel]-(metadata_node)
         WHERE type(rel) <> 'SIMILAR'
         MATCH (b:Dataset)-[rel2]-(metadata_node)
         WHERE b <> a
