@@ -12,7 +12,7 @@ from app.chatbot import Chatbot
 import yaml
 
 from data_processing.knowledge_graph import get_similar_datasets
-from app.ui_utils import get_common_metadata
+from app.ui_utils import get_common_metadata, get_similar_datasets_with_preview_text
 from llama_index.core import Settings
 from llama_index.embeddings.ollama import OllamaEmbedding
 from llama_index.llms.ollama import Ollama
@@ -83,6 +83,7 @@ def get_chatbot():
 
 @app.route('/', methods=['GET', 'POST'])
 def home():
+    """Display the home page for the search engine."""
     get_search_pipeline()  # initialize search pipeline for this session
     if request.method == 'POST':
         query = request.form.get('query', '').strip()
@@ -93,6 +94,7 @@ def home():
 
 @app.route('/search', methods=['GET', 'POST'])
 def search():
+    """Display the page with search results."""
     pipeline = get_search_pipeline()
     if request.method == 'POST':
         query = request.form.get('query', '').strip()
@@ -115,50 +117,19 @@ def search():
 def dataset_detail():
     """Display detailed view of a specific dataset by looking it up in extended_df."""
     dataset_url = request.args.get('source', '')
-    pipeline = get_search_pipeline()
-    dataset_info = pipeline.data_catalog.get_dataset_by_url(dataset_url)
+    search_pipeline = get_search_pipeline()
+    dataset_info = search_pipeline.data_catalog.get_dataset_by_url(dataset_url)
 
     if not dataset_info:
         return redirect(url_for('home'))
+    similar_datasets = get_similar_datasets_with_preview_text(dataset_url,
+                                                              dataset_info,
+                                                              search_pipeline,
+                                                              config["data_processing"]["knowledge_graph"])
 
-    similar_datasets_raw = get_similar_datasets(dataset_url, config["data_processing"]["knowledge_graph"]["top_k"])
-
-    similar_datasets = {}
-    for sim_category, url_score_list in similar_datasets_raw.items():
-        similar_datasets[sim_category] = []
-        for url, _ in url_score_list:
-            sim_dataset = pipeline.data_catalog.get_dataset_by_url(url)
-            if sim_dataset:
-                text_preview = ""
-                if pd.notna(sim_dataset['text']):
-                    print(sim_dataset['text'])
-                    text_preview = sim_dataset['text']
-                    if len(text_preview) > 200:  # too long description text preview -> take just first sentence
-                        text_preview = sim_dataset['text'][:sim_dataset['text'].find(".") + 1]
-
-                    # first sentence still too long or there is no "." char in the description
-                    if len(text_preview) > 200 or len(text_preview) == 0:
-                        index = sim_dataset['text'][:200].rfind(" ")
-                        text_preview = sim_dataset['text'][:index]
-                        if len(text_preview) > 0:
-                            text_preview += "..."  # if the preview is not empty, show it was cut off by appending ...
-                similar_dataset_info = {
-                    'title': sim_dataset['title'],
-                    'url': url,
-                    'text_preview': text_preview,
-                }
-                if sim_category == "overall":
-                    metadata_categories = ["keywords", "themes", "categories", "region", "time_periods"]
-                    common_metadata = get_common_metadata(metadata_categories, dataset_info["metadata"],
-                                                          sim_dataset["metadata"])
-                    similar_dataset_info["common_metadata"] = common_metadata
-                elif sim_category != "description":
-                    common_metadata = get_common_metadata([sim_category], dataset_info["metadata"],
-                                                          sim_dataset["metadata"])
-                    similar_dataset_info["common_metadata"] = common_metadata
-                similar_datasets[sim_category].append(similar_dataset_info)
-
-    return render_template("dataset_detail.html", dataset=dataset_info, similar_datasets=similar_datasets, query='')
+    return render_template("dataset_detail.html",
+                           dataset=dataset_info,
+                           similar_datasets=similar_datasets)
 
 
 @app.route('/chatbot')

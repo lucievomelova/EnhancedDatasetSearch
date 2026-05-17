@@ -3,9 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dataset Search</title>
+    <title>Enhanced NKOD Dataset Search</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='styles/styles.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='styles/loading.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles/chatbot_button.css') }}">
 </head>
 <body class="home-page">
     <!-- Display loading circle -->
@@ -24,7 +25,7 @@
     </div>
 
     <div class="container">
-        <h1 class="title">Dataset Search</h1>
+        <h1 class="title">Enhanced NKOD Dataset Search</h1>
 
         <form method="POST" action="/search" class="search-form" id="searchForm">
             <div class="search-container">
@@ -48,6 +49,7 @@
         <p class="subtitle">AI powered dataset search for the <a href="https://data.gov.cz/" target="_blank" rel="noopener noreferrer" class="subtitle-link">Czech National Open Data Catalog</a>.</p>
     </div>
 
+    {% include 'chatbot_button.html' %}
     {% include 'footer.html' %}
 
     <script>

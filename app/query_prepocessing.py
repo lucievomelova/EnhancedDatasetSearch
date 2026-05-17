@@ -1,5 +1,6 @@
 import json
 
+import httpx
 from ollama import Client
 from ollama_client import OllamaClient
 from utils import setup_logger
@@ -9,11 +10,6 @@ logger = setup_logger(__name__)
 env = Environment(loader=FileSystemLoader('prompts'))
 intro_template = env.get_template("intro.j2")
 intro_prompt = intro_template.render()
-
-client = Client(
-        host='http://localhost:11434',
-        timeout=10
-    )
 
 class QueryPreprocessor:
     def __init__(self, config: dict) -> None:
@@ -34,7 +30,11 @@ class QueryPreprocessor:
         prompt = template.render(intro=intro_prompt, user_query=user_query)
         logger.info(f"Extending user query: {user_query}")
 
-        extended_query = self.client.get_llm_response(prompt)
+        try:
+            extended_query = self.client.get_llm_response(prompt)
+        except httpx.ReadTimeout as e:
+            logger.error(f"Error while extending query: {e}, the original user query will be used isntead.")
+            extended_query = user_query
 
         logger.info(f"Extended query: {extended_query}")
         return extended_query
@@ -52,7 +52,17 @@ class QueryPreprocessor:
                                  categories=", ".join(categories),
                                  other_category=other_category)
 
-        response = self.client.get_llm_response(prompt)
+
+
+        try:
+            response = self.client.get_llm_response(prompt)
+        except httpx.ReadTimeout as e:
+            logger.error(f"Error while detecting user intent query: {e}, this step will be skipped.")
+            response = {
+                "categories": [],
+                "spatial_coverage": [],
+                "temporal_coverage": []
+            }
         if "```" in response:
             response = response.split("```")[1]
             if response.startswith("json"):

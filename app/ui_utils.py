@@ -1,5 +1,9 @@
 from collections import defaultdict
 
+import pandas as pd
+from data_processing.knowledge_graph import get_similar_datasets
+from app.pipeline import SearchPipeline
+
 
 def get_common_metadata(metadata_category_list: list[str], metadata_a: dict, metadata_b: dict) -> dict[str, set[str]]:
     """Get common metadata between two datasets."""
@@ -27,3 +31,49 @@ def get_all_metadata(search_results: list[dict[str, str | list | None]]) -> dict
             elif isinstance(metadata_values, list):
                 all_metadata[metadata_category].update(metadata_values)
     return all_metadata
+
+
+def get_similar_datasets_with_preview_text(
+        dataset_url: str,
+        dataset_info: dict,
+        pipeline: SearchPipeline,
+        kg_config: dict
+) -> dict:
+    """Get datasets similar to the specified dataset with preview texts."""
+    similar_datasets_raw = get_similar_datasets(dataset_url, kg_config["top_k"])
+
+    similar_datasets = {}
+    for sim_category, url_score_list in similar_datasets_raw.items():
+        similar_datasets[sim_category] = []
+        for url, _ in url_score_list:
+            sim_dataset = pipeline.data_catalog.get_dataset_by_url(url)
+            if sim_dataset:
+                text_preview = ""
+                if pd.notna(sim_dataset['text']):
+                    print(sim_dataset['text'])
+                    text_preview = sim_dataset['text']
+                    if len(text_preview) > 200:  # too long description text preview -> take just first sentence
+                        text_preview = sim_dataset['text'][:sim_dataset['text'].find(".") + 1]
+
+                    # first sentence still too long or there is no "." char in the description
+                    if len(text_preview) > 200 or len(text_preview) == 0:
+                        index = sim_dataset['text'][:200].rfind(" ")
+                        text_preview = sim_dataset['text'][:index]
+                        if len(text_preview) > 0:
+                            text_preview += "..."  # if the preview is not empty, show it was cut off by appending ...
+                similar_dataset_info = {
+                    'title': sim_dataset['title'],
+                    'url': url,
+                    'text_preview': text_preview,
+                }
+                if sim_category == "overall":
+                    metadata_categories = ["keywords", "themes", "categories", "region", "time_periods"]
+                    common_metadata = get_common_metadata(metadata_categories, dataset_info["metadata"],
+                                                          sim_dataset["metadata"])
+                    similar_dataset_info["common_metadata"] = common_metadata
+                elif sim_category != "description":
+                    common_metadata = get_common_metadata([sim_category], dataset_info["metadata"],
+                                                          sim_dataset["metadata"])
+                    similar_dataset_info["common_metadata"] = common_metadata
+                similar_datasets[sim_category].append(similar_dataset_info)
+    return similar_datasets

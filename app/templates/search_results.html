@@ -3,9 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Search Results - Dataset Search</title>
+    <title>Search Results - Enhanced NKOD Dataset Search</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='styles/styles.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='styles/loading.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles/chatbot_button.css') }}">
 </head>
 <body>
     <!-- Display loading circle -->
@@ -25,7 +26,7 @@
 
     <div class="container-search-results">
         <div class="header">
-            <h1 class="title"><a href="/" class="home-link">Dataset Search</a></h1>
+            <h1 class="title"><a href="/" class="home-link">Enhanced NKOD Dataset Search</a></h1>
 
             <form method="POST" action="/search" class="search-form" id="searchForm">
                 <div class="search-container">
@@ -104,6 +105,7 @@
         {% endif %}
     </div>
 
+    {% include 'chatbot_button.html' %}
     {% include 'footer.html' %}
 
     <script>

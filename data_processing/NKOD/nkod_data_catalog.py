@@ -63,7 +63,7 @@ class NkodDataCatalog(DataCatalog):
         self._download_new_data: bool = download_new_data
         """Indicates if new datasets_raw file should be downloaded and processed or not."""
 
-        self._run_preprocessing: bool = True  # TODO just for debugging
+        self._run_preprocessing: bool = False  # TODO just for debugging
 
         self.config = config
         self.llm_config = config["llm"]
