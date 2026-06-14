@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ dataset.title }} - Dataset Search</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='styles/styles.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles/chatbot_button.css') }}">
 </head>
 <body>
     <div class="language-selector">
@@ -18,7 +19,7 @@
         <div class="detail-header">
             <h1 class="detail-title">{{ dataset.title }}</h1>
             <a href="https://data.gov.cz/datová-sada?iri={{ dataset.url }}" target="_blank" rel="noopener noreferrer" class="external-link-button">
-                View on NKOD
+                View on the Czech Dataset Portal
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
                     <polyline points="15 3 21 3 21 9"></polyline>
@@ -117,6 +118,7 @@
             {% endif %}
     </div>
 
+    {% include 'chatbot_button.html' %}
     {% include 'footer.html' %}
 </body>
 </html>

@@ -87,16 +87,12 @@ def add_metadata_to_datasets_from_sparql(config: dict, datasets: pd.DataFrame | 
     endpoint = config["data"]["sparql_endpoint"]
     graph = Graph(SPARQLStore(endpoint))
 
-    # TODO - sparql endpoint not working
-    # try:
-    #     temporal_data, spatial_data = get_spatial_and_temporal_coverage(graph)
-    #     datasets["temporal_coverage"] = datasets["url"].map(lambda x: temporal_data.get(x, []))
-    #     datasets["spatial_coverage"] = datasets["url"].map(lambda x: spatial_data.get(x, []))
-    #     logger.info("Spatial and temporal info added.")
-    # except Exception as e:
-    #     logger.error("NKOD SPARQL endpoint inaccessible. Cannot retrieve spatial and temporal coverage data. Error: " + str(e))
-    #     datasets["temporal_coverage"] = [[] for _ in range(len(datasets))]
-    #     datasets["spatial_coverage"] = [[] for _ in range(len(datasets))]
-
-    datasets["temporal_coverage"] = [[] for _ in range(len(datasets))]
-    datasets["spatial_coverage"] = [[] for _ in range(len(datasets))]
+    try:
+        temporal_data, spatial_data = get_spatial_and_temporal_coverage(graph)
+        datasets["temporal_coverage"] = datasets["url"].map(lambda x: temporal_data.get(x, []))
+        datasets["spatial_coverage"] = datasets["url"].map(lambda x: spatial_data.get(x, []))
+        logger.info("Spatial and temporal info added.")
+    except Exception as e:
+        logger.error("NKOD SPARQL endpoint inaccessible. Cannot retrieve spatial and temporal coverage data. Error: " + str(e))
+        datasets["temporal_coverage"] = [[] for _ in range(len(datasets))]
+        datasets["spatial_coverage"] = [[] for _ in range(len(datasets))]

@@ -11,14 +11,6 @@ Use the most relevant keywords from this list: {{ all_keywords }}.
 If none of the provided keywords are appropriate, you can generate 1 new keyword based on the description.
 {% endif %}
 
-{% if generate_themes %}## Theme
-The dataset already has assigned the following themes: {{ themes }}.
-Assign at most {{ remaining_themes }} different themes that best categorize the dataset.
-Pick the most relevant themes from this list: {{ all_themes }}
-
-Only include themes that are really relevant. If none of the provided themes are appropriate,
-you can generate 1 new theme based on the description.{% endif %}
-
 {% if generate_categories %}## Category
 Classify the dataset into at most {{ remaining_categories }} of the following categories: {{ all_categories }}.
 
@@ -54,7 +46,6 @@ Description: {{ description }}
 Return the metadata in the following JSON format:
 {
     {% if generate_keywords %}"keywords": [list of assigned keywords (in Czech)],{% endif %}
-    {% if generate_themes %}"themes": [list of assigned themes (in Czech)],{% endif %}
     {% if generate_categories %}"categories": [list of assigned categories (in Czech)],{% endif %}
     {% if generate_spatial_coverage %}"spatial_coverage": [list of assigned spatial coverage (in Czech)],{% endif %}
     {% if generate_temporal_coverage %}"temporal_coverage": [list of assigned temporal coverage (in Czech)]{% endif %}

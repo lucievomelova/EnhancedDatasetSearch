@@ -1,14 +1,16 @@
+import asyncio
 import os
 
 import yaml
-from data_processing.NKOD.data_catalog import DataCatalog
+from data_processing.data_catalogs.data_catalog import DataCatalog
+from data_processing.metadata import replace_nonfrequent_keywords_with_cluster_representatives
 from llama_index.core import Settings
 from llama_index.embeddings.ollama import OllamaEmbedding
 from llama_index.llms.ollama import Ollama
 
 from data_processing.keywords import create_keyword_kg, clustering, get_representatives
 from data_processing.knowledge_graph import create_kg
-from data_processing.NKOD.nkod_data_catalog import NkodDataCatalog
+from data_processing.data_catalogs.nkod import NkodDataCatalog
 from data_processing.database import Database
 import click
 
@@ -19,7 +21,7 @@ class DataPreprocessingPipeline:
     def __init__(self, config: dict):
         self.config = config
         self.state_dir = config["state_dir"]
-        self.data_catalog: DataCatalog = NkodDataCatalog(config, True)
+        self.data_catalog: DataCatalog = NkodDataCatalog(config, False)
         self.llm = Ollama(model=self.config['llm']['model_name'],
                           context_window=self.config['llm']['context_length'])
         Settings.llm = self.llm
@@ -36,13 +38,17 @@ class DataPreprocessingPipeline:
         if not os.path.exists(self.state_dir):
             os.makedirs(self.state_dir)
 
-        datasets_documents = self.data_catalog.prepare_documents_for_upload()
-        self.database.load_documents(datasets_documents)
+        new_datasets = asyncio.run(self.data_catalog.get_new_datasets())
+        # replace_nonfrequent_keywords_with_cluster_representatives(self.database,
+        #                                                           new_datasets,
+        #                                                           self.config["llm"]["model_name"],
+        #                                                           self.state_dir,
+        #                                                           self.config["db"]["embed_dim"])
 
+        datasets_documents = self.data_catalog.prepare_documents_for_upload(new_datasets)
+        self.database.load_documents(datasets_documents)
         create_kg(self.data_catalog.datasets, self.database, self.config["data_processing"]["knowledge_graph"])
 
-        # create_keyword_kg(self.database, self.dataset_portal._all_keywords, self.rag_config["db"]["embed_dim"])
-        # get_representatives()
 
 @click.command()
 @click.option('--config', default='config.yaml', help='Path to the configuration YAML file.')

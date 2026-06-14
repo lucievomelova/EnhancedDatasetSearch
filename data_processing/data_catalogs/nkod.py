@@ -10,38 +10,19 @@ from datetime import datetime
 
 import numpy as np
 import pandas as pd
-import requests
 import os
 
-from data_processing.NKOD.data_catalog import DataCatalog
-from data_processing.NKOD.spatial_and_temporal_data import add_metadata_to_datasets_from_sparql
+from data_processing.data_catalogs.data_catalog import DataCatalog
+from data_processing.data_catalogs.spatial_and_temporal_data import add_metadata_to_datasets_from_sparql
+from ollama_client import OllamaClient
 from pandas import Series
 
-from data_processing.metadata import create_documents, enrich_metadata, clean_metadata, preprocess_temporal_coverage, \
-    replace_nonfrequent_keywords_with_cluster_representatives
+from data_processing.metadata import  enrich_metadata, clean_metadata, preprocess_temporal_coverage
 from utils import setup_logger, dataset_detail_url
+from data_processing.data_catalogs.df_utils import drop_irrelevant_columns, merge_keywords_and_themes_rows, split_dataframe, download_df
 
 logger = setup_logger(__name__)
 executor = ThreadPoolExecutor(max_workers=4)
-
-
-def split_dataframe(df, chunk_size=100) -> list[pd.DataFrame]:
-    chunks = list()
-    num_chunks = len(df) // chunk_size + 1
-    for i in range(num_chunks):
-        chunks.append(df[i * chunk_size:(i + 1) * chunk_size])
-    return chunks
-
-
-def download_df(path: str, url: str) -> pd.DataFrame:
-    """Download a csv file, load it and return it as a pandas dataframe."""
-    response = requests.get(url)
-    with open(path, "wb") as f:
-        logger.info(f"Downloading {path.split("/")[-1]}.")
-        f.write(response.content)
-    df = pd.read_csv(path, sep=",", dtype="string")
-    return df
-
 
 
 class NkodDataCatalog(DataCatalog):
@@ -62,11 +43,9 @@ class NkodDataCatalog(DataCatalog):
         self._download_new_data: bool = download_new_data
         """Indicates if new datasets_raw file should be downloaded and processed or not."""
 
-        self._run_preprocessing: bool = True  # TODO just for debugging
-
         self.config = config
+        self.client = OllamaClient(self.config["llm"])
 
-        self._llm_config = config["llm"]
         self._data_processing_config = config["data_processing"]
         self._state_dir = config["state_dir"]
         self._column_mapping: dict = self._data_processing_config["column_mapping"]
@@ -88,53 +67,58 @@ class NkodDataCatalog(DataCatalog):
             "datasets_path": config["data"]["datasets"]["path"],
         }
 
-        self.all_keywords: list | None = None
-        """List of all keywords present in the datasets metadata."""
+        self.all_keywords: set = set()
+        """Set of all keywords present in the datasets metadata."""
 
-        self.all_themes: list | None = None
-        """List of all themes present in the datasets metadata."""
+        self.all_themes: set = set()
+        """Set of all themes present in the datasets metadata."""
 
-        self.all_categories: list = self._data_processing_config["categories"]
-        """List of all categories."""
+        self.all_categories: set = set(self._data_processing_config["categories"])
+        """Set of all categories."""
 
-        self.all_providers: list | None = None
-        """List of all providers of datasets at NKOD."""
+        self.all_providers: set = set()
+        """Set of all providers of datasets at NKOD."""
 
-        self.all_spatial_coverages: list | None = None
-        """List of all spatial_coverages used in the datasets."""
+        self.all_spatial_coverages: set = set()
+        """Set of all spatial_coverages used in the datasets."""
 
-        self.all_temporal_coverages: list | None = None
-        """List of all temporal coverages used in the datasets."""
+        self.all_temporal_coverages: set = set()
+        """Set of all temporal coverages used in the datasets."""
 
-        self.all_categories_with_other_category = self.all_categories + [self._data_processing_config["other_category"]]
-        """List of all categories including "other" category used when a dataset does not belong into any category."""
+        self.all_categories_with_other_category: set = self.all_categories | set(self._data_processing_config["other_category"])
+        """Set of all categories including "other" category used when a dataset does not belong into any category."""
 
-        self._all_keywords_raw: list
-        """List of all keywords present in datasets_raw."""
+        self._all_keywords_raw: set
+        """Set of all keywords present in datasets_raw."""
 
-        self._all_themes_raw: list
-        """List of all themes present in the datasets_raw."""
+        self._all_themes_raw: set
+        """Set of all themes present in the datasets_raw."""
 
         self._load_datasets_raw()
         self._load_datasets()
 
     def _load_datasets(self) -> None:
-        """Load datasets file.
+        """Load datasets file, which contains the preprocessed and enriched data about all datasets in NKOD."""
 
-        This file contains the preprocessed and enriched data about all datasets in NKOD."""
-        if not os.path.exists(self._data_config["datasets_path"]):
+        # for checking if temporary file exists
+        tmp_file_name = self._data_config["datasets_path"].replace(".json", f"_tmp.csv")
+
+        if os.path.exists(self._data_config["datasets_path"]):
+            logger.info("Loading datasets file.")
+            self.datasets = pd.read_json(self._data_config["datasets_path"], orient="split")
+        elif os.path.exists(tmp_file_name):  # tmp file exists -> loading of new datasets was interrupted -> continue
+            list_cols = ["keywords", "themes", "categories", "spatial_coverage", "temporal_coverage"]
+            self.datasets = pd.read_csv(tmp_file_name, sep=",", converters={col: pd.eval for col in list_cols})
+        else:
             logger.warning("Datasets file not found.")
             self.datasets = pd.DataFrame()
             return
-        else:
-            logger.info("Loading datasets file.")
-            self.datasets = pd.read_json(self._data_config["datasets_path"], orient="split")
 
-        self.all_keywords = list(self.datasets["keywords"].explode().dropna().unique())
-        self.all_themes = list(self.datasets["themes"].explode().dropna().unique())
-        self.all_providers = list(self.datasets["provider"].dropna().unique())
-        self.all_spatial_coverages = list(self.datasets["spatial_coverage"].explode().dropna().unique())
-        self.all_temporal_coverages = list(self.datasets["temporal_coverage"].explode().dropna().unique())
+        self.all_keywords = set(self.datasets["keywords"].explode().dropna().unique())
+        self.all_themes = set(self.datasets["themes"].explode().dropna().unique())
+        self.all_providers = set(self.datasets["provider"].dropna().unique())
+        self.all_spatial_coverages = set(self.datasets["spatial_coverage"].explode().dropna().unique())
+        self.all_temporal_coverages = set(self.datasets["temporal_coverage"].explode().dropna().unique())
 
     def _load_datasets_raw(self) -> None:
         """Load the raw NKOD dataset of datasets.
@@ -145,80 +129,50 @@ class NkodDataCatalog(DataCatalog):
             logger.info("Using old datasets_raw file, loading from disk.")
             self.datasets_raw = pd.read_csv(self._data_config["datasets_raw_path"], sep=",", dtype="string")
             self.datasets_raw = self.datasets_raw.rename(columns=self._column_mapping)  # rename columns based on column mapping
+            # self._old_datasets_raw = pd.read_csv(self._data_config["datasets_raw_path"], sep=",", dtype="string")
+            # self._old_datasets_raw = self._old_datasets_raw.rename(columns=self._column_mapping)
             # self._db_up_to_date = True
-            return
 
-        today = datetime.today().date()
-        if os.path.exists(self._data_config["datasets_raw_path"]):
-            logger.info("File datasets_raw exists.")
-            mod_time = os.path.getmtime(self._data_config["datasets_raw_path"])
-            mod_datetime = datetime.fromtimestamp(mod_time)
-            if mod_datetime.date() != today:
-                logger.info("Not modified today.")
-                # if the file is outdated, save a copy -> later compare the old and new df to find new / updated rows
-                self._old_datasets_raw = pd.read_csv(self._data_config["datasets_raw_path"], sep=",", dtype="string")
-                self._old_datasets_raw.to_csv(self._data_config["old_datasets_raw_path"], index=False)
-        if not os.path.exists(self._data_config["datasets_raw_path"]) or mod_datetime.date() != today:
-            self.datasets_raw = download_df(self._data_config["datasets_raw_path"], self._data_config["datasets_raw_url"])
         else:
-            logger.info("File datasets_raw is up to date, loading from disk.")
-            self.datasets_raw = pd.read_csv(self._data_config["datasets_raw_path"], sep=",", dtype="string")
-            # self._db_up_to_date = True
+            today = datetime.today().date()
+            if os.path.exists(self._data_config["datasets_raw_path"]):
+                logger.info("File datasets_raw exists.")
+                mod_time = os.path.getmtime(self._data_config["datasets_raw_path"])
+                mod_datetime = datetime.fromtimestamp(mod_time)
+                if mod_datetime.date() != today:
+                    logger.info("Not modified today.")
+                    # if the file is outdated, save a copy -> later compare the old and new df to find new / updated rows
+                    self._old_datasets_raw = pd.read_csv(self._data_config["datasets_raw_path"], sep=",", dtype="string")
+                    self._old_datasets_raw.to_csv(self._data_config["old_datasets_raw_path"], index=False)
+            if not os.path.exists(self._data_config["datasets_raw_path"]) or mod_datetime.date() != today:
+                self.datasets_raw = download_df(self._data_config["datasets_raw_path"], self._data_config["datasets_raw_url"])
+            else:
+                logger.info("File datasets_raw is up to date, loading from disk.")
+                self.datasets_raw = pd.read_csv(self._data_config["datasets_raw_path"], sep=",", dtype="string")
+                # self._db_up_to_date = True
 
-        self.datasets_raw = self.datasets_raw.rename(columns=self._column_mapping)  # rename columns based on column mapping
-        if self._old_datasets_raw is not None:
-            self._old_datasets_raw = self._old_datasets_raw.rename(columns=self._column_mapping)
-        logger.info("Raw dataset info loaded, starting preprocessing.")
+            self.datasets_raw = self.datasets_raw.rename(columns=self._column_mapping)  # rename columns based on column mapping
+            if self._old_datasets_raw is not None:
+                self._old_datasets_raw = self._old_datasets_raw.rename(columns=self._column_mapping)
+            logger.info("Raw dataset info loaded, starting preprocessing.")
 
-        if not self._run_preprocessing:  # TODO debug option, to skip datasets_raw preprocessing
-            return
-
-        self._merge_datasets_raw_rows()
-        self.drop_irrelevant_columns()
+        self.datasets_raw = merge_keywords_and_themes_rows(self.datasets_raw)
+        self.datasets_raw = drop_irrelevant_columns(self.datasets_raw, self._data_processing_config["irrelevant_columns"])
         # add category column, now empty for each dataset
         self.datasets_raw["categories"] = [[] for _ in range(len(self.datasets_raw))]
         clean_metadata(self.datasets_raw,
+                       self.client,
                        self._data_processing_config["categories"],
-                       self._llm_config["model_name"],
+                       self.config["llm"]["model_name"],
                        self._state_dir)
         add_metadata_to_datasets_from_sparql(self.config, self.datasets_raw)
 
         # metadata cleaned -> find all unique keywords and themes, which will be used for metadata enrichment
-        self._all_keywords_raw = list(self.datasets_raw["keywords"].explode().dropna().unique())
+        self._all_keywords_raw = set(self.datasets_raw["keywords"].explode().dropna().unique())
         logger.info(f"Number of unique keywords in datasets_raw: {len(self._all_keywords_raw)}")
-        self._all_themes_raw = list(self.datasets_raw["themes"].explode().dropna().unique())
+        self._all_themes_raw = set(self.datasets_raw["themes"].explode().dropna().unique())
         logger.info(f"Number of unique themes in datasets_raw: {len(self._all_themes_raw)}")
 
-    def drop_irrelevant_columns(self):
-        """Drop irrelevant columns from datasets_raw."""
-        unwanted_columns = self._data_processing_config["unwanted_columns"]
-        if all(col in self.datasets_raw.columns for col in unwanted_columns):
-            self.datasets_raw = self.datasets_raw.drop(columns=unwanted_columns)
-
-    def _merge_datasets_raw_rows(self) -> None:
-        """Merge rows about the same dataset into one so that we have one row per dataset in datasets_raw.
-
-        Right now, there is a separate row for the same dataset for each keyword and theme
-        associated with it. We want a single row per dataset with all keywords and themes merged into one list.
-        """
-
-        # columns that contain multiple values per dataset -> merge the values into one list
-        list_columns = ["keywords", "themes"]
-        groupby_column = "url"  # group by dataset URL
-        for col in list_columns:
-            sub_df = self.datasets_raw.groupby(groupby_column)[col].apply(lambda x: list(set(x))).reset_index()
-            self.datasets_raw = self.datasets_raw.drop(columns=[col])
-            self.datasets_raw = pd.merge(self.datasets_raw, sub_df, on=groupby_column, how='left')
-
-            # replace Nan and empty values with [], because the column should contain lists
-            self.datasets_raw[col] = self.datasets_raw[col].map(lambda x: [] if x is None or x == np.nan or x == "" else x)
-
-        self.datasets_raw = self.datasets_raw.drop_duplicates(subset=[groupby_column])
-
-        # if a list contains NaN value, remove it from the list
-        self.datasets_raw = self.datasets_raw.map(lambda x: x if not isinstance(x, list) else [i for i in x if pd.notna(i)])
-        self.datasets_raw = self.datasets_raw.replace(np.nan, None)  # remaining NaNs to None
-        logger.info(f"Keywords and themes merged, number of rows: {self.datasets_raw.shape[0]}.")
 
     async def get_new_datasets(self) -> pd.DataFrame:
         """Get the list of new or updated datasets."""
@@ -229,7 +183,7 @@ class NkodDataCatalog(DataCatalog):
         removed_urls = None
         # find new or updated datasets by comparing new and old file
         if self._old_datasets_raw is not None:
-            merged_df = pd.merge(self.datasets_raw, self._old_datasets_raw, on="url", how='outer', indicator=True)
+            merged_df = pd.merge(self.datasets_raw, self._old_datasets_raw["url"], on="url", how='outer', indicator=True)
             new_datasets = merged_df[merged_df['_merge'] == 'left_only'][self.datasets_raw.columns]
             removed_urls = merged_df[merged_df['_merge'] == 'right_only']["url"].tolist()
             logger.info(f"Number of new or updated datasets: {new_datasets.shape[0]}.")
@@ -249,8 +203,6 @@ class NkodDataCatalog(DataCatalog):
             # find which rows are already in the datasets based on url - don't add them again
             merged_df = pd.merge(self.datasets["url"], new_datasets, on="url", how='outer', indicator=True)
             new_datasets = merged_df.query("_merge == 'right_only'").drop('_merge', axis=1).reset_index(drop=True)
-        if new_datasets.empty:
-            return pd.DataFrame()
 
         # do the updates in chunks -> in case of script failure we can resume from the last chunk
         chunks = split_dataframe(new_datasets, chunk_size=32)
@@ -273,16 +225,16 @@ class NkodDataCatalog(DataCatalog):
         # loaded faster in subsequent loads, because we don't have to use pd converters for list columns
         list_cols = ["keywords", "themes", "categories", "spatial_coverage", "temporal_coverage"]
         self.datasets = pd.read_csv(tmp_file_name, sep=",", converters={col: pd.eval for col in list_cols})
+        if os.path.exists(tmp_file_name):  # remove temporary file, it is not needed anymore
+            os.remove(tmp_file_name)
 
         for col in list_cols:  # validate that each list column truly contains a list - otherwise set it as empty list
             self.datasets[col] = self.datasets[col].apply(lambda x: x if isinstance(x, list) else [])
 
         # metadata cleaning for the enhanced datasets
         preprocess_temporal_coverage(self.datasets)
-        clean_metadata(self.datasets, self._data_processing_config["categories"],
-                       self._llm_config["model_name"], self._state_dir)
-        replace_nonfrequent_keywords_with_cluster_representatives(self.datasets, self._llm_config["model_name"],
-                                                                  self._state_dir)
+        clean_metadata(self.datasets, self.client, self._data_processing_config["categories"],
+                       self.config["llm"]["model_name"], self._state_dir)
 
         # save after metadata cleaning as json
         self.datasets.to_json(self._data_config["datasets_path"], orient="split", force_ascii=False)
@@ -308,14 +260,14 @@ class NkodDataCatalog(DataCatalog):
         generated by a LLM."""
         categories = self._data_processing_config["categories"]
         other_category = self._data_processing_config["other_category"]
-        generated_metadata = enrich_metadata(row, self._all_keywords_raw, self._all_themes_raw, categories, other_category)
+        generated_metadata = enrich_metadata(row, self.client, self._all_keywords_raw, categories, other_category)
 
         keywords = row["keywords"] if row["keywords"] is not None else []
         keywords = list(set(keywords + generated_metadata["keywords"]))
         themes = row["themes"] if row["themes"] is not None else []
-        themes = list(set(themes + generated_metadata["themes"]))
         categories = row["categories"] if row["categories"] is not None else []
         categories = list(set(categories + generated_metadata["categories"]))
+        self._all_keywords_raw.update(set(keywords))  # update keywords set
 
         metadata = {
             "title": row["title"],
@@ -329,26 +281,3 @@ class NkodDataCatalog(DataCatalog):
             "temporal_coverage": generated_metadata["temporal_coverage"],
         }
         return metadata
-
-    def get_dataset_by_url(self, url: str) -> dict | None:
-        """Get extended dataset info by URL."""
-        dataset_row = self.datasets[self.datasets['url'] == url]
-        if dataset_row.empty:  # try also the url used on dataset detail page
-            dataset_row = self.datasets[dataset_detail_url(self.config, url) == url]
-        if dataset_row.empty:
-            return None  # still no result -> dataset with the given URL not found
-
-        row = dataset_row.iloc[0]
-        return {
-            'title': row['title'],
-            'url': row['url'],
-            'text': row['description'] if pd.notna(row['description']) else "",
-            'metadata': {
-                'keywords': row['keywords'] if isinstance(row['keywords'], list) else [],
-                'themes': row['themes'] if isinstance(row['themes'], list) else [],
-                'categories': row['categories'] if isinstance(row['categories'], list) else [],
-                'spatial_coverage': row['spatial_coverage'] if isinstance(row['spatial_coverage'], list) else [],
-                'temporal_coverage': row['temporal_coverage'] if isinstance(row['temporal_coverage'], list) else [],
-                'provider': row['provider'] if 'provider' in row and not pd.isna(row['provider']) else '',
-            }
-        }

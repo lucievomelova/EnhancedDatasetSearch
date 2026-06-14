@@ -1,12 +1,12 @@
-from data_processing.NKOD.data_catalog import DataCatalog
+from data_processing.data_catalogs.data_catalog import DataCatalog
 from llama_index.core.schema import NodeWithScore
-from llama_index.core.postprocessor import SimilarityPostprocessor, SentenceTransformerRerank
+from llama_index.core.postprocessor import SentenceTransformerRerank
 
 from utils import setup_logger
 
 logger = setup_logger(__name__)
 
-class PostProcessor():
+class PostProcessor:
     """Search result postprocessor."""
 
     def __init__(self, postprocessing_config: dict, data_catalog: DataCatalog) -> None:
@@ -16,7 +16,7 @@ class PostProcessor():
     def run(self, user_query: str,
                               extended_query: str,
                               results: list[NodeWithScore],
-                              intent: dict[str, str]) -> list[dict]:
+                              intent: dict[str, str]) -> list[dict | None]:
         """Post-process search results."""
         if not results:
             logger.info("No results found.")
@@ -24,8 +24,8 @@ class PostProcessor():
 
         logger.info(f"Post-processing {len(results)} results.")
         results = self.rerank(user_query, results, intent)
-        results = [self.data_catalog.get_dataset_by_url(str(res.metadata["url"])) for res in results]
-        return results
+        results_with_info = [self.data_catalog.get_dataset_by_url(str(res.metadata["url"])) for res in results]
+        return results_with_info
 
 
     def rerank(self, user_query: str, results: list[NodeWithScore], intent: dict[str, str]) -> list[NodeWithScore]:
