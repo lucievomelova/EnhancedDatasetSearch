@@ -1,4 +1,4 @@
-from data_processing.NKOD.data_catalog import DataCatalog
+from data_processing.data_catalogs.data_catalog import DataCatalog
 from llama_index.core.schema import NodeWithScore
 from llama_index.core.postprocessor import SentenceTransformerRerank
 

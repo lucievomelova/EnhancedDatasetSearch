@@ -1,6 +1,6 @@
 import json
 
-from data_processing.NKOD.data_catalog import DataCatalog
+from data_processing.data_catalogs.data_catalog import DataCatalog
 import data_processing.knowledge_graph as kg
 from llama_index.core.agent import AgentWorkflow
 from llama_index.core.llms.function_calling import FunctionCallingLLM

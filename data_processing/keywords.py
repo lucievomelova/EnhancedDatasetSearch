@@ -21,7 +21,7 @@ driver = GraphDatabase.driver(
 
 def embed_keywords(database: Database, keywords: list[str]) -> list[list[float]]:
     """Embed a list of keywords using the database's embedding model."""
-    embeddings = database.embedding_model.get_text_embedding_batch(keywords)
+    embeddings = database.embedding_model.get_text_embedding_batch(keywords, show_progress=True)
     return embeddings
 
 
@@ -55,8 +55,8 @@ def create_similarity_edges(tx, similarity_threshold):
         YIELD node AS k2, score
         WHERE k2 <> k AND score >= $threshold
         WITH k, k2, score
-        WHERE id(k) < id(k2)
-        MERGE (k)-[r:SIMILAR]->(k2)
+        WHERE elementId(k) < elementId(k2)
+        MERGE (k)-[r:SIMILAR]-(k2)
         SET r.score = score
         """,
         threshold=similarity_threshold
@@ -71,7 +71,7 @@ def create_keyword_kg(database: Database, keywords: list[str], embed_dim: int) -
 
     logger.info("Creating keyword knowledge graph.")
     with driver.session() as session:
-        session.run("MATCH (n) WHERE n.embedding is not null DETACH DELETE n;")
+        session.run("MATCH (n) WHERE n.keyword_graph = 'keyword_graph' DETACH DELETE n;")
         session.execute_write(create_keywords, keywords, embeddings)
         create_index_query = f"""
             CREATE VECTOR INDEX keyword_embedding_index IF NOT EXISTS
@@ -162,23 +162,29 @@ def find_representatives(clusters_state_file: str, representatives_state_file: s
     logger.info("Finding representative keyword for each cluster.")
     for cluster_id, cluster_keywords in clusters.items():
         logger.info(f"Processing cluster {cluster_id}")
+        new_representatives = {}
+        if len(cluster_keywords) == 1:
+            new_representatives[cluster_keywords[0]] = cluster_keywords
+        else:
+            template = env.get_template("keywords_clustering.j2")
+            prompt = template.render(keywords=", ".join(cluster_keywords), return_json_instructions=return_json_instructions)
+            max_retries = 3
+            retry = 0
+            while retry < max_retries:
+                try:
+                    response = ollama.generate(model=model_name,
+                                               prompt=prompt,
+                                               format="json",
+                                               options={
+                                                   "temperature": 0,
+                                               }).response
+                    new_representatives = json.loads(response)
+                    break
+                except json.JSONDecodeError as e:
+                    logger.error(f"JSON decode error: {response}. Retrying...")
+                    retry += 1
 
-        template = env.get_template("keywords_clustering.j2")
-        prompt = template.render(keywords=", ".join(cluster_keywords), return_json_instructions=return_json_instructions)
-        while True:
-            try:
-                response = ollama.generate(model=model_name,
-                                           prompt=prompt,
-                                           format="json",
-                                           options={
-                                               "temperature": 0,
-                                           }).response
-                current_representatives = json.loads(response)
-                break
-            except json.JSONDecodeError as e:
-                logger.error(f"JSON decode error: {response}. Retrying...")
-
-        for representative, keywords in current_representatives.items():
+        for representative, keywords in new_representatives.items():
             representative = representative.strip()
             if representative in representatives:
                 representatives[representative] += keywords
@@ -220,9 +226,3 @@ def get_representatives(state_dir: str, model_name: str) -> dict[str, list[str]]
     else:
         representatives = find_representatives(clusters_state_file, representatives_state_file, model_name)
     return representatives
-
-# dataset_portal = NkodDataCatalog(config)
-# database = Database(config)
-# dataset_portal.load()
-#
-# preprocess_keywords(database, dataset_portal.get_keywords())

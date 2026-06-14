@@ -1,22 +1,22 @@
 data:
   datasets_raw:
-#    path: "data/golden/datasets_small.csv"
-    path: "data//datove_sady.csv"
+    path: "data/golden/datasets_small.csv"
+#    path: "data//datove_sady.csv"
     url: "https://data.gov.cz/soubor/datov%C3%A9-sady.csv"
   datasets:
-#    path: "data/golden/datasets_with_metadata_small.json"
-    path: "data//datasets_with_metadata_large.json"
+    path: "data/golden/datasets_with_metadata_small.json"
+#    path: "data//datasets_with_metadata_large.json"
   sparql_endpoint: "https://data.gov.cz/sparql"
 state_dir: "state"
 app_url: "http://127.0.0.1:5000/"
 db:
   host: "localhost"
   port: 5432
-  document_table:  "documents_all_qwen_4b"  # "documents_test"
-  vector_table: "embeddings_all_qwen_4b"  # "embeddings_test"
-  embed_dim: 2560  # 4096
+  document_table: documents_test # "documents_all_qwen_4b"  # "documents_test"
+  vector_table: embeddings_test #"embeddings_all_qwen_4b"  # "embeddings_test"
+  embed_dim: 2560  #2560  # 4096
 embedding:
-  model_name: "qwen3-embedding:4b"  # "qwen3-embedding:8b"
+  model_name: "qwen3-embedding:4b"  # "qwen3-embedding:4b"
   base_url: "http://localhost:11434"
   chunk_size: 16192
   chunk_overlap: 50
@@ -25,7 +25,7 @@ embedding:
 llm:
   model_name: "mistral-small3.2:latest"
   base_url: "http://localhost:11434"
-  context_length: 4096
+  context_length: 2048
 chatbot:
   llm:
     model_name: "magistral:latest"
@@ -63,7 +63,7 @@ data_processing:
     poskytovatel: provider
     prostorové_pokrytí: spatial_coverage
     časové_pokrytí: temporal_coverage
-  unwanted_columns:
+  irrelevant_columns:
     - kategorie_hvd_IRI  # mostly None and should only be use for legislation related data
     - kategorie_hvd_název  # mostly None and should only be use for legislation related data
     - je_součástí_IRI  # always empty
