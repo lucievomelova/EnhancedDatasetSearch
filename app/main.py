@@ -126,10 +126,12 @@ def dataset_detail():
                                                               dataset_info,
                                                               search_pipeline,
                                                               config["data_processing"]["knowledge_graph"])
+    distributions = dataset_info["distributions"]
 
     return render_template("dataset_detail.html",
                            dataset=dataset_info,
-                           similar_datasets=similar_datasets)
+                           similar_datasets=similar_datasets,
+                           distributions=distributions)
 
 
 @app.route('/chatbot')

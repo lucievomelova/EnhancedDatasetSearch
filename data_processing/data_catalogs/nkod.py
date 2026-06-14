@@ -13,6 +13,7 @@ import pandas as pd
 import os
 
 from data_processing.data_catalogs.data_catalog import DataCatalog
+from data_processing.data_catalogs.distribution import download_distribution_info
 from data_processing.data_catalogs.spatial_and_temporal_data import add_metadata_to_datasets_from_sparql
 from ollama_client import OllamaClient
 from pandas import Series
@@ -37,6 +38,7 @@ class NkodDataCatalog(DataCatalog):
             processing will be started, otherwise it should be False, because it will trigger a knowledge base update.
         """
         super().__init__()
+
         self._db_up_to_date: bool = False
         """Indicates whether the knowledge base is up to date - if True, no new documents need to be added"""
 
@@ -45,6 +47,10 @@ class NkodDataCatalog(DataCatalog):
 
         self.config = config
         self.client = OllamaClient(self.config["llm"])
+
+        self.distributions = download_distribution_info(config["data"]["distributions"]["path"],
+                                                        config["data"]["distributions"]["url"],
+                                                        config["data_processing"]["distribution_column_mapping"])
 
         self._data_processing_config = config["data_processing"]
         self._state_dir = config["state_dir"]

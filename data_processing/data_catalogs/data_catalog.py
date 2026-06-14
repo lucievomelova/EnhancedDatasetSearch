@@ -18,6 +18,9 @@ class DataCatalog:
         keywords, themes, provider, categories, region, time_periods
         """
 
+        self.distributions: pd.DataFrame = pd.DataFrame()
+        """Dataset of distributions - links each dataset with all its available distributions."""
+
         self.all_keywords: set
         """Set of all keywords present in the datasets metadata."""
 
@@ -63,6 +66,7 @@ class DataCatalog:
             'title': row['title'],
             'url': row['url'],
             'text': row['description'] if pd.notna(row['description']) else "",
+            'distributions': self.distributions[self.distributions['dataset_url'] == row['url']].to_dict(orient='records'),
             'metadata': {
                 'keywords': row['keywords'] if 'keywords' in row and isinstance(row['keywords'], list) else [],
                 'themes': row['themes'] if 'themes' in row and isinstance(row['themes'], list) else [],

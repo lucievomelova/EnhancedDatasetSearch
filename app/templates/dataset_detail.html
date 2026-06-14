@@ -64,6 +64,26 @@
                 </div>
             </div>
 
+            {% if distributions %}
+                <div class="detail-section">
+                    <h3 class="section-title">Distributions</h3>
+                    <div class="distributions">
+                        <div class="distribution-list">
+                            {% for distribution in distributions %}
+                                    <div class="distribution-card">
+                                        <div class="distribution-content">
+                                            <p class="distribution-title">{{ distribution.title }}</p>
+                                            <a href="{{ distribution.url }}" class="distribution-link">
+                                                <p>Download {{ distribution.format }} file</p>
+                                            </a>
+                                        </div>
+                                    </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
+
             {% if similar_datasets %}
             <div class="detail-section">
                 <h3 class="section-title">Similar Datasets</h3>

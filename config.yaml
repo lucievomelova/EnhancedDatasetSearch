@@ -7,6 +7,9 @@ data:
     path: "data/golden/datasets_with_metadata_small.json"
 #    path: "data//datasets_with_metadata_large.json"
   sparql_endpoint: "https://data.gov.cz/sparql"
+  distributions:
+    path: "data/distributions.csv"
+    url: "https://data.gov.cz/soubor/distribuce.csv"
 state_dir: "state"
 app_url: "http://127.0.0.1:5000/"
 db:
@@ -63,6 +66,11 @@ data_processing:
     poskytovatel: provider
     prostorové_pokrytí: spatial_coverage
     časové_pokrytí: temporal_coverage
+  distribution_column_mapping:
+    název: title
+    datová_sada: dataset_url
+    přístupovéUrl: url
+    formátSouboru: file_format
   irrelevant_columns:
     - kategorie_hvd_IRI  # mostly None and should only be use for legislation related data
     - kategorie_hvd_název  # mostly None and should only be use for legislation related data
