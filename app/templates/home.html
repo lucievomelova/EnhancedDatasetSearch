@@ -47,7 +47,37 @@
         </form>
 
         <p class="subtitle">AI powered dataset search for the <a href="https://data.gov.cz/" target="_blank" rel="noopener noreferrer" class="subtitle-link">Czech National Open Data Catalog</a>.</p>
+
+
+        <div class="filter-bar">
+
+            <div class="filter-item">
+                <button class="filter-toggle" data-target="color-list">
+                    Color ▼
+                </button>
+
+                <div class="filter-dropdown" id="color-list">
+                    <label><input type="checkbox"> Red</label>
+                    <label><input type="checkbox"> Blue</label>
+                    <label><input type="checkbox"> Green</label>
+                </div>
+            </div>
+
+            <div class="filter-item">
+                <button class="filter-toggle" data-target="size-list">
+                    Size ▼
+                </button>
+
+                <div class="filter-dropdown" id="size-list">
+                    <label><input type="checkbox"> S</label>
+                    <label><input type="checkbox"> M</label>
+                    <label><input type="checkbox"> L</label>
+                </div>
+            </div>
+
+        </div>
     </div>
+
 
     {% include 'chatbot_button.html' %}
     {% include 'footer.html' %}

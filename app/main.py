@@ -102,6 +102,17 @@ def search():
         query = request.args.get('query', '').strip()
 
     results = None
+
+    filter_categories = ["keywords", "themes", "categories", "provider", "spatial_coverage", "temporal_coverage"]
+    filters = {
+        "keywords": {"title": "Keywords", "vals": dict()},
+        "themes": {"title": "Themes", "vals": dict()},
+        "categories": {"title": "Categories", "vals": dict()},
+        "provider": {"title": "Provider", "vals": dict()},
+        "spatial_coverage": {"title": "Spatial coverage", "vals": dict()},
+        "temporal_coverage": {"title": "Temporal coverage", "vals": dict()},
+    }
+    
     if query:
         logger.info(f"Session: {session}")
         future = asyncio.run_coroutine_threadsafe(
@@ -110,7 +121,27 @@ def search():
         )
         results = future.result()
 
-    return render_template("search_results.html", query=query, results=results)
+        if results:
+            for dataset in results:
+                metadata = dataset.get('metadata', {})
+                for filter_category in filter_categories:
+                    result = metadata.get(filter_category, [])
+                    if isinstance(result, list):
+                        for item in result:
+                            filters[filter_category]["vals"][item] = filters[filter_category]["vals"].get(item, 0) + 1
+                            if item == "budovy":
+                                print("budovy", dataset["url"])
+                    else:
+                        filters[filter_category]["vals"][result] = filters[filter_category]["vals"].get(result, 0) + 1
+
+    # sort the sets for consistent display
+    for filter_category in filter_categories:
+        filters[filter_category]["vals"] = dict(sorted(filters[filter_category]["vals"].items(), key=lambda x: x[1], reverse=True))
+
+    return render_template("search_results.html", 
+                         query=query, 
+                         results=results,
+                         filters=filters)
 
 
 @app.route('/dataset_detail')

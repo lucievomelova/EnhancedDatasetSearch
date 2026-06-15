@@ -24,6 +24,42 @@
         </select>
     </div>
 
+     {% if results %}
+    <!-- Sidebar with filters -->
+    <aside class="filters-sidebar" id="filtersSidebar">
+        <div class="filters-header">
+            <h3>Filters</h3>
+            <button class="filters-toggle-close" id="filtersClose">×</button>
+        </div>
+
+        <div class="filters-content">
+            {% for filter_category, content in filters.items() %}
+                {% if content.vals %}
+                        <div class="filter-section">
+                            <div class="filter-title">
+                                <h4>{{ content.title }}</h4>
+                                <button class="filter-toggle" data-target="{{ filter_category }}-list">▼</button>
+                            </div>
+                            <div class="filter-options" id="{{ filter_category }}-list">
+                                {% for word, count in content.vals.items() %}
+                                <label class="filter-checkbox">
+                                    <input type="checkbox" class="filter-input" data-filter-type="{{ filter_category }}" value="{{ word }}">
+                                    <span>{{ word }} ({{ count }})</span>
+                                </label>
+                                {% endfor %}
+                            </div>
+                        </div>
+                {% endif %}
+            {% endfor %}
+
+            <!-- Clear Filters Button -->
+            <div class="filter-section">
+                <button class="clear-filters-btn" id="clearFiltersBtn">Clear All Filters</button>
+            </div>
+        </div>
+    </aside>
+    {% endif %}
+
     <div class="container-search-results">
         <div class="header">
             <h1 class="title"><a href="/" class="home-link">Enhanced NKOD Dataset Search</a></h1>
@@ -50,53 +86,61 @@
         </div>
 
         {% if results %}
-            <div class="results-info">
-                <p>Found {{ results|length }} dataset{{ 's' if results|length != 1 else '' }}</p>
+            <div class="results-header-bar">
+                <div class="results-info">
+                    <p>Found <span id="resultsCount">{{ results|length }}</span> dataset{{ 's' if results|length != 1 else '' }}</p>
+                </div>
+                <button class="filters-toggle-open" id="filtersOpen">☰ Filters</button>
             </div>
 
-            <div class="results-container">
+            <div class="results-container" id="resultsContainer">
                 {% for dataset in results %}
-                <div class="result-card">
-                    <div class="result-header">
-                        <h2 class="result-title">
-                            <a href="{{ url_for('dataset_detail', source=dataset.url) }}">{{ dataset.title }}</a>
-                        </h2>
-                        <div class="result-actions">
-                            {% if dataset.explanation %}
-                            <button class="action-button action-button-lg" aria-label="Show explanation">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                    <circle cx="12" cy="12" r="10"></circle>
-                                    <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
-                                    <line x1="12" y1="17" x2="12.01" y2="17"></line>
-                                </svg>
-                                <div class="tooltip">
-                                    <strong>Why this result?</strong>
-                                    <p>{{ dataset.explanation }}</p>
+                <div class="result-card" data-keywords="{{ dataset.metadata.keywords | join(',') }}" data-themes="{{ dataset.metadata.themes | join(',') }}" data-categories="{{ dataset.metadata.categories | join(',') }}" data-provider="{{ dataset.metadata.provider }}" data-temporal="{{ dataset.metadata.temporal_coverage | join(',') }}" data-spatial="{{ dataset.metadata.spatial_coverage | join(',') }}">
+                            <div class="result-header">
+                                <h2 class="result-title">
+                                    <a href="{{ url_for('dataset_detail', source=dataset.url) }}">{{ dataset.title }}</a>
+                                </h2>
+                                <div class="result-actions">
+                                    {% if dataset.explanation %}
+                                    <button class="action-button action-button-lg" aria-label="Show explanation">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                            <circle cx="12" cy="12" r="10"></circle>
+                                            <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
+                                            <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                                        </svg>
+                                        <div class="tooltip">
+                                            <strong>Why this result?</strong>
+                                            <p>{{ dataset.explanation }}</p>
+                                        </div>
+                                    </button>
+                                    {% endif %}
+                                    <button class="action-button" aria-label="Show metadata">⋮
+                                        <div class="tooltip">
+                                            <div class="metadata-section">
+                                                <strong>Keywords:</strong>
+                                                <span>{{ dataset.metadata.keywords | join(', ') if dataset.metadata.keywords else '-' }}</span>
+                                            </div>
+                                            <div class="metadata-section">
+                                                <strong>Themes:</strong>
+                                                <span>{{ dataset.metadata.themes | join(', ') if dataset.metadata.themes else '-' }}</span>
+                                            </div>
+                                            <div class="metadata-section">
+                                                <strong>Provider:</strong>
+                                                <span>{{ dataset.metadata.provider if dataset.metadata.provider else '-' }}</span>
+                                            </div>
+                                        </div>
+                                    </button>
                                 </div>
-                            </button>
-                            {% endif %}
-                            <button class="action-button" aria-label="Show metadata">⋮
-                                <div class="tooltip">
-                                    <div class="metadata-section">
-                                        <strong>Keywords:</strong>
-                                        <span>{{ dataset.metadata.keywords | join(', ') if dataset.metadata.keywords else '-' }}</span>
-                                    </div>
-                                    <div class="metadata-section">
-                                        <strong>Themes:</strong>
-                                        <span>{{ dataset.metadata.themes | join(', ') if dataset.metadata.themes else '-' }}</span>
-                                    </div>
-                                    <div class="metadata-section">
-                                        <strong>Provider:</strong>
-                                        <span>{{ dataset.metadata.provider if dataset.metadata.provider else '-' }}</span>
-                                    </div>
-                                </div>
-                            </button>
+                            </div>
+                            <p class="result-text">{{ dataset.text }}</p>
                         </div>
+                        {% endfor %}
                     </div>
-                    <p class="result-text">{{ dataset.text }}</p>
-                </div>
-                {% endfor %}
-            </div>
+
+                    <div class="no-results-filtered" id="noResultsFiltered" style="display: none;">
+                        <p>No results match the selected filters</p>
+                        <p class="no-results-hint">Try adjusting your filter selection</p>
+                    </div>
         {% else %}
             <div class="no-results">
                 <p>No results found for "{{ query }}"</p>
@@ -107,6 +151,22 @@
 
     {% include 'chatbot_button.html' %}
     {% include 'footer.html' %}
+
+    {% if results %}
+    <script>
+        // Store all filter data
+        window.allFiltersData = {
+            keywords: {{ filters.keywords.vals | tojson }},
+            themes: {{ filters.themes.vals | tojson }},
+            categories: {{ filters.categories.vals | tojson }},
+            providers: {{ filters.provider.vals | tojson }},
+            temporal_coverages: {{ filters.temporal_coverage.vals | tojson }},
+            spatial_coverages: {{ filters.spatial_coverage.vals | tojson }}
+        };
+    </script>
+    {% endif %}
+
+    <script src="{{ url_for('static', filename='scripts/search_filters.js') }}"></script>
 
     <script>
         // Show loading overlay on form submit

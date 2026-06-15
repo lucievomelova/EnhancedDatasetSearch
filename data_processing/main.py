@@ -21,7 +21,7 @@ class DataPreprocessingPipeline:
     def __init__(self, config: dict):
         self.config = config
         self.state_dir = config["state_dir"]
-        self.data_catalog: DataCatalog = NkodDataCatalog(config, False)
+        self.data_catalog: DataCatalog = NkodDataCatalog(config, True)
         self.llm = Ollama(model=self.config['llm']['model_name'],
                           context_window=self.config['llm']['context_length'])
         Settings.llm = self.llm
@@ -45,7 +45,7 @@ class DataPreprocessingPipeline:
         #                                                           self.state_dir,
         #                                                           self.config["db"]["embed_dim"])
 
-        datasets_documents = self.data_catalog.prepare_documents_for_upload(new_datasets)
+        datasets_documents = self.data_catalog.prepare_documents_for_upload(self.data_catalog.datasets)
         self.database.load_documents(datasets_documents)
         create_kg(self.data_catalog.datasets, self.database, self.config["data_processing"]["knowledge_graph"])
 

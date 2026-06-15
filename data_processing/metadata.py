@@ -149,6 +149,7 @@ def preprocess_keywords(datasets: pd.DataFrame, client: OllamaClient, model_name
     if datasets.empty:
         return
     col = "keywords"
+    datasets[col] = datasets[col].apply(lambda k: list(set(k)))  # remove possible duplicates from keywords
     logger.info(f"Preprocessing keywords.")
     # some keywords might be incorrectly formatted and contain commas separating multiple keywords/themes
     datasets[col] = datasets[col].apply(lambda x: preprocess_comma_separated_words(client, x, state_dir) if "," in x else x)

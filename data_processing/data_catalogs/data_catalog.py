@@ -45,11 +45,11 @@ class DataCatalog:
     async def get_new_datasets(self) -> pd.DataFrame | None:
         pass
 
-    def prepare_documents_for_upload(self, new_datasets: pd.DataFrame) -> list[Document]:
+    def prepare_documents_for_upload(self, datasets: pd.DataFrame) -> list[Document]:
         """Get the list of llamaindex documents that should be uploaded to the knowledge base."""
-        if new_datasets.empty:
+        if datasets.empty:
             return []
-        documents = create_documents(new_datasets)
+        documents = create_documents(datasets)
         return documents
 
     def get_dataset_by_url(self, url: str) -> dict | None:
