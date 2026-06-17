@@ -84,6 +84,7 @@ class Database:
 
         # save mapping to state
         with open(self.url_to_node_id_mapping_file, "w") as f:
+            logger.info("Storing url_to_node_mapping to state.")
             json.dump(self.url_to_node_id_mapping, f)
 
     def get_similar_datasets_by_embedding(self, dataset_url: str, similarity_threshold: int, k: int) -> dict[str, float]:

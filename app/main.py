@@ -12,7 +12,7 @@ from app.chatbot import Chatbot
 import yaml
 
 from data_processing.knowledge_graph import get_similar_datasets
-from app.ui_utils import get_common_metadata, get_similar_datasets_with_preview_text
+from app.ui_utils import get_common_metadata, get_similar_datasets_with_preview_text, get_filters_for_results
 from llama_index.core import Settings
 from llama_index.embeddings.ollama import OllamaEmbedding
 from llama_index.llms.ollama import Ollama
@@ -84,12 +84,35 @@ def get_chatbot():
 @app.route('/', methods=['GET', 'POST'])
 def home():
     """Display the home page for the search engine."""
-    get_search_pipeline()  # initialize search pipeline for this session
+    # get_search_pipeline()  # initialize search pipeline for this session
     if request.method == 'POST':
         query = request.form.get('query', '').strip()
         if query:
             return redirect(url_for('search', query=query))
-    return render_template("home.html")
+
+    filters = {
+        "keywords": {"title": "Keywords", "vals": {"budovy": 5, "ministerstvo": 10, "pes": 1, "lesy": 3, "Praha": 30, "Brno": 12}},
+        "themes": {"title": "Themes", "vals": {"schéma": 5, "ministerstvo": 2}},
+        "categories": {"title": "Categories", "vals": {
+            "Zemědělství, rybolov, lesnictví a výživa": 12,
+            "Vzdělávání, kultura a sport": 5,
+            "Životní prostředí": 8,
+            "Energie": 40,
+            "Doprava": 2,
+            "Věda a technika": 5,
+            "Hospodářství a finance": 11,
+            "Populace a společnost": 3,
+            "Zdraví": 8,
+            "Vláda a veřejný sektor": 5,
+            "Regiony a města": 85,
+            "Spravedlnost, právní systém a veřejná bezpečnost": 65,
+            "Mezinárodní otázky": 1
+        }},
+        "provider": {"title": "Provider", "vals": {"Ministerstvo dopravy": 10}},
+        "spatial_coverage": {"title": "Spatial coverage", "vals": {"Praha": 20, "Brno": 12}},
+        "temporal_coverage": {"title": "Temporal coverage", "vals": {"2021": 10, "2025": 1}},
+    }
+    return render_template("home.html", filters=filters)
 
 
 @app.route('/search', methods=['GET', 'POST'])
@@ -101,18 +124,8 @@ def search():
     else:
         query = request.args.get('query', '').strip()
 
+    filters = {}
     results = None
-
-    filter_categories = ["keywords", "themes", "categories", "provider", "spatial_coverage", "temporal_coverage"]
-    filters = {
-        "keywords": {"title": "Keywords", "vals": dict()},
-        "themes": {"title": "Themes", "vals": dict()},
-        "categories": {"title": "Categories", "vals": dict()},
-        "provider": {"title": "Provider", "vals": dict()},
-        "spatial_coverage": {"title": "Spatial coverage", "vals": dict()},
-        "temporal_coverage": {"title": "Temporal coverage", "vals": dict()},
-    }
-    
     if query:
         logger.info(f"Session: {session}")
         future = asyncio.run_coroutine_threadsafe(
@@ -120,23 +133,7 @@ def search():
             loop
         )
         results = future.result()
-
-        if results:
-            for dataset in results:
-                metadata = dataset.get('metadata', {})
-                for filter_category in filter_categories:
-                    result = metadata.get(filter_category, [])
-                    if isinstance(result, list):
-                        for item in result:
-                            filters[filter_category]["vals"][item] = filters[filter_category]["vals"].get(item, 0) + 1
-                            if item == "budovy":
-                                print("budovy", dataset["url"])
-                    else:
-                        filters[filter_category]["vals"][result] = filters[filter_category]["vals"].get(result, 0) + 1
-
-    # sort the sets for consistent display
-    for filter_category in filter_categories:
-        filters[filter_category]["vals"] = dict(sorted(filters[filter_category]["vals"].items(), key=lambda x: x[1], reverse=True))
+        filters = get_filters_for_results(results)
 
     return render_template("search_results.html", 
                          query=query, 

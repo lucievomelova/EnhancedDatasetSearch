@@ -50,31 +50,34 @@
 
 
         <div class="filter-bar">
+            <h3 class="home-filters-header">Filters: </h3>
+            {% for filter_category, content in filters.items() %}
+                {% if content.vals %}
+                    <div class="filter-item">
+                        <button class="filter-toggle" data-target="{{ filter_category }}">
+                            {{ content.title }} ▼
+                        </button>
 
-            <div class="filter-item">
-                <button class="filter-toggle" data-target="color-list">
-                    Color ▼
-                </button>
+                        <div class="filter-dropdown" id="{{ filter_category }}">
+                            {% for word, count in content.vals.items() %}
+                            <label class="filter-checkbox">
+                                <input type="checkbox" class="filter-input" data-filter-type="{{ filter_category }}" value="{{ word }}">
+                                <span>{{ word }} ({{ count }})</span>
+                            </label>
+                            {% endfor %}
+                        </div>
+                    </div>
+                {% endif %}
+            {% endfor %}
+            <span class="info-icon">
+                <i class="fa-regular fa-circle-question"></i>
 
-                <div class="filter-dropdown" id="color-list">
-                    <label><input type="checkbox"> Red</label>
-                    <label><input type="checkbox"> Blue</label>
-                    <label><input type="checkbox"> Green</label>
-                </div>
-            </div>
-
-            <div class="filter-item">
-                <button class="filter-toggle" data-target="size-list">
-                    Size ▼
-                </button>
-
-                <div class="filter-dropdown" id="size-list">
-                    <label><input type="checkbox"> S</label>
-                    <label><input type="checkbox"> M</label>
-                    <label><input type="checkbox"> L</label>
-                </div>
-            </div>
-
+                <span class="tooltip">
+                    Filters will be added to your prompt as text and they will be automatically applied as
+                dynamic filters for search results. You can deselect them manually on the next page to see all partially
+                related search results.
+                </span>
+            </span>
         </div>
     </div>
 
@@ -91,5 +94,6 @@
             }
         });
     </script>
+    <script src="{{ url_for('static', filename='scripts/home_filters.js') }}"></script>
 </body>
 </html>

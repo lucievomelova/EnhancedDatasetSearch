@@ -947,22 +947,21 @@ a .similar-title,
     gap: 12px;
     align-items: flex-start;
     flex-wrap: wrap;
-    margin-top: 10px;
+    margin-top: 20px;
 }
 
-/* Individual filter */
 .filter-item {
     position: relative;
 }
 
-/* Filter button */
 .filter-toggle {
-    padding: 6px 12px;
+    padding: 6px 8px;
+    margin-right: 1px;
     background: white;
     border: 1px solid var(--color-border);
-    border-radius: 20px;
+    border-radius: 4px;
     cursor: pointer;
-    font-size: 0.9rem;
+    font-size: 0.85em;
     transition: all var(--transition);
 }
 
@@ -975,28 +974,24 @@ a .similar-title,
     position: absolute;
     top: calc(100% + 4px);
     left: 0;
-
+    width: max-content;
     min-width: 200px;
+    max-width: 400px;
     max-height: 250px;
     overflow-y: auto;
-
     background: white;
     border: 1px solid var(--color-border);
     border-radius: var(--border-radius);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-
     padding: 10px;
-
     display: none;
     z-index: 1000;
 }
 
-/* Open state */
 .filter-dropdown.open {
     display: block;
 }
 
-/* Checkbox rows */
 .filter-checkbox {
     display: flex;
     align-items: center;
@@ -1013,12 +1008,27 @@ a .similar-title,
     background: var(--color-bg-active);
 }
 
-/* Scrollbar styling (optional) */
-.filter-dropdown::-webkit-scrollbar {
-    width: 6px;
+.filter-dropdown::-webkit-scrollbar-thumb {
+    border-radius: 2px;
+    background: var(--color-border);
 }
 
-.filter-dropdown::-webkit-scrollbar-thumb {
-    border-radius: 3px;
-    background: var(--color-border);
+.home-filters-header {
+    color: var(--color-text);
+}
+
+.info-icon {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-left: 6px;
+    margin-top: 5px;
+    color: var(--color-text-muted);
+    cursor: help;
+    font-size: 1.2em;
+}
+.info-icon:hover .tooltip {
+    opacity: 1;
+    visibility: visible;
 }

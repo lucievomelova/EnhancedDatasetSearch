@@ -160,7 +160,9 @@
             themes: {{ filters.themes.vals | tojson }},
             categories: {{ filters.categories.vals | tojson }},
             providers: {{ filters.provider.vals | tojson }},
+        {% if 'temporal_coverage' in filters %}
             temporal_coverages: {{ filters.temporal_coverage.vals | tojson }},
+        {% endif %}
             spatial_coverages: {{ filters.spatial_coverage.vals | tojson }}
         };
     </script>

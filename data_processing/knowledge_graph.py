@@ -120,46 +120,46 @@ def create_kg(datasets: pd.DataFrame, database: Database, kg_config: dict) -> No
         os.environ['NEO4J_URI'],
         auth=(os.environ['NEO4J_USER'], os.environ['NEO4J_PASSWORD'])
     )
-    logger.info(f"Creating knowledge graph from dataset metadata for {len(datasets)} datasets.")
-
-    # delete old data
-    with driver.session() as session:
-        session.run("MATCH (n) WHERE n.graph = 'graph_qwen4b' DETACH DELETE n;")
-
-    with driver.session() as session:
-        session.run("CREATE CONSTRAINT dataset_id IF NOT EXISTS FOR (d:Dataset) REQUIRE d.id IS UNIQUE;")
-        session.run("CREATE CONSTRAINT keyword_name IF NOT EXISTS FOR (k:Keyword) REQUIRE k.name IS UNIQUE;")
-        session.run("CREATE CONSTRAINT theme_name IF NOT EXISTS FOR (t:Theme) REQUIRE t.name IS UNIQUE;")
-        session.run("CREATE CONSTRAINT provider_name IF NOT EXISTS FOR (p:Provider) REQUIRE p.name IS UNIQUE;")
-        session.run("CREATE CONSTRAINT category_name IF NOT EXISTS FOR (c:Category) REQUIRE c.name IS UNIQUE;")
-        session.run("CREATE CONSTRAINT spatial_coverage_name IF NOT EXISTS FOR (r:SpatialCoverage) REQUIRE r.name IS UNIQUE;")
-        session.run("CREATE CONSTRAINT temporal_coverage_name IF NOT EXISTS FOR (t:TemporalCoverage) REQUIRE t.name IS UNIQUE;")
-
-    with driver.session() as session:
-        for i, (index, row) in enumerate(datasets.iterrows()):
-            if i % 500 == 0:
-                logger.info(f"{i}/{len(datasets)}")
-            metadata = row.drop(columns="description")
-            # index += 400000
-            session.execute_write(ingest_dataset, index, row["description"], metadata)
-
-            if row["keywords"]:
-                for keyword in row["keywords"]:
-                    session.execute_write(ingest_keyword, index, keyword.title())
-            if row["themes"]:
-                for theme in row["themes"]:
-                    session.execute_write(ingest_theme, index, theme.title())
-            if row["categories"]:
-                for category in row["categories"]:
-                    session.execute_write(ingest_category, index, category.title())
-            if row["spatial_coverage"]:
-                for spatial_coverage in row["spatial_coverage"]:
-                    session.execute_write(ingest_spatial_coverage, index, spatial_coverage.title())
-            if row["temporal_coverage"]:
-                for temporal_coverage in row["temporal_coverage"]:
-                    session.execute_write(ingest_temporal_coverage, index, temporal_coverage.title())
-            if row["provider"] is not None:
-                session.execute_write(ingest_provider, index, row["provider"].title())
+    # logger.info(f"Creating knowledge graph from dataset metadata for {len(datasets)} datasets.")
+    #
+    # # delete old data
+    # with driver.session() as session:
+    #     session.run("MATCH (n) WHERE n.graph = 'graph_qwen4b' DETACH DELETE n;")
+    #
+    # with driver.session() as session:
+    #     session.run("CREATE CONSTRAINT dataset_id IF NOT EXISTS FOR (d:Dataset) REQUIRE d.id IS UNIQUE;")
+    #     session.run("CREATE CONSTRAINT keyword_name IF NOT EXISTS FOR (k:Keyword) REQUIRE k.name IS UNIQUE;")
+    #     session.run("CREATE CONSTRAINT theme_name IF NOT EXISTS FOR (t:Theme) REQUIRE t.name IS UNIQUE;")
+    #     session.run("CREATE CONSTRAINT provider_name IF NOT EXISTS FOR (p:Provider) REQUIRE p.name IS UNIQUE;")
+    #     session.run("CREATE CONSTRAINT category_name IF NOT EXISTS FOR (c:Category) REQUIRE c.name IS UNIQUE;")
+    #     session.run("CREATE CONSTRAINT spatial_coverage_name IF NOT EXISTS FOR (r:SpatialCoverage) REQUIRE r.name IS UNIQUE;")
+    #     session.run("CREATE CONSTRAINT temporal_coverage_name IF NOT EXISTS FOR (t:TemporalCoverage) REQUIRE t.name IS UNIQUE;")
+    #
+    # with driver.session() as session:
+    #     for i, (index, row) in enumerate(datasets.iterrows()):
+    #         if i % 500 == 0:
+    #             logger.info(f"{i}/{len(datasets)}")
+    #         metadata = row.drop(columns="description")
+    #         # index += 400000
+    #         session.execute_write(ingest_dataset, index, row["description"], metadata)
+    #
+    #         if row["keywords"]:
+    #             for keyword in row["keywords"]:
+    #                 session.execute_write(ingest_keyword, index, keyword.title())
+    #         if row["themes"]:
+    #             for theme in row["themes"]:
+    #                 session.execute_write(ingest_theme, index, theme.title())
+    #         if row["categories"]:
+    #             for category in row["categories"]:
+    #                 session.execute_write(ingest_category, index, category.title())
+    #         if row["spatial_coverage"]:
+    #             for spatial_coverage in row["spatial_coverage"]:
+    #                 session.execute_write(ingest_spatial_coverage, index, spatial_coverage.title())
+    #         if row["temporal_coverage"]:
+    #             for temporal_coverage in row["temporal_coverage"]:
+    #                 session.execute_write(ingest_temporal_coverage, index, temporal_coverage.title())
+    #         if row["provider"] is not None:
+    #             session.execute_write(ingest_provider, index, row["provider"].title())
 
     add_similarity_edges(datasets, database, driver.session(), kg_config["similarity_threshold"], kg_config["top_k"])
     logger.info("Knowledge graph creation completed.")

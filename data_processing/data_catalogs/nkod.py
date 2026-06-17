@@ -135,9 +135,6 @@ class NkodDataCatalog(DataCatalog):
             logger.info("Using old datasets_raw file, loading from disk.")
             self.datasets_raw = pd.read_csv(self._data_config["datasets_raw_path"], sep=",", dtype="string")
             self.datasets_raw = self.datasets_raw.rename(columns=self._column_mapping)  # rename columns based on column mapping
-            # self._old_datasets_raw = pd.read_csv(self._data_config["datasets_raw_path"], sep=",", dtype="string")
-            # self._old_datasets_raw = self._old_datasets_raw.rename(columns=self._column_mapping)
-            # self._db_up_to_date = True
 
         else:
             today = datetime.today().date()
@@ -147,7 +144,7 @@ class NkodDataCatalog(DataCatalog):
                 mod_datetime = datetime.fromtimestamp(mod_time)
                 if mod_datetime.date() != today:
                     logger.info("Not modified today.")
-                    # if the file is outdated, save a copy -> later compare the old and new df to find new / updated rows
+                    # if the file is outdated, save a copy to have a backup
                     self._old_datasets_raw = pd.read_csv(self._data_config["datasets_raw_path"], sep=",", dtype="string")
                     self._old_datasets_raw.to_csv(self._data_config["old_datasets_raw_path"], index=False)
             if not os.path.exists(self._data_config["datasets_raw_path"]) or mod_datetime.date() != today:
@@ -155,11 +152,8 @@ class NkodDataCatalog(DataCatalog):
             else:
                 logger.info("File datasets_raw is up to date, loading from disk.")
                 self.datasets_raw = pd.read_csv(self._data_config["datasets_raw_path"], sep=",", dtype="string")
-                # self._db_up_to_date = True
 
             self.datasets_raw = self.datasets_raw.rename(columns=self._column_mapping)  # rename columns based on column mapping
-            if self._old_datasets_raw is not None:
-                self._old_datasets_raw = self._old_datasets_raw.rename(columns=self._column_mapping)
             logger.info("Raw dataset info loaded, starting preprocessing.")
 
         self.datasets_raw = merge_keywords_and_themes_rows(self.datasets_raw)
@@ -186,23 +180,24 @@ class NkodDataCatalog(DataCatalog):
             logger.info("No new datasets found. DB is up to date.")
             return pd.DataFrame()
 
-        removed_urls = None
-        # find new or updated datasets by comparing new and old file
-        if self._old_datasets_raw is not None:
-            merged_df = pd.merge(self.datasets_raw, self._old_datasets_raw["url"], on="url", how='outer', indicator=True)
+        # file for storing intermediate results - it must be csv, because json doesn't have an append option
+        # but later we want to use json because of faster loading time
+        tmp_file_name = self._data_config["datasets_path"].replace(".json", f"_tmp.csv")
+
+        # find new or updated datasets by comparing new and old datasets if old datasets exist
+        removed_urls = None  # for tracking which urls were present before but are not present now
+        if not self.datasets.empty:
+            merged_df = pd.merge(self.datasets_raw, self.datasets["url"], on="url", how='outer', indicator=True)
             new_datasets = merged_df[merged_df['_merge'] == 'left_only'][self.datasets_raw.columns]
             removed_urls = merged_df[merged_df['_merge'] == 'right_only']["url"].tolist()
             logger.info(f"Number of new or updated datasets: {new_datasets.shape[0]}.")
-        else:
+        else:  # otherwise all datasets are new
             logger.info(f"Old file not found. Adding all datasets to DB ({self.datasets_raw.shape[0]} datasets).")
             new_datasets = self.datasets_raw
 
-        # file for storing intermediate results - it must be csv, because json doesn't have an append option
-        tmp_file_name = self._data_config["datasets_path"].replace(".json", f"_tmp.csv")
-
         # update datasets - process new datasets and add them to the existing datasets dataframe
         if not self.datasets.empty:
-            self.datasets.to_csv(tmp_file_name, index=False, header=True)  # store current state of datasets
+            self.datasets.to_csv(tmp_file_name, index=False, header=True)  # store current state of datasets in tmp file
             if removed_urls:   # remove deleted datasets from self.datasets
                 self.datasets = self.datasets[~self.datasets['url'].isin(removed_urls)]
                 logger.info(f"Removed {len(removed_urls)} datasets from DB.")
