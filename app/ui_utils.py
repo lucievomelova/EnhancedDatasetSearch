@@ -24,7 +24,7 @@ def get_all_metadata(search_results: list[dict[str, str | list | None]]) -> dict
         appearing in the search results for that category."""
     all_metadata = defaultdict(set)
     for result in search_results:
-        metadata = result['metadata'] if result['metadata'] is not None else {}
+        metadata = result['categorization_metadata'] if result['categorization_metadata'] is not None else {}
         for metadata_category, metadata_values in metadata.items():
             if isinstance(metadata_values, str):
                 all_metadata[metadata_category].add(metadata_values)
@@ -40,7 +40,7 @@ def get_similar_datasets_with_preview_text(
         kg_config: dict
 ) -> dict:
     """Get datasets similar to the specified dataset with preview texts."""
-    similar_datasets_raw = get_similar_datasets(dataset_url, kg_config["top_k"])
+    similar_datasets_raw = get_similar_datasets(dataset_url, kg_config)
 
     similar_datasets = {}
     for sim_category, url_score_list in similar_datasets_raw.items():
@@ -68,12 +68,14 @@ def get_similar_datasets_with_preview_text(
                 }
                 if sim_category == "overall":
                     metadata_categories = ["keywords", "themes", "categories", "region", "time_periods"]
-                    common_metadata = get_common_metadata(metadata_categories, dataset_info["metadata"],
-                                                          sim_dataset["metadata"])
+                    common_metadata = get_common_metadata(metadata_categories,
+                                                          dataset_info["categorization_metadata"],
+                                                          sim_dataset["categorization_metadata"])
                     similar_dataset_info["common_metadata"] = common_metadata
                 elif sim_category != "description":
-                    common_metadata = get_common_metadata([sim_category], dataset_info["metadata"],
-                                                          sim_dataset["metadata"])
+                    common_metadata = get_common_metadata([sim_category],
+                                                          dataset_info["categorization_metadata"],
+                                                          sim_dataset["categorization_metadata"])
                     similar_dataset_info["common_metadata"] = common_metadata
                 similar_datasets[sim_category].append(similar_dataset_info)
     return similar_datasets
@@ -83,28 +85,28 @@ def get_filters_for_results(results: list) -> dict:
     """Get metadata filters for search results."""
     filter_categories = ["keywords", "themes", "categories", "provider", "spatial_coverage", "temporal_coverage"]
     filters = {
-        "keywords": {"title": "Keywords", "vals": dict()},
-        "themes": {"title": "Themes", "vals": dict()},
-        "categories": {"title": "Categories", "vals": dict()},
-        "provider": {"title": "Provider", "vals": dict()},
-        "spatial_coverage": {"title": "Spatial coverage", "vals": dict()},
-        "temporal_coverage": {"title": "Temporal coverage", "vals": dict()},
+        "keywords": {"title": "Keywords", "value_counts": dict()},
+        "themes": {"title": "Themes", "value_counts": dict()},
+        "categories": {"title": "Categories", "value_counts": dict()},
+        "provider": {"title": "Provider", "value_counts": dict()},
+        "spatial_coverage": {"title": "Spatial coverage", "value_counts": dict()},
+        "temporal_coverage": {"title": "Temporal coverage", "value_counts": dict()},
     }
     if results:
         for dataset in results:
-            metadata = dataset.get('metadata', {})
+            categorization_metadata = dataset.get('categorization_metadata', {})
             for filter_category in filter_categories:
-                result = metadata.get(filter_category, [])
+                result = categorization_metadata.get(filter_category, [])
                 if isinstance(result, list):
                     for item in result:
-                        filters[filter_category]["vals"][item] = filters[filter_category]["vals"].get(item, 0) + 1
+                        filters[filter_category]["value_counts"][item] = filters[filter_category]["value_counts"].get(item, 0) + 1
                 else:
-                    filters[filter_category]["vals"][result] = filters[filter_category]["vals"].get(result, 0) + 1
+                    filters[filter_category]["value_counts"][result] = filters[filter_category]["value_counts"].get(result, 0) + 1
 
     # sort by number of occurrences in search results
     for filter_category in filter_categories:
-        filters[filter_category]["vals"] = dict(sorted(filters[filter_category]["vals"].items(), key=lambda x: x[1], reverse=True))
+        filters[filter_category]["value_counts"] = dict(sorted(filters[filter_category]["value_counts"].items(), key=lambda x: x[1], reverse=True))
 
     # remove metadata category if no values are present
-    filters = {category: info for category, info in filters.items() if len(info["vals"]) > 0}
+    filters = {category: info for category, info in filters.items() if len(info["value_counts"]) > 0}
     return filters

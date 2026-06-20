@@ -41,7 +41,7 @@
 
             <div class="detail-section">
                 <div class="metadata-grid">
-                    {% for metadata_category, metadata_values in dataset.metadata.items() %}
+                    {% for metadata_category, metadata_values in dataset.categorization_metadata.items() %}
                     {% if metadata_values %}
                     <div class="metadata-item-inline">
                         {% if metadata_category == "time_periods" %}
@@ -51,7 +51,7 @@
                         {% endif %}
                         <div class="metadata-tags">
                         {% if metadata_category == "provider" %}
-                            <span>{{ dataset.metadata.provider }}</span>
+                            <span>{{ dataset.categorization_metadata.provider }}</span>
                         {% else %}
                             {% for val in metadata_values %}
                             <span class="tag">{{ val }}</span>

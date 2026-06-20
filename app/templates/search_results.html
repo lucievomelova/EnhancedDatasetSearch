@@ -34,14 +34,14 @@
 
         <div class="filters-content">
             {% for filter_category, content in filters.items() %}
-                {% if content.vals %}
+                {% if content.value_counts %}
                         <div class="filter-section">
                             <div class="filter-title">
                                 <h4>{{ content.title }}</h4>
                                 <button class="filter-toggle" data-target="{{ filter_category }}-list">▼</button>
                             </div>
                             <div class="filter-options" id="{{ filter_category }}-list">
-                                {% for word, count in content.vals.items() %}
+                                {% for word, count in content.value_counts.items() %}
                                 <label class="filter-checkbox">
                                     <input type="checkbox" class="filter-input" data-filter-type="{{ filter_category }}" value="{{ word }}">
                                     <span>{{ word }} ({{ count }})</span>
@@ -95,7 +95,7 @@
 
             <div class="results-container" id="resultsContainer">
                 {% for dataset in results %}
-                <div class="result-card" data-keywords="{{ dataset.metadata.keywords | join(',') }}" data-themes="{{ dataset.metadata.themes | join(',') }}" data-categories="{{ dataset.metadata.categories | join(',') }}" data-provider="{{ dataset.metadata.provider }}" data-temporal="{{ dataset.metadata.temporal_coverage | join(',') }}" data-spatial="{{ dataset.metadata.spatial_coverage | join(',') }}">
+                <div class="result-card" data-keywords="{{ dataset.categorization_metadata.keywords | join(',') }}" data-themes="{{ dataset.categorization_metadata.themes | join(',') }}" data-categories="{{ dataset.categorization_metadata.categories | join(',') }}" data-provider="{{ dataset.categorization_metadata.provider }}" data-temporal="{{ dataset.categorization_metadata.temporal_coverage | join(',') }}" data-spatial="{{ dataset.categorization_metadata.spatial_coverage | join(',') }}">
                             <div class="result-header">
                                 <h2 class="result-title">
                                     <a href="{{ url_for('dataset_detail', source=dataset.url) }}">{{ dataset.title }}</a>
@@ -118,15 +118,15 @@
                                         <div class="tooltip">
                                             <div class="metadata-section">
                                                 <strong>Keywords:</strong>
-                                                <span>{{ dataset.metadata.keywords | join(', ') if dataset.metadata.keywords else '-' }}</span>
+                                                <span>{{ dataset.categorization_metadata.keywords | join(', ') if dataset.categorization_metadata.keywords else '-' }}</span>
                                             </div>
                                             <div class="metadata-section">
                                                 <strong>Themes:</strong>
-                                                <span>{{ dataset.metadata.themes | join(', ') if dataset.metadata.themes else '-' }}</span>
+                                                <span>{{ dataset.categorization_metadata.themes | join(', ') if dataset.categorization_metadata.themes else '-' }}</span>
                                             </div>
                                             <div class="metadata-section">
                                                 <strong>Provider:</strong>
-                                                <span>{{ dataset.metadata.provider if dataset.metadata.provider else '-' }}</span>
+                                                <span>{{ dataset.categorization_metadata.provider if dataset.categorization_metadata.provider else '-' }}</span>
                                             </div>
                                         </div>
                                     </button>
@@ -156,14 +156,24 @@
     <script>
         // Store all filter data
         window.allFiltersData = {
-            keywords: {{ filters.keywords.vals | tojson }},
-            themes: {{ filters.themes.vals | tojson }},
-            categories: {{ filters.categories.vals | tojson }},
-            providers: {{ filters.provider.vals | tojson }},
-        {% if 'temporal_coverage' in filters %}
-            temporal_coverages: {{ filters.temporal_coverage.vals | tojson }},
-        {% endif %}
-            spatial_coverages: {{ filters.spatial_coverage.vals | tojson }}
+            {% if 'keywords' in filters %}
+                keywords: {{ filters.keywords.value_counts | tojson }},
+            {% endif %}
+            {% if 'themes' in filters %}
+                themes: {{ filters.themes.value_counts | tojson }},
+            {% endif %}
+            {% if 'categories' in filters %}
+                categories: {{ filters.categories.value_counts | tojson }},
+            {% endif %}
+            {% if 'provider' in filters %}
+                providers: {{ filters.provider.value_counts | tojson }},
+            {% endif %}
+            {% if 'temporal_coverage' in filters %}
+                temporal_coverages: {{ filters.temporal_coverage.value_counts | tojson }},
+            {% endif %}
+            {% if 'spatial_coverage' in filters %}
+                spatial_coverages: {{ filters.spatial_coverage.value_counts | tojson }}
+            {% endif %}
         };
     </script>
     {% endif %}

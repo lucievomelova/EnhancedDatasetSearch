@@ -42,6 +42,11 @@ class DataCatalog:
         self.all_categories_with_other_category: set
         """Set of all categories including "other" category used when a dataset does not belong into any category."""
 
+        self._filter_columns: list
+        self._filter_column_names: list
+        self.filters_with_counts: dict
+
+
     async def get_new_datasets(self) -> pd.DataFrame | None:
         pass
 
@@ -54,25 +59,11 @@ class DataCatalog:
 
     def get_dataset_by_url(self, url: str) -> dict | None:
         """Get extended dataset info by URL."""
-        dataset_row = self.datasets[self.datasets['url'] == url]
-        logger.info(url)
-        if dataset_row.empty:  # try also the url used on dataset detail page
-            dataset_row = self.datasets[dataset_detail_url(self.config, url) == url]
-        if dataset_row.empty:
-            return None  # still no result -> dataset with the given URL not found
+        pass
 
-        row = dataset_row.iloc[0]
-        return {
-            'title': row['title'],
-            'url': row['url'],
-            'text': row['description'] if pd.notna(row['description']) else "",
-            'distributions': self.distributions[self.distributions['dataset_url'] == row['url']].to_dict(orient='records'),
-            'metadata': {
-                'keywords': row['keywords'] if 'keywords' in row and isinstance(row['keywords'], list) else [],
-                'themes': row['themes'] if 'themes' in row and isinstance(row['themes'], list) else [],
-                'categories': row['categories'] if 'categories' in row and isinstance(row['categories'], list) else [],
-                'spatial_coverage': row['spatial_coverage'] if 'spatial_coverage' in row and isinstance(row['spatial_coverage'], list) else [],
-                'temporal_coverage': row['temporal_coverage'] if 'temporal_coverage' in row and isinstance(row['temporal_coverage'], list) else [],
-                'provider': row['provider'] if 'provider' in row and not pd.isna(row['provider']) else '',
-            }
-        }
+    def get_filters_with_counts(self) -> dict:
+        """Get dict of filter columns.
+
+        Each column is a key, value is another dict with two keys: title and value_counts. Title is the filter
+        category title, value_counts is a dict, where key is each unique value, value is number of occurrences."""
+        pass

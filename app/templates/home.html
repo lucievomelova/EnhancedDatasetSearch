@@ -52,14 +52,14 @@
         <div class="filter-bar">
             <h3 class="home-filters-header">Filters: </h3>
             {% for filter_category, content in filters.items() %}
-                {% if content.vals %}
+                {% if content.value_counts %}
                     <div class="filter-item">
                         <button class="filter-toggle" data-target="{{ filter_category }}">
                             {{ content.title }} ▼
                         </button>
 
                         <div class="filter-dropdown" id="{{ filter_category }}">
-                            {% for word, count in content.vals.items() %}
+                            {% for word, count in content.value_counts.items() %}
                             <label class="filter-checkbox">
                                 <input type="checkbox" class="filter-input" data-filter-type="{{ filter_category }}" value="{{ word }}">
                                 <span>{{ word }} ({{ count }})</span>

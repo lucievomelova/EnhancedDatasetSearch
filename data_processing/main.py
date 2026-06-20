@@ -38,12 +38,7 @@ class DataPreprocessingPipeline:
         if not os.path.exists(self.state_dir):
             os.makedirs(self.state_dir)
 
-        # new_datasets = asyncio.run(self.data_catalog.get_new_datasets())
-        # replace_nonfrequent_keywords_with_cluster_representatives(self.database,
-        #                                                           new_datasets,
-        #                                                           self.config["llm"]["model_name"],
-        #                                                           self.state_dir,
-        #                                                           self.config["db"]["embed_dim"])
+        new_datasets = asyncio.run(self.data_catalog.get_new_datasets())
 
         datasets_documents = self.data_catalog.prepare_documents_for_upload(self.data_catalog.datasets)
         self.database.load_documents(datasets_documents)

@@ -140,7 +140,7 @@ def _unify_word_capitalization(datasets: pd.DataFrame, column: str) -> pd.DataFr
         )
 
 
-def preprocess_keywords(datasets: pd.DataFrame, client: OllamaClient, model_name: str, state_dir: str) -> None:
+def preprocess_keywords(datasets: pd.DataFrame, client: OllamaClient | None, model_name: str, state_dir: str) -> None:
     """Preprocess datasets keywords to make data preprocessing and searching more effective.
 
     Because there are a lot of keywords, they need extra preprocessing. Some contain typos,
@@ -152,7 +152,8 @@ def preprocess_keywords(datasets: pd.DataFrame, client: OllamaClient, model_name
     datasets[col] = datasets[col].apply(lambda k: list(set(k)))  # remove possible duplicates from keywords
     logger.info(f"Preprocessing keywords.")
     # some keywords might be incorrectly formatted and contain commas separating multiple keywords/themes
-    datasets[col] = datasets[col].apply(lambda x: preprocess_comma_separated_words(client, x, state_dir) if "," in x else x)
+    if OllamaClient:
+        datasets[col] = datasets[col].apply(lambda x: preprocess_comma_separated_words(client, x, state_dir) if "," in x else x)
     # strip whitespaces from beginning and end of each word
     datasets[col] = datasets[col].apply(lambda words: [w.strip() for w in words])
 
@@ -171,7 +172,7 @@ def preprocess_keywords(datasets: pd.DataFrame, client: OllamaClient, model_name
     for i in range(len(all_words)):
         for j in range(i + 1, len(all_words)):
             w1, w2 = all_words[i].lower(), all_words[j].lower()
-            if levenshtein(w1, w2) <= 2:
+            if levenshtein(w1, w2) <= 1:
                 count1, count2 = int(word_counts[all_words[i]]), int(word_counts[all_words[j]])
                 len_of_shorter_word = min(len(w1), len(w2))
                 # if they differ in the last chars, we will consider them as same
@@ -233,7 +234,7 @@ def replace_nonfrequent_keywords_with_cluster_representatives(database: Database
     logger.info(f"Removed single occurrence keywords. Number of words: {len(all_words)}")
 
 
-def clean_metadata(df: pd.DataFrame, client: OllamaClient, categories: list[str], model_name: str, state_dir: str) -> None:
+def clean_metadata(df: pd.DataFrame, client: OllamaClient | None, categories: list[str], model_name: str, state_dir: str) -> None:
     """Clean the metadata of the datasets in the extended dataframe."""
 
     # we don't want reoccurring words in different metadata parts - we would just process more metadata unnecessarily

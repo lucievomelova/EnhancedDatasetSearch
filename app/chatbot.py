@@ -144,7 +144,7 @@ class Chatbot:
     def _tool_get_similar_datasets(self, dataset_url: str, similarity_type: str | None = None) -> list | dict | str:
         """Get similar datasets for a given dataset based on its URL."""
         try:
-            similar_datasets = kg.get_similar_datasets(dataset_url, self.config["data_processing"]["knowledge_graph"]["top_k"], similarity_type)
+            similar_datasets = kg.get_similar_datasets(dataset_url, self.config["data_processing"]["knowledge_graph"], similarity_type)
             results = {}
             for sim_type, url_score_list in similar_datasets.items():
                 results_per_sim_type = []

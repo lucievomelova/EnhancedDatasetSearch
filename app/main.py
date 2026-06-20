@@ -2,8 +2,6 @@ import asyncio
 import os
 import threading
 
-import nest_asyncio
-import pandas as pd
 import uuid
 
 from flask import Flask, render_template, request, redirect, url_for, jsonify, session
@@ -11,8 +9,7 @@ from app.pipeline import SearchPipeline
 from app.chatbot import Chatbot
 import yaml
 
-from data_processing.knowledge_graph import get_similar_datasets
-from app.ui_utils import get_common_metadata, get_similar_datasets_with_preview_text, get_filters_for_results
+from app.ui_utils import get_similar_datasets_with_preview_text, get_filters_for_results
 from llama_index.core import Settings
 from llama_index.embeddings.ollama import OllamaEmbedding
 from llama_index.llms.ollama import Ollama
@@ -90,29 +87,8 @@ def home():
         if query:
             return redirect(url_for('search', query=query))
 
-    filters = {
-        "keywords": {"title": "Keywords", "vals": {"budovy": 5, "ministerstvo": 10, "pes": 1, "lesy": 3, "Praha": 30, "Brno": 12}},
-        "themes": {"title": "Themes", "vals": {"schéma": 5, "ministerstvo": 2}},
-        "categories": {"title": "Categories", "vals": {
-            "Zemědělství, rybolov, lesnictví a výživa": 12,
-            "Vzdělávání, kultura a sport": 5,
-            "Životní prostředí": 8,
-            "Energie": 40,
-            "Doprava": 2,
-            "Věda a technika": 5,
-            "Hospodářství a finance": 11,
-            "Populace a společnost": 3,
-            "Zdraví": 8,
-            "Vláda a veřejný sektor": 5,
-            "Regiony a města": 85,
-            "Spravedlnost, právní systém a veřejná bezpečnost": 65,
-            "Mezinárodní otázky": 1
-        }},
-        "provider": {"title": "Provider", "vals": {"Ministerstvo dopravy": 10}},
-        "spatial_coverage": {"title": "Spatial coverage", "vals": {"Praha": 20, "Brno": 12}},
-        "temporal_coverage": {"title": "Temporal coverage", "vals": {"2021": 10, "2025": 1}},
-    }
-    return render_template("home.html", filters=filters)
+    pipeline = get_search_pipeline()
+    return render_template("home.html", filters=pipeline.data_catalog.get_filters_with_counts())
 
 
 @app.route('/search', methods=['GET', 'POST'])
