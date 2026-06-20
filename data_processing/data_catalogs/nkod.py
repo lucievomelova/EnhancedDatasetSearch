@@ -199,7 +199,7 @@ class NkodDataCatalog(DataCatalog):
         removed_urls = None  # for tracking which urls were present before but are not present now
         if not self.datasets.empty:
             merged_df = pd.merge(self.datasets_raw_transformed, self.datasets["url"], on="url", how='outer', indicator=True)
-            new_datasets = merged_df[merged_df['_merge'] == 'left_only'][self.datasets_raw.columns]
+            new_datasets = merged_df[merged_df['_merge'] == 'left_only'][self.datasets_raw_transformed.columns]
             removed_urls = merged_df[merged_df['_merge'] == 'right_only']["url"].tolist()
             logger.info(f"Number of new or updated datasets: {new_datasets.shape[0]}.")
         else:  # otherwise all datasets are new
@@ -208,10 +208,11 @@ class NkodDataCatalog(DataCatalog):
 
         # update datasets - process new datasets and add them to the existing datasets dataframe
         if not self.datasets.empty:
-            self.datasets.to_csv(tmp_file_name, index=False, header=True)  # store current state of datasets in tmp file
             if removed_urls:   # remove deleted datasets from self.datasets
                 self.datasets = self.datasets[~self.datasets['url'].isin(removed_urls)]
                 logger.info(f"Removed {len(removed_urls)} datasets from DB.")
+            # store datasets in tmp file after removing rows from removed_urls
+            self.datasets.to_csv(tmp_file_name, index=False, header=True)
             # find which rows are already in the datasets based on url - don't add them again
             merged_df = pd.merge(self.datasets["url"], new_datasets, on="url", how='outer', indicator=True)
             new_datasets = merged_df.query("_merge == 'right_only'").drop('_merge', axis=1).reset_index(drop=True)
@@ -296,9 +297,9 @@ class NkodDataCatalog(DataCatalog):
     def get_dataset_by_url(self, url: str) -> dict | None:
         """Get extended dataset info by URL."""
         dataset_row = self.datasets[self.datasets['url'] == url]
-        logger.info(url)
         if dataset_row.empty:  # try also the url used on dataset detail page
-            dataset_row = self.datasets[dataset_detail_url(self.config, url) == url]
+            detail_urls = self.datasets['url'].apply(lambda u: dataset_detail_url(self.config, u))
+            dataset_row = self.datasets[detail_urls == url]
         if dataset_row.empty:
             return None  # still no result -> dataset with the given URL not found
 

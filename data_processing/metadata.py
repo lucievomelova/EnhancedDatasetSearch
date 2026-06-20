@@ -336,13 +336,13 @@ def enrich_metadata(row: Series, client: OllamaClient, all_keywords: set, all_ca
         remaining_attempts = num_retry_attempts - retry
         metadata, retries = client.get_llm_json_response(prompt, num_retry_attempts=remaining_attempts)
         if all(k in metadata_keys for k in metadata):  # check that all returned keys are actually metadata keys
+            for k in metadata_keys:  # fill in missing values with empty lists
+                if k not in metadata:
+                    metadata[k] = []
             # check that the model did not generate more metadata than we specified
             for k, num in num_remaining.items():
                 if num > 0 and len(metadata[k]) > num_remaining[k]:
                     continue
-            for k in metadata_keys:  # fill in missing values with empty lists
-                if k not in metadata:
-                    metadata[k] = []
             break
         retry += retries + 1 # the result is missing a key, retry
 

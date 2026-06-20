@@ -3,10 +3,10 @@ data:
     path: "tests/data/test_datasets_raw.csv"
     url: "https://data.gov.cz/soubor/datov%C3%A9-sady.csv"
   datasets:
-    path: "tests//data/test_datasets.json"
+    path: "tests/data/test_datasets.json"
   sparql_endpoint: "https://data.gov.cz/sparql"
   distributions:
-    path: "tests//data/distributions.csv"
+    path: "tests/data/distributions.csv"
     url: "https://data.gov.cz/soubor/distribuce.csv"
 state_dir: "state"
 app_url: "http://127.0.0.1:5000/"
