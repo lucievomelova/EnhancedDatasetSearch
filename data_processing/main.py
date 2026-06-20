@@ -8,7 +8,6 @@ from llama_index.core import Settings
 from llama_index.embeddings.ollama import OllamaEmbedding
 from llama_index.llms.ollama import Ollama
 
-from data_processing.keywords import create_keyword_kg, clustering, get_representatives
 from data_processing.knowledge_graph import create_kg
 from data_processing.data_catalogs.nkod import NkodDataCatalog
 from data_processing.database import Database
@@ -38,7 +37,7 @@ class DataPreprocessingPipeline:
         if not os.path.exists(self.state_dir):
             os.makedirs(self.state_dir)
 
-        new_datasets = asyncio.run(self.data_catalog.get_new_datasets())
+        asyncio.run(self.data_catalog.update_datasets())
 
         datasets_documents = self.data_catalog.prepare_documents_for_upload(self.data_catalog.datasets)
         self.database.load_documents(datasets_documents)

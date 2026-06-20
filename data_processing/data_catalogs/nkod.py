@@ -39,10 +39,7 @@ class NkodDataCatalog(DataCatalog):
         """
         super().__init__()
 
-        self._db_up_to_date: bool = False
-        """Indicates whether the knowledge base is up to date - if True, no new documents need to be added"""
-
-        self._download_new_data: bool = False#download_new_data
+        self._download_new_data: bool = download_new_data
         """Indicates if new datasets_raw file should be downloaded and processed or not."""
 
         self.config = config
@@ -141,7 +138,7 @@ class NkodDataCatalog(DataCatalog):
     def _load_datasets_raw(self, download_new_data: bool) -> None:
         """Load the raw NKOD dataset of datasets."""
         # TODO this is just for debugging, old file should not be used
-        if not download_new_data and os.path.exists(self._data_config["datasets_raw_path"]):
+        if not download_new_data or os.path.exists(self._data_config["datasets_raw_path"]):
             logger.info("Using old datasets_raw file.")
             self.datasets_raw = pd.read_csv(self._data_config["datasets_raw_path"], sep=",", dtype="string")
             return
@@ -185,16 +182,8 @@ class NkodDataCatalog(DataCatalog):
         self._all_keywords_raw = set(self.datasets_raw_transformed["keywords"].explode().dropna().unique())
         logger.info(f"Number of unique keywords in transformed datasets_raw: {len(self._all_keywords_raw)}")
 
-    async def get_new_datasets(self) -> pd.DataFrame:
-        """Get the list of new or updated datasets."""
-        if self._db_up_to_date:
-            logger.info("No new datasets found. DB is up to date.")
-            return pd.DataFrame()
-
-        # file for storing intermediate results - it must be csv, because json doesn't have an append option
-        # but later we want to use json because of faster loading time
-        tmp_file_name = self._data_config["datasets_path"].replace(".json", f"_tmp.csv")
-
+    def get_new_datasets(self) -> pd.DataFrame:
+        """Get a dataframe of new or updated datasets and update self.datasets with the new data."""
         # find new or updated datasets by comparing new and old datasets if old datasets exist
         removed_urls = None  # for tracking which urls were present before but are not present now
         if not self.datasets.empty:
@@ -211,12 +200,20 @@ class NkodDataCatalog(DataCatalog):
             if removed_urls:   # remove deleted datasets from self.datasets
                 self.datasets = self.datasets[~self.datasets['url'].isin(removed_urls)]
                 logger.info(f"Removed {len(removed_urls)} datasets from DB.")
-            # store datasets in tmp file after removing rows from removed_urls
-            self.datasets.to_csv(tmp_file_name, index=False, header=True)
             # find which rows are already in the datasets based on url - don't add them again
             merged_df = pd.merge(self.datasets["url"], new_datasets, on="url", how='outer', indicator=True)
             new_datasets = merged_df.query("_merge == 'right_only'").drop('_merge', axis=1).reset_index(drop=True)
+        return new_datasets
 
+    async def enrich_new_datasets_metadata(self, new_datasets: pd.DataFrame) -> None:
+        """Enrich metadata of new_datasets and update self.datasets with the enriched data."""
+
+        # file for storing intermediate results - it must be csv, because json doesn't have an append option
+        # but later we want to use json because of faster loading time
+        tmp_file_name = self._data_config["datasets_path"].replace(".json", f"_tmp.csv")
+        print(self.datasets.columns)
+        if not self.datasets.empty:  # if datasets is not empty, put current state of it in tmp file
+            self.datasets.to_csv(tmp_file_name, index=False, header=True)
         # do the updates in chunks -> in case of script failure we can resume from the last chunk
         chunks = split_dataframe(new_datasets, chunk_size=32)
         logger.info(f"Extending dataset metadata.")
@@ -251,8 +248,13 @@ class NkodDataCatalog(DataCatalog):
         # save after metadata cleaning as json
         self.datasets.to_json(self._data_config["datasets_path"], orient="split", force_ascii=False)
 
-        new_datasets = self.datasets[self.datasets["url"].isin(new_datasets["url"])]
-        return new_datasets
+    async def update_datasets(self) -> None:
+        """Update datasets based on the last downloaded datasets_raw table.
+
+        Remove datasets that are not present, update existing datasets or add new datasets, then enrich new
+        or existing datasets' metadata using an LLM."""
+        new_datasets = self.get_new_datasets()
+        await self.enrich_new_datasets_metadata(new_datasets)
 
     async def _create_metadata_for_chunk(self, new_datasets:  pd.DataFrame):
         """Create metadata dict for a chunk of new datasets asynchronously."""

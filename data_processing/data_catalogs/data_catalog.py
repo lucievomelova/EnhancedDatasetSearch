@@ -47,7 +47,7 @@ class DataCatalog:
         self.filters_with_counts: dict
 
 
-    async def get_new_datasets(self) -> pd.DataFrame | None:
+    async def update_datasets(self) ->  None:
         pass
 
     def prepare_documents_for_upload(self, datasets: pd.DataFrame) -> list[Document]:

@@ -28,8 +28,8 @@ def download_df(path: str, url: str) -> pd.DataFrame:
 
 def drop_irrelevant_columns(df: pd.DataFrame, irrelevant_columns: list) -> pd.DataFrame:
     """Drop irrelevant columns from datasets_raw."""
-    if all(col in df.columns for col in irrelevant_columns):
-        df = df.drop(columns=irrelevant_columns)
+    columns_to_drop = list(set(irrelevant_columns) & set(df.columns))  # intersection of two lists
+    df = df.drop(columns=columns_to_drop)
     return df
 
 

@@ -10,56 +10,54 @@ from utils import setup_logger
 logger = setup_logger(__name__)
 
 
-def ingest_dataset(tx, doc_id, description, metadata, graph_name):
+def ingest_dataset(tx, metadata, graph_name):
     tx.run("""
-        MERGE (d:Dataset {id: $id, graph: $graph})
-        SET d.title = $title,
-            d.description = $description,
-            d.url = $url
+        MERGE (d:Dataset {url: $url, graph: $graph})
+        SET d.title = $title
         """,
-           id=doc_id, title=metadata["title"], description=description, url=metadata["url"], graph=graph_name)
+           title=metadata["title"], url=metadata["url"], graph=graph_name)
 
-def ingest_keyword(tx, dataset_id, keyword, graph_name):
+def ingest_keyword(tx, dataset_url, keyword, graph_name):
     tx.run("""
-        MATCH (d:Dataset {id: $id, graph: $graph})
+        MATCH (d:Dataset {url: $url, graph: $graph})
         MERGE (k:Keyword {name: $kw})
         MERGE (d)-[:HAS_KEYWORD]->(k)
-        """, id=dataset_id, kw=keyword, graph=graph_name)
+        """, url=dataset_url, kw=keyword, graph=graph_name)
 
-def ingest_theme(tx, dataset_id, theme, graph_name):
+def ingest_theme(tx, dataset_url, theme, graph_name):
     tx.run("""
-        MATCH (d:Dataset {id: $id, graph: $graph})
+        MATCH (d:Dataset {url: $url, graph: $graph})
         MERGE (t:Theme {name: $theme})
         MERGE (d)-[:HAS_THEME]->(t)
-        """, id=dataset_id, theme=theme, graph=graph_name)
+        """, url=dataset_url, theme=theme, graph=graph_name)
 
-def ingest_provider(tx, dataset_id, provider, graph_name):
+def ingest_provider(tx, dataset_url, provider, graph_name):
     tx.run("""
-        MATCH (d:Dataset {id: $id, graph: $graph})
+        MATCH (d:Dataset {url: $url, graph: $graph})
         MERGE (p:Provider {name: $provider})
         MERGE (d)-[:PROVIDED_BY]->(p)
-        """, id=dataset_id, provider=provider, graph=graph_name)
+        """, url=dataset_url, provider=provider, graph=graph_name)
 
-def ingest_category(tx, dataset_id, category, graph_name):
+def ingest_category(tx, dataset_url, category, graph_name):
     tx.run("""
-        MATCH (d:Dataset {id: $id, graph: $graph})
+        MATCH (d:Dataset {url: $url, graph: $graph})
         MERGE (c:Category {name: $category})
         MERGE (d)-[:HAS_CATEGORY]->(c)
-        """, id=dataset_id, category=category, graph=graph_name)
+        """, url=dataset_url, category=category, graph=graph_name)
 
-def ingest_spatial_coverage(tx, dataset_id, spatial_coverage, graph_name):
+def ingest_spatial_coverage(tx, dataset_url, spatial_coverage, graph_name):
     tx.run("""
-        MATCH (d:Dataset {id: $id, graph: $graph})
+        MATCH (d:Dataset {url: $url, graph: $graph})
         MERGE (r:SpatialCoverage {name: $spatial_coverage})
         MERGE (d)-[:HAS_SPATIAL_COVERAGE]->(r)
-        """, id=dataset_id, spatial_coverage=spatial_coverage, graph=graph_name)
+        """, url=dataset_url, spatial_coverage=spatial_coverage, graph=graph_name)
 
-def ingest_temporal_coverage(tx, dataset_id, temporal_coverage, graph_name):
+def ingest_temporal_coverage(tx, dataset_url, temporal_coverage, graph_name):
     tx.run("""
-        MATCH (d:Dataset {id: $id, graph: $graph})
+        MATCH (d:Dataset {url: $url, graph: $graph})
         MERGE (t:TemporalCoverage {name: $temporal_coverage})
         MERGE (d)-[:HAS_TEMPORAL_COVERAGE]->(t)
-        """, id=dataset_id, temporal_coverage=temporal_coverage, graph=graph_name)
+        """, url=dataset_url, temporal_coverage=temporal_coverage, graph=graph_name)
 
 
 def create_description_similarity_edges(tx, dataset_url: str, similar_datasets: dict[str, float], graph_name: str):
@@ -126,7 +124,7 @@ def create_kg(datasets: pd.DataFrame, database: Database, kg_config: dict) -> No
         session.run(f"MATCH (n) WHERE n.graph = '{kg_config["name"]}' DETACH DELETE n;")
 
     with driver.session() as session:
-        session.run("CREATE CONSTRAINT dataset_id IF NOT EXISTS FOR (d:Dataset) REQUIRE d.id IS UNIQUE;")
+        session.run("CREATE CONSTRAINT dataset_url IF NOT EXISTS FOR (d:Dataset) REQUIRE (d.url, d.graph) IS UNIQUE;")
         session.run("CREATE CONSTRAINT keyword_name IF NOT EXISTS FOR (k:Keyword) REQUIRE k.name IS UNIQUE;")
         session.run("CREATE CONSTRAINT theme_name IF NOT EXISTS FOR (t:Theme) REQUIRE t.name IS UNIQUE;")
         session.run("CREATE CONSTRAINT provider_name IF NOT EXISTS FOR (p:Provider) REQUIRE p.name IS UNIQUE;")
@@ -135,30 +133,29 @@ def create_kg(datasets: pd.DataFrame, database: Database, kg_config: dict) -> No
         session.run("CREATE CONSTRAINT temporal_coverage_name IF NOT EXISTS FOR (t:TemporalCoverage) REQUIRE t.name IS UNIQUE;")
 
     with driver.session() as session:
-        for i, (index, row) in enumerate(datasets.iterrows()):
+        for i, (_, row) in enumerate(datasets.iterrows()):
             if i % 500 == 0:
                 logger.info(f"{i}/{len(datasets)}")
             metadata = row.drop(columns="description")
-            index += 100000
-            session.execute_write(ingest_dataset, index, row["description"], metadata, kg_config["name"])
+            session.execute_write(ingest_dataset, metadata, kg_config["name"])
 
             if row["keywords"]:
                 for keyword in row["keywords"]:
-                    session.execute_write(ingest_keyword, index, keyword.title(), kg_config["name"])
+                    session.execute_write(ingest_keyword, row["url"], keyword.title(), kg_config["name"])
             if row["themes"]:
                 for theme in row["themes"]:
-                    session.execute_write(ingest_theme, index, theme.title(), kg_config["name"])
+                    session.execute_write(ingest_theme, row["url"], theme.title(), kg_config["name"])
             if row["categories"]:
                 for category in row["categories"]:
-                    session.execute_write(ingest_category, index, category.title(), kg_config["name"])
+                    session.execute_write(ingest_category, row["url"], category.title(), kg_config["name"])
             if row["spatial_coverage"]:
                 for spatial_coverage in row["spatial_coverage"]:
-                    session.execute_write(ingest_spatial_coverage, index, spatial_coverage.title(), kg_config["name"])
+                    session.execute_write(ingest_spatial_coverage, row["url"], spatial_coverage.title(), kg_config["name"])
             if row["temporal_coverage"]:
                 for temporal_coverage in row["temporal_coverage"]:
-                    session.execute_write(ingest_temporal_coverage, index, temporal_coverage.title(), kg_config["name"])
+                    session.execute_write(ingest_temporal_coverage, row["url"], temporal_coverage.title(), kg_config["name"])
             if row["provider"] is not None:
-                session.execute_write(ingest_provider, index, row["provider"].title(), kg_config["name"])
+                session.execute_write(ingest_provider, row["url"], row["provider"].title(), kg_config["name"])
 
     add_similarity_edges(datasets, database, driver.session(), kg_config["similarity_threshold"], kg_config)
     logger.info("Knowledge graph creation completed.")

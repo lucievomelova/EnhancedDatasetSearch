@@ -53,6 +53,7 @@ pipeline_config:
     score_cutoff: 0.2
 data_processing:
   knowledge_graph:
+    name: "test_kg"
     top_k: 5
     similarity_threshold: 0.7
   column_mapping:

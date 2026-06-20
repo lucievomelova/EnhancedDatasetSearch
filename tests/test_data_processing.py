@@ -57,7 +57,7 @@ def data_catalog(mock_ollama_client):
     # we have to load raw datasets from our file and then reload the remaining dataframes based on it
     catalog._load_datasets_raw(False)
     catalog._transform_datasets_raw(True)
-    asyncio.run(catalog.get_new_datasets())
+    asyncio.run(catalog.update_datasets())
     yield catalog
     _cleanup_files(files_to_remove)  # remove datasets files from this test run
 

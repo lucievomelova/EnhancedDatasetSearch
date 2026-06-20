@@ -10,7 +10,6 @@ from pandas import Series
 from jinja2 import Environment, FileSystemLoader
 from polyleven import levenshtein
 
-from data_processing.keywords import get_representatives, create_keyword_kg
 from utils import setup_logger
 
 logger = setup_logger(__name__)
@@ -106,9 +105,6 @@ def preprocess_temporal_coverage(datasets: pd.DataFrame) -> None:
     all_periods = datasets["temporal_coverage"].explode().dropna().unique()
     logger.info(f"Extracted years from time periods. Number of unique time periods: {len(all_periods)}")
 
-    all_periods = datasets["temporal_coverage"].explode().dropna().unique()
-    logger.info(f"Expanded year ranges into individual years. Number of unique time periods: {len(all_periods)}")
-
 
 def _unify_word_capitalization(datasets: pd.DataFrame, column: str) -> pd.DataFrame:
     """Find words that differ just by capitalization and rewrite them into the same form."""
@@ -190,9 +186,9 @@ def preprocess_keywords(datasets: pd.DataFrame, client: OllamaClient | None, mod
     # replace by similar words if applicable
     datasets[col] = datasets[col].apply(lambda words: [similarity_dict.get(w, w) for w in words])
 
-    datasets[col] = datasets[col].apply(lambda words: [w for w in words if w is not None])
+    datasets[col] = datasets[col].apply(lambda words: [w for w in set(words) if w is not None])
     all_words = datasets[col].explode().dropna().unique()
-    logger.info(f"Merged. Number of words: {len(all_words)}")
+    logger.info(f"Merged. Number of keywords: {len(all_words)}")
 
 
 def replace_nonfrequent_keywords_with_cluster_representatives(database: Database, datasets: pd.DataFrame, model_name: str, state_dir: str, embed_dim: int) -> None:
@@ -269,8 +265,7 @@ def create_documents(datasets: pd.DataFrame) -> list[Document]:
     for description, metadata in zip(descriptions, metadata_df):
         text = f"""
             {metadata['title']}
-            {description}
-
+            {description}\n
             Poskytovatel: {metadata['provider']}
             Klíčová slova: {metadata['keywords']}
             Témata: {metadata['themes']}
