@@ -51,9 +51,6 @@ class QueryPreprocessor:
                                  num_categories=num_categories,
                                  categories=", ".join(categories),
                                  other_category=other_category)
-
-
-
         try:
             response = self.client.get_llm_response(prompt)
         except httpx.ReadTimeout as e:

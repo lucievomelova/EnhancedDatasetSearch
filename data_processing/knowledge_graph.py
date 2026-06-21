@@ -76,41 +76,6 @@ def create_description_similarity_edges(tx, dataset_url: str, similar_datasets: 
     )
 
 
-def create_metadata_similarity_edges(tx, similar_datasets: dict[tuple[str, str], float], metadata_name: str, graph_name: str):
-    """Create similarity edges between datasets based on metadata similarity."""
-    logger.info(f"Adding {len(similar_datasets)} metadata similarity edges for {metadata_name}.")
-    batches = []
-    batch_size = 5000
-    batch = []
-    for urls, score in similar_datasets.items():
-        url1, url2 = urls
-        batch.append({
-            "from": url1,
-            "to": url2,
-            "score": score
-        })
-        if len(batch) >= batch_size:
-            batches.append(batch)
-            batch = []
-    if batch:
-        batches.append(batch)
-
-    for i in range(len(batches)):
-        batch = batches[i]
-        logger.info(f"Adding batch {i}/{len(batches)}.")
-        tx.run(
-            f"""
-            UNWIND $edges AS e
-            MATCH (d1:Dataset {{url: e.from, graph: $graph}})
-            MATCH (d2:Dataset {{url: e.to, graph: $graph}})
-            MERGE (d1)-[r:SIMILAR]-(d2)
-            ON CREATE SET r.{metadata_name}_similarity = e.score
-            ON MATCH SET r.{metadata_name}_similarity = e.score
-            """,
-            edges=batch, graph=graph_name
-        )
-
-
 def create_kg(datasets: pd.DataFrame, database: Database, kg_config: dict) -> None:
     """Create knowledge graph based on dataset metadata and description embedding similarity."""
     driver = GraphDatabase.driver(

@@ -37,7 +37,7 @@ class DataPreprocessingPipeline:
         if not os.path.exists(self.state_dir):
             os.makedirs(self.state_dir)
 
-        asyncio.run(self.data_catalog.update_datasets())
+        # asyncio.run(self.data_catalog.update_datasets())
 
         datasets_documents = self.data_catalog.prepare_documents_for_upload(self.data_catalog.datasets)
         self.database.load_documents(datasets_documents)
