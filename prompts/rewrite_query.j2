@@ -1,23 +1,24 @@
 {{ intro }}
 
 # Input
-The user query: "{{ user_query }}".
+The search query: "{{ user_query }}".
+{% if filters_selected %}
+The selected metadata filters are: {{ applied_filters }}
+{% endif %}
 
 ## Detected User Intent
-You know that the user is looking for data with the following intent:
 - Categories: {{ categories_intent }}
-- Spatial coverage: {{ regions_intent }}
-- Temporal coverage: {{ time_periods_intent }}
+- Spatial coverage: {{ spatial_intent }}
+- Temporal coverage: {{ temporal_intent }}
 
 # Your Task
-Expand the search query to improve its effectiveness for searching datasets in the catalog.
-When rewriting the query, consider the following guidelines:
+Expand the query to improve its effectiveness for searching in the catalog. Consider the following guidelines:
 1. Maintain and emphasize user intent.
-2. Structure the query in a way that enhances search engine performance.
-3. Use synonyms, related terms, or more specific phrases.
+2. Use synonyms, related terms, or more specific phrases.
+3. You can construct multiple queries and separate them by commas.
+{% if filters_selected %}
+4. Incorporate the applied metadata filters into the query.
+{% endif %}
 
-Return ONLY the rewritten query as a plain text string without any additional explanations or formatting.
-The query should be in natural language and in the same language as the original query. You can add multiple
-queries and separate them by commas if you think it will improve the search results.
-
-The extended query should not exceed 50 words.
+Return ONLY the expanded query as a plain text string without any additional explanations or formatting.
+The query should be in natural language. It should NOT exceed 50 words.

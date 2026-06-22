@@ -11,23 +11,36 @@ env = Environment(loader=FileSystemLoader('prompts'))
 intro_template = env.get_template("intro.j2")
 intro_prompt = intro_template.render()
 
+
+def _metadata_filters_selected(applied_filters: dict) -> bool:
+    """Check if any metadata filters were selected."""
+    for filter_category, filters in applied_filters.items():
+        if filters:
+            return True  # at least one list not empty
+    return False  # all lists empty
+
+
 class QueryPreprocessor:
     def __init__(self, config: dict) -> None:
         self.config = config
         self.client = OllamaClient(config["llm"], timeout=config["pipeline_config"]["preprocessing"]["timeout"])
 
-    def run(self, user_query: str, categories: list[str], other_category: str) -> (dict, str):
+    def run(self, user_query: str, applied_filters: dict, categories: list[str], other_category: str) -> (dict, str):
         """Preprocess the user query."""
-
-        logger.info("Preprocessing user query: %s", user_query)
-        intent = self.detect_user_intent(user_query, categories, other_category)
-        extended_query = self.extend_user_query(user_query)
+        logger.info(f"Preprocessing user query: {user_query} with metadata filters: {applied_filters}")
+        intent = self.detect_user_intent(user_query, applied_filters, categories, other_category)
+        extended_query = self.extend_user_query(user_query, applied_filters, intent)
         return intent, extended_query
 
-
-    def extend_user_query(self, user_query: str) -> str:
+    def extend_user_query(self, user_query: str, applied_filters: dict, intent: dict) -> str:
         template = env.get_template("rewrite_query.j2")
-        prompt = template.render(intro=intro_prompt, user_query=user_query)
+        prompt = template.render(intro=intro_prompt,
+                                 user_query=user_query,
+                                 applied_filters=applied_filters,
+                                 filters_selected=_metadata_filters_selected(applied_filters),
+                                 categories_intent=intent["categories"],
+                                 spatial_intent=intent["spatial_coverage"],
+                                 temporal_intent=intent["temporal_coverage"])
         logger.info(f"Extending user query: {user_query}")
 
         try:
@@ -39,8 +52,13 @@ class QueryPreprocessor:
         logger.info(f"Extended query: {extended_query}")
         return extended_query
 
-
-    def detect_user_intent(self, user_query: str, categories: list[str], other_category: str) -> dict[str, str]:
+    def detect_user_intent(
+            self,
+            user_query: str,
+            applied_filters: dict,
+            categories: list[str],
+            other_category: str
+    ) -> dict[str, str]:
         """Detect the user intent from the query using LLM."""
         logger.info("Detecting intent for query: %s", user_query)
 
@@ -48,6 +66,8 @@ class QueryPreprocessor:
         template = env.get_template("detect_user_intent.j2")
         prompt = template.render(intro=intro_prompt,
                                  user_query=user_query,
+                                 applied_filters=applied_filters,
+                                 filters_selected=_metadata_filters_selected(applied_filters),
                                  num_categories=num_categories,
                                  categories=", ".join(categories),
                                  other_category=other_category)

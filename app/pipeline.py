@@ -42,11 +42,9 @@ class SearchPipeline:
                                 self.database.document_store)
         self.postprocessor = PostProcessor(self.config["pipeline_config"]["postprocessing"], self.data_catalog)
 
-
-    async def run(self, query: str) -> list[dict[str, str | list | None]] | None:
+    async def run(self, query: str, applied_filters: dict) -> list[dict[str, str | list | None]] | None:
         """Run the search pipeline for the given query and return the results as a DataFrame."""
-
-        intent, extended_query = self.query_preprocessor.run(query,
+        intent, extended_query = self.query_preprocessor.run(query, applied_filters,
                                                              self.config["data_processing"]["categories"],
                                                              self.config["data_processing"]["other_category"])
         search_results = await self.retriever.run(query, extended_query)

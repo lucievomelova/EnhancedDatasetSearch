@@ -38,7 +38,6 @@ class DataPreprocessingPipeline:
             os.makedirs(self.state_dir)
 
         # asyncio.run(self.data_catalog.update_datasets())
-
         datasets_documents = self.data_catalog.prepare_documents_for_upload(self.data_catalog.datasets)
         self.database.load_documents(datasets_documents)
         create_kg(self.data_catalog.datasets, self.database, self.config["data_processing"]["knowledge_graph"])

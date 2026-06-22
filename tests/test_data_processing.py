@@ -1,21 +1,10 @@
 """Unit tests for data processing code. All LLM and embedding model calls are replaced with mock objects and empty
 response is always returned, so that the results are deterministic"""
 
-import asyncio
-import os
-
-import pytest
-import yaml
 import pandas as pd
-from unittest.mock import MagicMock
 import shutil
 
-from data_processing.data_catalogs.nkod import NkodDataCatalog
-from data_processing.database import Database
 from data_processing.knowledge_graph import create_kg, get_similar_datasets
-from ollama_client import OllamaClient
-from neo4j import GraphDatabase
-
 
 
 def _sort_items_in_list_cols(list_columns: list, df1: pd.DataFrame, df2: pd.DataFrame):
@@ -25,57 +14,10 @@ def _sort_items_in_list_cols(list_columns: list, df1: pd.DataFrame, df2: pd.Data
         df2[col] = df2[col].apply(sorted)
 
 
-def _cleanup_files(file_paths: list):
-    """Delete specified files."""
-    for file_path in file_paths:
-        if os.path.exists(file_path):
-            os.remove(file_path)
-
-with open("tests/test_config.yaml", "r") as f:
-    config = yaml.safe_load(f)
-
 # copy old datasets file so that it can be used in NKOD pipeline
 src = "tests/data/test_datasets_old.json"
 dst = "tests/data/test_datasets.json"
 shutil.copy(src, dst)
-
-
-@pytest.fixture(scope="module")
-def mock_ollama_client():
-    mock = MagicMock(spec=OllamaClient)
-    mock.get_llm_response.return_value = ""
-    mock.get_llm_json_response.return_value = ({}, 0)
-    return mock
-
-
-@pytest.fixture(scope="module")
-def mock_database():
-    mock = MagicMock(spec=Database)
-    mock.get_similar_datasets_by_embedding.return_value = {}
-    return mock
-
-
-@pytest.fixture(scope="module")
-def driver():
-    return GraphDatabase.driver(os.environ['NEO4J_URI'], auth=(os.environ['NEO4J_USER'], os.environ['NEO4J_PASSWORD']))
-
-
-@pytest.fixture(scope="module")
-def data_catalog(mock_ollama_client):
-    catalog = NkodDataCatalog(config)
-    files_to_remove = [
-        catalog._data_config["datasets_path"],
-        catalog._data_config["datasets_transformed_path"]
-    ]
-    _cleanup_files(files_to_remove)  # remove datasets files from previous test runs in case there was an error
-    catalog.client = mock_ollama_client
-
-    # we have to load raw datasets from our file and then reload the remaining dataframes based on it
-    catalog._load_datasets_raw(False)
-    catalog._transform_datasets_raw(True)
-    asyncio.run(catalog.update_datasets())
-    yield catalog
-    _cleanup_files(files_to_remove)  # remove datasets files from this test run
 
 
 # ======== NKOD ========
@@ -158,12 +100,12 @@ def test_metadata_filters_dont_contain_data_for_missing_metadata_category(data_c
 # ======== Knowledge graph ========
 
 
-def test_create_kg(data_catalog, mock_database):
+def test_create_kg(config, data_catalog, mock_database):
     """Test that KG creation doesn't throw any errors."""
     create_kg(data_catalog.datasets, mock_database, config["data_processing"]["knowledge_graph"])
 
 
-def test_all_datasets_in_kg(driver):
+def test_all_datasets_in_kg(config, driver):
     graph_name = config["data_processing"]["knowledge_graph"]["name"]
     query = f"MATCH (d:Dataset) WHERE d.graph = $graph_name RETURN count(d) AS count"
     with driver.session() as session:
@@ -171,7 +113,7 @@ def test_all_datasets_in_kg(driver):
         assert number_of_datasets == 4
 
 
-def test_metadata_nodes_exist_in_kg(driver):
+def test_metadata_nodes_exist_in_kg(config, driver):
     """Test that metadata nodes exist in KG - at least one keyword, theme, category, provider."""
     graph_name = config["data_processing"]["knowledge_graph"]["name"]
     for node_type in ["Keyword", "Theme", "Category"]:
@@ -188,7 +130,7 @@ def test_metadata_nodes_exist_in_kg(driver):
         assert count > 0
 
 
-def test_all_keyword_nodes_exist_in_kg(data_catalog, driver):
+def test_all_keyword_nodes_exist_in_kg(config, data_catalog, driver):
     """Test that each keyword has a keyword node in the KG and no extra keyword nodes exist."""
     graph_name = config["data_processing"]["knowledge_graph"]["name"]
     # we have to use distinct, otherwise each keyword will be added once for each dataset it is connected to
@@ -199,7 +141,7 @@ def test_all_keyword_nodes_exist_in_kg(data_catalog, driver):
         assert sorted(data_catalog.all_keywords) == sorted(keywords)
 
 
-def test_no_similarity_edges_exist(driver):
+def test_no_similarity_edges_exist(config, driver):
     """Test that no SIMILAR relationships exist in the test KG."""
     graph_name = config["data_processing"]["knowledge_graph"]["name"]
     query = "MATCH (d1:Dataset)-[rel:SIMILAR]->(d2:Dataset) WHERE d1.graph = $graph_name AND d2.graph = $graph_name RETURN count(DISTINCT rel) AS count"
@@ -208,7 +150,7 @@ def test_no_similarity_edges_exist(driver):
         assert count == 0
 
 
-def test_get_similar_datasets(driver):
+def test_get_similar_datasets(config, driver):
     """Test that get_similar_datasets works."""
     similar_datasets = get_similar_datasets("http://example.com/ds2",config["data_processing"]["knowledge_graph"])
     assert len(similar_datasets["themes"]) > 0  # there is a similar dataset based on themes

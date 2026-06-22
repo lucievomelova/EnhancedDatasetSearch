@@ -22,7 +22,7 @@ embedding:
   chunk_size: 16192
   chunk_overlap: 50
   embed_batch_size: 100
-  url_to_node_id_mapping_file: "url_to_node_id_mapping.json"
+  url_to_node_id_mapping_file: "test_url_to_node_id_mapping.json"
 llm:
   model_name: "mistral-small3.2:latest"  #"qwen3.6:27b"
   base_url: "http://localhost:11434"

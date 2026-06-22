@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Enhanced NKOD Dataset Search</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='styles/styles.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles/home.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='styles/loading.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='styles/chatbot_button.css') }}">
 </head>
@@ -44,41 +45,41 @@
                     </svg>
                 </button>
             </div>
-        </form>
 
-        <p class="subtitle">AI powered dataset search for the <a href="https://data.gov.cz/" target="_blank" rel="noopener noreferrer" class="subtitle-link">Czech National Open Data Catalog</a>.</p>
+            <p class="subtitle">AI powered dataset search for the <a href="https://data.gov.cz/" target="_blank" rel="noopener noreferrer" class="subtitle-link">Czech National Open Data Catalog</a>.</p>
 
+            <div class="filter-bar">
+                <h3 class="home-filters-header">Filters: </h3>
+                {% for filter_category, content in filters.items() %}
+                    {% if content.value_counts %}
+                        <div class="filter-item">
+                            <button type="button" class="filter-toggle" data-target="{{ filter_category }}">
+                                {{ content.title }} ▼
+                            </button>
 
-        <div class="filter-bar">
-            <h3 class="home-filters-header">Filters: </h3>
-            {% for filter_category, content in filters.items() %}
-                {% if content.value_counts %}
-                    <div class="filter-item">
-                        <button class="filter-toggle" data-target="{{ filter_category }}">
-                            {{ content.title }} ▼
-                        </button>
-
-                        <div class="filter-dropdown" id="{{ filter_category }}">
-                            {% for word, count in content.value_counts.items() %}
-                            <label class="filter-checkbox">
-                                <input type="checkbox" class="filter-input" data-filter-type="{{ filter_category }}" value="{{ word }}">
-                                <span>{{ word }} ({{ count }})</span>
-                            </label>
-                            {% endfor %}
+                            <div class="filter-dropdown" id="{{ filter_category }}">
+                                {% for word, count in content.value_counts.items() %}
+                                <label class="filter-checkbox">
+                                    <input type="checkbox" class="filter-input" name="filter_{{ filter_category }}" value="{{ word }}">
+                                    <span>{{ word }} ({{ count }})</span>
+                                </label>
+                                {% endfor %}
+                            </div>
                         </div>
-                    </div>
-                {% endif %}
-            {% endfor %}
-            <span class="info-icon">
-                <i class="fa-regular fa-circle-question"></i>
+                    {% endif %}
+                {% endfor %}
+                <span class="info-icon">
+                    <i class="fa-regular fa-circle-question"></i>
 
-                <span class="tooltip">
-                    Filters will be added to your prompt as text and they will be automatically applied as
-                dynamic filters for search results. You can deselect them manually on the next page to see all partially
-                related search results.
+                    <span class="tooltip">
+                        Filters will be added to your prompt as text and they will be automatically applied as
+                        dynamic filters for search results (if they are present in the results).
+                        You can deselect them manually on the next page to see all partially
+                        related search results.
+                    </span>
                 </span>
-            </span>
-        </div>
+            </div>
+        </form>
     </div>
 
 

@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Search Results - Enhanced NKOD Dataset Search</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='styles/styles.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles/search_results.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='styles/loading.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='styles/chatbot_button.css') }}">
 </head>
@@ -35,26 +36,28 @@
         <div class="filters-content">
             {% for filter_category, content in filters.items() %}
                 {% if content.value_counts %}
-                        <div class="filter-section">
-                            <div class="filter-title">
-                                <h4>{{ content.title }}</h4>
-                                <button class="filter-toggle" data-target="{{ filter_category }}-list">▼</button>
-                            </div>
-                            <div class="filter-options" id="{{ filter_category }}-list">
-                                {% for word, count in content.value_counts.items() %}
-                                <label class="filter-checkbox">
-                                    <input type="checkbox" class="filter-input" data-filter-type="{{ filter_category }}" value="{{ word }}">
-                                    <span>{{ word }} ({{ count }})</span>
-                                </label>
-                                {% endfor %}
-                            </div>
+                    <div class="filter-section">
+                        <div class="filter-title">
+                            <h4>{{ content.title }}</h4>
+                            <button class="filter-toggle" data-target="{{ filter_category }}-list">▼</button>
                         </div>
+                        <div class="filter-options" id="{{ filter_category }}-list">
+                            {% for word, count in content.value_counts.items() %}
+                            <label class="filter-checkbox">
+                                <input type="checkbox" class="filter-input" name="filter_{{ filter_category }}"
+                                       form="searchForm" data-filter-type="{{ filter_category }}"
+                                       value="{{ word }}" {% if word in applied_filters[filter_category] %}checked{% endif %}>
+                                <span>{{ word }} ({{ count }})</span>
+                            </label>
+                            {% endfor %}
+                        </div>
+                    </div>
                 {% endif %}
             {% endfor %}
 
             <!-- Clear Filters Button -->
             <div class="filter-section">
-                <button class="clear-filters-btn" id="clearFiltersBtn">Clear All Filters</button>
+                <button type="button" class="clear-filters-btn" id="clearFiltersBtn">Clear All Filters</button>
             </div>
         </div>
     </aside>
@@ -93,7 +96,7 @@
                 <button class="filters-toggle-open" id="filtersOpen">☰ Filters</button>
             </div>
 
-            <div class="results-container" id="resultsContainer">
+            <div class="results-container">
                 {% for dataset in results %}
                 <div class="result-card" data-keywords="{{ dataset.categorization_metadata.keywords | join(',') }}" data-themes="{{ dataset.categorization_metadata.themes | join(',') }}" data-categories="{{ dataset.categorization_metadata.categories | join(',') }}" data-provider="{{ dataset.categorization_metadata.provider }}" data-temporal="{{ dataset.categorization_metadata.temporal_coverage | join(',') }}" data-spatial="{{ dataset.categorization_metadata.spatial_coverage | join(',') }}">
                             <div class="result-header">

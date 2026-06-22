@@ -81,12 +81,6 @@ def get_chatbot():
 @app.route('/', methods=['GET', 'POST'])
 def home():
     """Display the home page for the search engine."""
-    # get_search_pipeline()  # initialize search pipeline for this session
-    if request.method == 'POST':
-        query = request.form.get('query', '').strip()
-        if query:
-            return redirect(url_for('search', query=query))
-
     pipeline = get_search_pipeline()
     return render_template("home.html", filters=pipeline.data_catalog.get_filters_with_counts())
 
@@ -95,26 +89,39 @@ def home():
 def search():
     """Display the page with search results."""
     pipeline = get_search_pipeline()
+    applied_filters = {}
+
     if request.method == 'POST':
         query = request.form.get('query', '').strip()
+        for key in request.form:
+            if key.startswith("filter_"):
+                category = key[len("filter_"):]  # get metadata category
+                applied_filters[category] = request.form.getlist(key)
     else:
         query = request.args.get('query', '').strip()
+        for key in request.args:
+            if key.startswith("filter_"):
+                category = key[len("filter_"):]  # get metadata category
+                applied_filters[category] = request.form.getlist(key)
 
-    filters = {}
     results = None
+    filters = {}
     if query:
         logger.info(f"Session: {session}")
         future = asyncio.run_coroutine_threadsafe(
-            pipeline.run(query),
+            pipeline.run(query, applied_filters),
             loop
         )
         results = future.result()
         filters = get_filters_for_results(results)
 
-    return render_template("search_results.html", 
-                         query=query, 
-                         results=results,
-                         filters=filters)
+    for filter_cat, cat_data in filters.items():
+        if filter_cat not in applied_filters:
+            applied_filters[filter_cat] = []  # set applied filters to empty for skipped filter categories
+        # keep only applied filters that are present in the results
+        applied_filters[filter_cat] = [a for a in applied_filters[filter_cat] if a in cat_data["value_counts"].keys()]
+
+    return render_template("search_results.html", query=query, results=results, filters=filters, applied_filters=applied_filters)
 
 
 @app.route('/dataset_detail')

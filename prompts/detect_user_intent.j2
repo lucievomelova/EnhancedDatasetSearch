@@ -1,23 +1,25 @@
 {{ intro }}
 
-The user is searching for datasets in the catalogue.  The user query is: {{ user_query }}
-
+The user is searching for datasets in the catalogue. The search query is: {{ user_query }}
+{% if filters_selected %}
+The selected metadata filters are: {{  applied_filters }}
+{% endif %}
 
 # Your task
-Identify the user's intent behind their search query. Classify the intent into
-predefined categories and identify if its related to specific spatial or temporal coverage.
+Identify the intent behind the user's search query. Classify the intent into
+predefined categories and identify if it's related to specific spatial or temporal coverage.
 
 ## Category
-Classify the query intent into at most {{ num_categories }} of the following predefined
-categories: {{ categories }}. If none of the provided categories is appropriate, classify it as {{ other_category }}.
+Classify the query intent into at most {{ num_categories }} of the following
+categories: {{ categories }}. If none of the provided categories is appropriate, use {{ other_category }}.
 
 ## Spatial coverage
-Is the user looking for data for a specific geographical region?
+Is the user looking for data about a specific geographical region?
 e.g. a city, region, places with specific geographical attributes (like rivers, mountains, etc.).
 If yes, return the place name or names separated by commas. Be sure to:
 - Return the basic place name without additional descriptions
 - if there are multiple related places, return all of them - e.g. if the region is "Praha 1", return both "Praha" and "Praha 1"
-- do not return "ČR" or "Česká republika" as spatial coverage
+- DO NOT include "ČR" or "Česká republika" as spatial coverage
 
 ## Temporal coverage
 Is the user looking for data from a specific time period or date range?

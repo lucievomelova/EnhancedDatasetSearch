@@ -1,11 +1,11 @@
 data:
   datasets_raw:
-    path: "data/golden/datasets_small.csv"
-#    path: "data//datove_sady.csv"
+#    path: "data/golden/datasets_small.csv"
+    path: "data//datove_sady.csv"
     url: "https://data.gov.cz/soubor/datov%C3%A9-sady.csv"
   datasets:
-    path: "data/golden/datasets_with_metadata_small.json"
-#    path: "data//datasets_with_metadata_large.json"
+#    path: "data/golden/datasets_with_metadata_small.json"
+    path: "data//datasets_with_metadata_large.json"
   sparql_endpoint: "https://data.gov.cz/sparql"
   distributions:
     path: "data/distributions.csv"
@@ -15,8 +15,8 @@ app_url: "http://127.0.0.1:5000/"
 db:
   host: "localhost"
   port: 5432
-  document_table: documents_test # "documents_qwen_4b"  # "documents_test"
-  vector_table: embeddings_test #"embeddings_qwen_4b"  # "embeddings_test"
+  document_table: documents_qwen_4b # "documents_qwen_4b"  # "documents_test"
+  vector_table: embeddings_qwen_4b #"embeddings_qwen_4b"  # "embeddings_test"
   embed_dim: 2560  #2560  # 4096
 embedding:
   model_name: "qwen3-embedding:4b"  # "qwen3-embedding:4b"
@@ -55,7 +55,7 @@ pipeline_config:
     score_cutoff: 0.2
 data_processing:
   knowledge_graph:
-    name: "test_graph"
+    name: "graph_qwen4b"  # test_graph, graph_qwen4b
     top_k: 5
     similarity_threshold: 0.7
   column_mapping:

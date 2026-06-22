@@ -138,7 +138,7 @@ class NkodDataCatalog(DataCatalog):
     def _load_datasets_raw(self, download_new_data: bool) -> None:
         """Load the raw NKOD dataset of datasets."""
         # TODO this is just for debugging, old file should not be used
-        if not download_new_data or os.path.exists(self._data_config["datasets_raw_path"]):
+        if not download_new_data and os.path.exists(self._data_config["datasets_raw_path"]):
             logger.info("Using old datasets_raw file.")
             self.datasets_raw = pd.read_csv(self._data_config["datasets_raw_path"], sep=",", dtype="string")
             return

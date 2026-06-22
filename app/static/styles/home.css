@@ -1,0 +1,134 @@
+/* Home page */
+body.home-page .title {
+    font-size: 2.5rem;
+    margin-bottom: var(--spacing-xl);
+    letter-spacing: -0.5px;
+}
+
+body.home-page .container {
+    flex: 1 0 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+body.home-page .search-container {
+    max-width: 100%;
+    width: 100%;
+}
+
+.subtitle {
+    color: var(--color-text-muted);
+    font-size: 1rem;
+    font-weight: 400;
+    margin-top: var(--spacing-lg);
+}
+
+.subtitle-link {
+    color: var(--color-text-light);
+    text-decoration: none;
+}
+
+.subtitle-link:hover {
+    color: var(--color-text);
+    text-decoration: underline;
+}
+
+
+body.home-page .search-form {
+    width: 100%;
+    max-width: 900px;
+}
+
+/* Filter bar */
+.filter-bar {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    margin-top: 20px;
+}
+
+.filter-item {
+    position: relative;
+}
+
+.filter-toggle {
+    padding: 6px 8px;
+    margin-right: 1px;
+    background: white;
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.85em;
+    transition: all var(--transition);
+}
+
+.filter-toggle:hover {
+    background: var(--color-bg-active);
+}
+
+/* Dropdown panel */
+.filter-dropdown {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    width: max-content;
+    min-width: 200px;
+    max-width: 500px;
+    max-height: 250px;
+    overflow-y: auto;
+    background: white;
+    border: 1px solid var(--color-border);
+    border-radius: var(--border-radius);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    padding: 10px;
+    display: none;
+    z-index: 1000;
+}
+
+.filter-dropdown.open {
+    display: block;
+}
+
+.filter-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 0;
+    cursor: pointer;
+}
+
+.filter-checkbox input {
+    margin: 0;
+}
+
+.filter-checkbox:hover {
+    background: var(--color-bg-active);
+}
+
+.filter-dropdown::-webkit-scrollbar-thumb {
+    border-radius: 2px;
+    background: var(--color-border);
+}
+
+.home-filters-header {
+    color: var(--color-text);
+}
+
+.info-icon {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-left: 6px;
+    margin-top: 5px;
+    color: var(--color-text-muted);
+    cursor: help;
+    font-size: 1.2em;
+}
+.info-icon:hover .tooltip {
+    opacity: 1;
+    visibility: visible;
+}
