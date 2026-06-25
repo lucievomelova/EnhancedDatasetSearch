@@ -12,8 +12,10 @@ intro_template = env.get_template("intro.j2")
 intro_prompt = intro_template.render()
 
 
-def _metadata_filters_selected(applied_filters: dict) -> bool:
+def _metadata_filters_selected(applied_filters: dict | None) -> bool:
     """Check if any metadata filters were selected."""
+    if not applied_filters:
+        return False
     for filter_category, filters in applied_filters.items():
         if filters:
             return True  # at least one list not empty
@@ -25,14 +27,14 @@ class QueryPreprocessor:
         self.config = config
         self.client = OllamaClient(config["llm"], timeout=config["pipeline_config"]["preprocessing"]["timeout"])
 
-    def run(self, user_query: str, applied_filters: dict, categories: list[str], other_category: str) -> (dict, str):
+    def run(self, user_query: str, applied_filters: dict | None, categories: list[str], other_category: str) -> (dict, str):
         """Preprocess the user query."""
         logger.info(f"Preprocessing user query: {user_query} with metadata filters: {applied_filters}")
         intent = self.detect_user_intent(user_query, applied_filters, categories, other_category)
         extended_query = self.extend_user_query(user_query, applied_filters, intent)
         return intent, extended_query
 
-    def extend_user_query(self, user_query: str, applied_filters: dict, intent: dict) -> str:
+    def extend_user_query(self, user_query: str, applied_filters: dict | None, intent: dict) -> str:
         template = env.get_template("rewrite_query.j2")
         prompt = template.render(intro=intro_prompt,
                                  user_query=user_query,
@@ -55,7 +57,7 @@ class QueryPreprocessor:
     def detect_user_intent(
             self,
             user_query: str,
-            applied_filters: dict,
+            applied_filters: dict | None,
             categories: list[str],
             other_category: str
     ) -> dict[str, str]:

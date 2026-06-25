@@ -47,7 +47,7 @@ body.home-page .search-form {
     gap: 12px;
     align-items: flex-start;
     flex-wrap: wrap;
-    margin-top: 20px;
+    margin-top: var(--spacing-sm);
 }
 
 .filter-item {

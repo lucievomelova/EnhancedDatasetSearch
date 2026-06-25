@@ -31,7 +31,7 @@ llm:
   context_length: 2048
 chatbot:
   llm:
-    model_name: "mistral-small3.2:latest"
+    model_name: "qwen3.6:27b"  #"mistral-small3.2:latest"
     base_url: "http://localhost:11434"
     context_length: 4096
     memory_limit: 4096

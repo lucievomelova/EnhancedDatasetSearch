@@ -12,8 +12,8 @@
 
 .chatbot-page .language-selector {
     position: fixed;
-    top: 20px;
-    right: 20px;
+    top: var(--spacing-sm);
+    right: var(--spacing-sm);
     z-index: 100;
 }
 
@@ -32,7 +32,7 @@
 /* Header */
 .chatbot-header {
     text-align: center;
-    margin-bottom: 20px;
+    margin-bottom: var(--spacing-sm);
     animation: slideDown 0.5s ease-out;
 }
 
@@ -48,11 +48,11 @@
 .chatbot-messages {
     flex: 1;
     overflow-y: auto;
-    padding: 20px;
+    padding: var(--spacing-sm);
     margin-bottom: 0;
     border-radius: 12px 12px 0 0;
     background: var(--color-white);
-    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.05);
+    box-shadow: 0 -4px var(--spacing-sm) rgba(0, 0, 0, 0.05);
     display: flex;
     flex-direction: column;
     gap: 16px;
@@ -109,7 +109,7 @@
 @keyframes slideDown {
     from {
         opacity: 0;
-        transform: translateY(-20px);
+        transform: translateY(-var(--spacing-sm));
     }
     to {
         opacity: 1;
@@ -207,7 +207,7 @@
 
 .message-content ul,
 .message-content ol {
-    margin: 8px 0 8px 20px;
+    margin: 8px 0 8px var(--spacing-sm);
     padding: 0;
 }
 
@@ -263,7 +263,7 @@
 /* Input Area */
 .chatbot-input-area {
     background: white;
-    padding: 16px 20px;
+    padding: 16px var(--spacing-sm);
     border-top: none;
     flex-shrink: 0;
 }
@@ -338,13 +338,13 @@
 }
 
 .chat-send-btn svg {
-    width: 20px;
-    height: 20px;
+    width: var(--spacing-sm);
+    height: var(--spacing-sm);
 }
 
 /* Footer */
 .chatbot-page footer {
-    padding: 10px 20px 20px 20px;
+    padding: 10px var(--spacing-sm) var(--spacing-sm) var(--spacing-sm);
     text-align: center;
     color: var(--color-text-muted);
     font-size: 0.9rem;

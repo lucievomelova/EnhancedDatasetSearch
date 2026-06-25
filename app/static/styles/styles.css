@@ -41,7 +41,7 @@ body {
     font-family: var(--font-family);
     background-color: var(--color-bg);
     min-height: 100vh;
-    padding: 20px;
+    padding: var(--spacing-sm);
     display: flex;
     flex-direction: column;
 }
@@ -53,8 +53,8 @@ a {
 /* Language selector */
 .language-selector {
     position: absolute;
-    top: 20px;
-    right: 20px;
+    top: var(--spacing-sm);
+    right: var(--spacing-sm);
 }
 
 .language-dropdown {
@@ -77,7 +77,7 @@ a {
 
 .container,
 .container-search-results {
-    margin: 0 calc(20% + 20px);
+    margin: 0 calc(20% + var(--spacing-sm));
     width: 60%;
     min-width: 400px;
     flex: 1 0 auto;
@@ -170,7 +170,7 @@ body.home-page .container {
 .footer-content {
     width: 100%;
     margin: 0 auto;
-    padding: 0 20px;
+    padding: 0 var(--spacing-sm);
     display: flex;
     justify-content: space-between;
     align-items: center;

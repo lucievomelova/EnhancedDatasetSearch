@@ -35,8 +35,8 @@ class Chatbot:
         search_in_data_catalog = FunctionTool.from_defaults(
             async_fn=self._tool_search,
             name="search_in_data_catalog",
-            description="Search the data catalog for most relevant datasets based on th search query." +
-                        "Input should be an effective search query about what datasets the user is looking for."
+            description="Search the data catalog for most relevant datasets based on the search query." +
+                        "Input a search query."
         )
         get_list_of_all_values_for_metadata_category = FunctionTool.from_defaults(
             fn=self._tool_get_list_of_all_values_for_metadata_category,
@@ -49,14 +49,14 @@ class Chatbot:
             name="get_general_information_from_file",
             description="Get general information about how the data catalog works from an information file. "+
             "Specify the type of information needed, possible values are:\n" +
-            "- metadata: to get information about the metadata structure.\n" +
-            "- NKOD: to get general information about the Czech national open data catalog NKOD."
+            "- metadata: information about the metadata structure.\n" +
+            "- NKOD: general information about the Czech national open data catalog (NKOD)."
         )
         get_dataset_info = FunctionTool.from_defaults(
             fn=self._tool_get_dataset_info,
             name="get_dataset_info",
             description="Get dataset information based on the dataset URL. "+
-            "Returns a dict, where key is the type of information (e.g. dataset title, description or some metadata) " +
+            "Returns a dict, where key is the type of metadata (e.g. dataset title or description) " +
             "and value is the associated information."
         )
 
@@ -64,23 +64,18 @@ class Chatbot:
             fn=self._tool_get_similar_datasets,
             name="get_similar_datasets",
             description="Get datasets similar to the given dataset (based on its URL). "+
-            "Optionally, a type of similarity can be specified - 'description', 'keywords' or themes'. " +
-            "If no category is specified, returns a dict with similarity type as key and similar datasets as value. " +
-            "Otherwise returns a list of similar datasets for the specified category."
+            "Optionally, similarity category can be specified - 'description' or 'themes''. " +
+            "If similarity category is specified, returns a list of similar datasets for the specified category."
+            "Otherwise returns a dict with similarity category as key and similar datasets as value."
         )
 
-        get_nkod_url = FunctionTool.from_defaults(
-            fn=self._tool_get_nkod_url,
-            name="get_nkod_url",
-            description="Get link to the dataset detail page on NKOD on the Czech Dataset Portal."
-        )
-
-        return [search_in_data_catalog,
-                get_list_of_all_values_for_metadata_category,
-                extract_data_catalog_information,
-                get_dataset_info,
-                get_similar_datasets,
-                get_nkod_url]
+        return [
+            search_in_data_catalog,
+            get_list_of_all_values_for_metadata_category,
+            extract_data_catalog_information,
+            get_dataset_info,
+            get_similar_datasets
+        ]
 
     async def react_to_message(self, user_message: str) -> str:
         """Run the chatbot in a loop."""
@@ -162,10 +157,6 @@ class Chatbot:
         except Exception as e:
             logger.error(f"Error during getting similar datasets: {str(e)}", exc_info=True)
             return "An error occurred during retrieving similar datasets."
-
-    def _tool_get_nkod_url(self, dataset_url: str) -> str:
-        """Get the NKOD url for the given dataset URL."""
-        return get_nkod_url(self.config, dataset_url)
 
     def _keep_only_title_and_url(self, search_results: list[dict] | None) -> list[dict[str, str]]:
         """Keep only title of a dataset and its url to the dataset_detail page.

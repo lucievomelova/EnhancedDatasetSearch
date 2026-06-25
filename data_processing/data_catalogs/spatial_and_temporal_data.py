@@ -53,7 +53,7 @@ def get_spatial_and_temporal_coverage(graph: Graph) -> tuple[dict, dict]:
 
 def get_year_from_date(date: str) -> str:
     """Extract year from date string."""
-    # there are only two date formats used on NKOD
+    # there multiple formats used on NKOD
     for date_format in ("%Y-%m-%d", "%Y-%m", "%Y-%m-%d %H:%M:%S"):
         try:
             return str(datetime.strptime(date, date_format).year)
@@ -64,7 +64,6 @@ def get_year_from_date(date: str) -> str:
 
 def get_range_from_start_and_end(temporal_start: str, temporal_end: str) -> str:
     """Get either a range of years *e.g. 2010-2020) or a single year if start and end are the same."""
-
     year_start = get_year_from_date(temporal_start)
     year_end = get_year_from_date(temporal_end)
     if year_start == year_end:

@@ -96,7 +96,7 @@ def extract_year_from_date(time_periods: list[str]) -> list[str]:
 
 
 def preprocess_temporal_coverage(datasets: pd.DataFrame) -> None:
-    """Preprocess temporal coverage column."""
+    """Preprocess temporal coverage column programatically."""
     all_periods = datasets["temporal_coverage"].explode().dropna().unique()
     logger.info(f"Preprocessing {len(all_periods)} time periods.")
     datasets["temporal_coverage"] = datasets["temporal_coverage"].apply(
@@ -191,47 +191,8 @@ def preprocess_keywords(datasets: pd.DataFrame, client: OllamaClient | None, mod
     logger.info(f"Merged. Number of keywords: {len(all_words)}")
 
 
-def replace_nonfrequent_keywords_with_cluster_representatives(database: Database, datasets: pd.DataFrame, model_name: str, state_dir: str, embed_dim: int) -> None:
-    """Some keywords occur only once - replace them with other representative keywords."""
-    if datasets.empty:
-        return None
-    _unify_word_capitalization(datasets, "keywords")  # new keywords might have appeared, rerun just to be sure
-    word_counts = datasets["keywords"].explode().value_counts()
-    single_occurrence_words = word_counts[word_counts <= 1].index.tolist()
-
-    # remove all caps words and words with special chars - they are probably abbreviations, clustering on them won't work well
-    single_occurrence_words = [w for w in single_occurrence_words if not w.isupper()]
-
-    logger.info(f"Creating keyword KG for {len(single_occurrence_words)} single occurrence keywords.")
-    create_keyword_kg(database, single_occurrence_words, embed_dim)
-    logger.info(f"Replacing words that occur only once with their keyword cluster representatives ({len(single_occurrence_words)}).")
-
-    # assign representatives
-    keyword_cluster_representatives = get_representatives(state_dir, model_name)
-    # we will use inverted representatives mapping so that the lookup is faster
-    inverted_keyword_cluster_representatives = {
-        keyword: representative
-        for representative, keywords in keyword_cluster_representatives.items()
-        for keyword in keywords
-    }
-    datasets["keywords"] = datasets["keywords"].apply(
-        lambda keywords: [inverted_keyword_cluster_representatives.get(k, k) if k in single_occurrence_words else k for k in keywords]
-    )
-
-    word_counts = datasets["keywords"].explode().value_counts()
-    logger.info(f"Replaced. Number of words: {len(word_counts)}")
-    # now look at word count again and remove any remaining keywords that are single_occurrence
-    single_occurence_words = word_counts[word_counts <= 1].index.tolist()
-    datasets["keywords"] = datasets["keywords"].apply(
-        lambda keywords: [k for k in keywords if k not in single_occurence_words]
-    )
-
-    all_words = datasets["keywords"].explode().dropna().unique()
-    logger.info(f"Removed single occurrence keywords. Number of words: {len(all_words)}")
-
-
 def clean_metadata(df: pd.DataFrame, client: OllamaClient | None, categories: list[str], model_name: str, state_dir: str) -> None:
-    """Clean the metadata of the datasets in the extended dataframe."""
+    """Clean the datasets' metadata."""
 
     # we don't want reoccurring words in different metadata parts - we would just process more metadata unnecessarily
     # the order of significance is categories > themes > keywords

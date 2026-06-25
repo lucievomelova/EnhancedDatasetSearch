@@ -3,7 +3,6 @@ import os
 
 import yaml
 from data_processing.data_catalogs.data_catalog import DataCatalog
-from data_processing.metadata import replace_nonfrequent_keywords_with_cluster_representatives
 from llama_index.core import Settings
 from llama_index.embeddings.ollama import OllamaEmbedding
 from llama_index.llms.ollama import Ollama
