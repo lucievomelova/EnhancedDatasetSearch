@@ -14,12 +14,12 @@ import os
 
 from data_processing.data_catalog import DataCatalog
 from data_processing.NKOD.distributions import download_distribution_info
-from data_processing.NKOD.spatial_and_temporal_data import add_metadata_to_datasets_from_sparql
+from data_processing.NKOD.spatial_and_temporal_data_sparql import add_metadata_to_datasets_from_sparql
 from llama_index.core import Document
 from ollama_client import OllamaClient
 from pandas import Series
 
-from data_processing.NKOD.metadata import  enrich_metadata, clean_metadata, preprocess_temporal_coverage
+from data_processing.NKOD.metadata import  enrich_metadata, clean_metadata, process_spatial_and_temporal_coverage
 from utils import setup_logger, dataset_detail_url
 from data_processing.NKOD.utils import drop_irrelevant_columns, merge_keywords_and_themes_rows, split_dataframe, download_df
 
@@ -114,13 +114,14 @@ class NkodDataCatalog(DataCatalog):
     def _load_datasets(self) -> None:
         """Load datasets file, which contains the preprocessed and enriched data about all datasets in NKOD."""
 
-        # for checking if temporary file exists
+        # temporary file is used to store intermediate data during metadata enrichment - check if tmp file exists
         tmp_file_name = self._data_config["datasets_path"].replace(".json", f"_tmp.csv")
 
         if os.path.exists(self._data_config["datasets_path"]):
             logger.info("Loading datasets file.")
             self.datasets = pd.read_json(self._data_config["datasets_path"], orient="split")
-        elif os.path.exists(tmp_file_name):  # tmp file exists -> loading of new datasets was interrupted -> continue
+        elif os.path.exists(tmp_file_name):
+            # tmp file exists -> metadata enrichment of new datasets was interrupted -> continue where we stopped
             logger.info("Loading datasets from tmp file.")
             self.datasets = pd.read_csv(tmp_file_name, sep=",", converters={col: pd.eval for col in self.list_columns})
         else:
@@ -129,7 +130,9 @@ class NkodDataCatalog(DataCatalog):
             return
 
         for col in self.list_columns:
-            self.datasets[col] = self.datasets[col].apply(lambda lst: [x for x in lst if pd.notna(x) and x is not None and x != np.nan])
+            self.datasets[col] = self.datasets[col].apply(
+                lambda lst: [x for x in lst if pd.notna(x) and x is not None and x != np.nan]
+            )
 
         self.all_keywords = set(self.datasets["keywords"].explode().dropna().unique())
         self.all_themes = set(self.datasets["themes"].explode().dropna().unique())
@@ -139,7 +142,7 @@ class NkodDataCatalog(DataCatalog):
 
     def _load_datasets_raw(self, download_new_data: bool) -> None:
         """Load the raw NKOD dataset of datasets."""
-        # TODO this is just for debugging, old file should not be used
+        # TODO this is just for debugging or testing
         if not download_new_data or os.path.exists(self._data_config["datasets_raw_path"]):
             logger.info("Using old datasets_raw file.")
             self.datasets_raw = pd.read_csv(self._data_config["datasets_raw_path"], sep=",", dtype="string")
@@ -159,7 +162,7 @@ class NkodDataCatalog(DataCatalog):
 
     def _transform_datasets_raw(self, download_new_data: bool) -> None:
         """Apply initial transformations on the raw dataset."""
-        # TODO this is just for debugging, old file should not be used
+        # TODO this is just for debugging or testing
         if not download_new_data and os.path.exists(self._data_config["datasets_transformed_path"]):
             logger.info("Using old datasets_raw_transformed file.")
             self.datasets_raw_transformed = pd.read_csv(self._data_config["datasets_transformed_path"], sep=",", dtype="string")
@@ -174,7 +177,6 @@ class NkodDataCatalog(DataCatalog):
         clean_metadata(self.datasets_raw_transformed,
                        None,
                        self._data_processing_config["categories"],
-                       self.config["llm"]["model_name"],
                        self._state_dir)
         add_metadata_to_datasets_from_sparql(self.config, self.datasets_raw_transformed)
 
@@ -209,7 +211,6 @@ class NkodDataCatalog(DataCatalog):
 
     async def enrich_new_datasets_metadata(self, new_datasets: pd.DataFrame) -> None:
         """Enrich metadata of new_datasets and update self.datasets with the enriched data."""
-
         # file for storing intermediate results - it must be csv, because json doesn't have an append option
         # but later we want to use json because of faster loading time
         tmp_file_name = self._data_config["datasets_path"].replace(".json", f"_tmp.csv")
@@ -243,9 +244,8 @@ class NkodDataCatalog(DataCatalog):
             self.datasets[col] = self.datasets[col].apply(lambda x: x if isinstance(x, list) else [])
 
         # metadata cleaning for the enhanced datasets
-        preprocess_temporal_coverage(self.datasets)
-        clean_metadata(self.datasets, self.client, self._data_processing_config["categories"],
-                       self.config["llm"]["model_name"], self._state_dir)
+        process_spatial_and_temporal_coverage(self.datasets)
+        clean_metadata(self.datasets, self.client, self._data_processing_config["categories"], self._state_dir)
 
         # save after metadata cleaning as json
         self.datasets.to_json(self._data_config["datasets_path"], orient="split", force_ascii=False)
@@ -260,20 +260,21 @@ class NkodDataCatalog(DataCatalog):
 
     async def _create_metadata_for_chunk(self, new_datasets:  pd.DataFrame):
         """Create metadata dict for a chunk of new datasets asynchronously."""
-        new_rows = [self._get_metadata_for_row_async(row) for _, row in new_datasets.iterrows()]
+        new_rows = [self._enrich_datasets_metadata_async(row) for _, row in new_datasets.iterrows()]
         return await asyncio.gather(*new_rows)
 
-    async def _get_metadata_for_row_async(self, row: Series) -> dict:
-        """Asynchronous wrapper for get_metadata_for_row method."""
+    async def _enrich_datasets_metadata_async(self, row: Series) -> dict:
+        """Asynchronous wrapper for _enrich_datasets_metadata."""
         # this method is needed for the async code to work properly
         loop = asyncio.get_running_loop()
-        return await loop.run_in_executor(executor, self._get_metadata_for_row, row)
+        return await loop.run_in_executor(executor, self._enrich_datasets_metadata, row)
 
-    def _get_metadata_for_row(self, row: Series) -> dict:
-        """Get metadata for a row which represents one dataset.
+    def _enrich_datasets_metadata(self, row: Series) -> dict:
+        """Enrich metadata of a dataset represented by the given row.
 
-        The metadata are enriched with keywords, themes, categories, spatial_coverages and time periods
-        generated by a LLM."""
+        The metadata categories that are considered are: keywords, themes, categories, spatial_coverages and
+        temporal_coverage. If no (ior not enough) metadata is assigned to the dataset in a specific metadata category,
+        new metadata are generated by an LLM."""
         categories = self._data_processing_config["categories"]
         other_category = self._data_processing_config["other_category"]
         generated_metadata = enrich_metadata(row, self.client, self._all_keywords_raw, categories, other_category)
@@ -300,7 +301,7 @@ class NkodDataCatalog(DataCatalog):
 
     @staticmethod
     def _create_documents(datasets: pd.DataFrame) -> list[Document]:
-        """Create llama index Documents from the dataframe. Each row will be used to create one Document.
+        """Create llama index Documents from the datasets' dataframe. Each row will be used to create one Document.
 
         The Document text will be: title + description + keywords + themes + categories + provider. All
         columns will also be stored in the metadata of the Document (even those that will be part of the text)."""

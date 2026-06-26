@@ -27,7 +27,6 @@ class PostProcessor:
         results_with_info = [self.data_catalog.get_dataset_by_url(str(res.metadata["url"])) for res in results]
         return results_with_info
 
-
     def rerank(self, user_query: str, results: list[NodeWithScore], intent: dict[str, str]) -> list[NodeWithScore]:
         """ Rerank search results."""
         # cut off nodes with low score

@@ -79,6 +79,9 @@ def get_similar_datasets_with_preview_text(
                                                           sim_dataset["categorization_metadata"])
                     similar_dataset_info["common_metadata"] = common_metadata
                 similar_datasets[sim_category].append(similar_dataset_info)
+
+    similar_datasets["spatial coverage"] = similar_datasets.pop("spatial_coverage")
+    similar_datasets["temporal coverage"] = similar_datasets.pop("temporal_coverage")
     return similar_datasets
 
 

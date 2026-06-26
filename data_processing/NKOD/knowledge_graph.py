@@ -90,36 +90,27 @@ class NkodKnowledgeGraph(KnowledgeGraph):
         logger.info(f"Retrieving similar datasets based on knowledge graph.")
         similar_datasets = {}
 
-        similarity_types = ["description", "keywords", "themes", "provider"]
         with self.driver.session() as session:
             similar_datasets["description"] = session.execute_read(
                 run_similarity_query,
                 dataset_url,
                 self.kg_config
             )
-            logger.info(f"Retrieved {len(similar_datasets["description"])} similar datasets based on description.")
-
-            similar_datasets["keywords"] = get_similar_datasets_based_on_metadata_category(
-                session,
-                dataset_url,
-                "keywords",
-                self.kg_config
-            )
-            logger.info(f"Retrieved {len(similar_datasets["keywords"])} similar datasets based on common keywords.")
-
-            similar_datasets["themes"] = get_similar_datasets_based_on_metadata_category(
-                session,
-                dataset_url,
-                "themes",
-                self.kg_config
-            )
-            logger.info(f"Retrieved {len(similar_datasets["themes"])} similar datasets based on common themes.")
-
             similar_datasets["provider"] = get_similar_datasets_from_the_same_provider(
                 session,
                 dataset_url,
                 self.kg_config
             )
             logger.info(f"Retrieved {len(similar_datasets["provider"])} similar datasets based on common themes")
+            logger.info(f"Retrieved {len(similar_datasets["description"])} similar datasets based on description.")
+            for metadata_category in ["keywords", "themes", "spatial_coverage", "temporal_coverage"]:
+                similar_datasets[metadata_category] = get_similar_datasets_based_on_metadata_category(
+                    session,
+                    dataset_url,
+                    metadata_category,
+                    self.kg_config
+                )
+                logger.info(f"Retrieved {len(similar_datasets[metadata_category])} similar datasets based on common {metadata_category}.")
+
 
         return similar_datasets

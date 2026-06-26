@@ -1,5 +1,4 @@
 from datetime import datetime
-from urllib.error import HTTPError
 
 import pandas as pd
 from rdflib import Graph

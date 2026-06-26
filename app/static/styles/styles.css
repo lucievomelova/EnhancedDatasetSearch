@@ -428,3 +428,10 @@ body.home-page .container {
     margin: 0;
     color: var(--color-tooltip-text);
 }
+.title a,
+.title a:hover,
+.title a:visited {
+    text-decoration: none;
+    border-bottom: none;
+    color: black;
+}

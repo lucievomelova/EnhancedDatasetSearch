@@ -1,6 +1,7 @@
 import json
 import os
 import re
+from datetime import datetime
 
 import pandas as pd
 from ollama_client import OllamaClient
@@ -50,65 +51,104 @@ def preprocess_comma_separated_words(client: OllamaClient, word_sequence: str, s
     return current_new_keywords
 
 
-def extract_year_from_date(time_periods: list[str]) -> list[str]:
-    """Extract year and possibly month from time_periods.
+def extract_year_from_temporal_coverage(temporal_coverages: list[str]) -> list[str]:
+    """Extract year from temporal_coverage.
 
     The LLM sometimes assigns concrete dates to time periods, which is not desirable. Other times, it assigns
     just month+year, which we also do not want."""
-    new_time_periods = set()
-    date_pattern1 = r'^\d{2}[/\.\-]\d{2}[/\.\-](\d{4})$'
-    date_pattern2 = r'^(\d{4})[/\.\-]\d{2}[/\.\-]\d{2}$'
+    new_temporal_coverages = set()
+    date_pattern1 = r'^\d{1,2}[/\.\-]\s*\d{1,2}[/\.\-]\s*(\d{4})$'
+    date_pattern2 = r'^(\d{4})[/\.\-]\d{1,2}[/\.\-]\d{1,2}$'
     month_pattern = r'(0[1-9]|1[0-2])/(\d{4})'
-    month_str_pattern = r'(leden|únor|březen|duben|květen|červen|červenec|srpen|září|říjen|listopadu|prosinec)\s+(\d{4})'
+    month_str_pattern = r'(leden|únor|březen|duben|květen|červen|červenec|srpen|září|říjen|listopad|prosinec)\s+(\d{4})'
 
     month_mapping = {
         '01': 'leden', '02': 'únor', '03': 'březen', '04': 'duben',
         '05': 'květen', '06': 'červen', '07': 'červenec', '08': 'srpen',
         '09': 'září', '10': 'říjen', '11': 'listopad', '12': 'prosinec'
     }
-    for time_period in time_periods:
-        match = re.search(date_pattern1, time_period)
+    for temporal_coverage in temporal_coverages:
+        match = re.search(date_pattern1, temporal_coverage)
         if match:
-            new_time_periods.add(match.group(1))
+            new_temporal_coverages.add(match.group(1))
             continue
 
-        match = re.search(date_pattern2, time_period)
+        match = re.search(date_pattern2, temporal_coverage)
         if match:
-            new_time_periods.add(match.group(1))
+            new_temporal_coverages.add(match.group(1))
             continue
 
-        match = re.search(month_pattern, time_period)
+        match = re.search(month_pattern, temporal_coverage)
         if match:
-            new_time_periods.add(match.group(2)) # year
+            new_temporal_coverages.add(match.group(2)) # year
             month = match.group(1)
-            new_time_periods.add(month_mapping[month])  # month
+            new_temporal_coverages.add(month_mapping[month])  # month
             continue
 
-        match = re.search(month_str_pattern, time_period)
+        match = re.search(month_str_pattern, temporal_coverage)
         if match:
-            new_time_periods.add(match.group(2)) # year
-            new_time_periods.add(match.group(1))  # month
+            new_temporal_coverages.add(match.group(2)) # year
+            new_temporal_coverages.add(match.group(1))  # month
             continue
-        new_time_periods.add(time_period)
-    return list(new_time_periods)
+        new_temporal_coverages.add(temporal_coverage)
+    return list(new_temporal_coverages)
 
 
-def preprocess_temporal_coverage(datasets: pd.DataFrame) -> None:
-    """Preprocess temporal coverage column programatically."""
-    all_periods = datasets["temporal_coverage"].explode().dropna().unique()
-    logger.info(f"Preprocessing {len(all_periods)} time periods.")
+def simplify_temporal_coverage(temporal_coverages: list[str]) -> list[str]:
+    """Simplify temporal coverage to contain just year or range of years if possible.
+
+    Sometimes the LLM assigns something like "year 2024" as temporal coverage or assigns a range of years like
+    2022-now. Here we try to remove or replace some parts of these temporal coverages and also unify format of
+    year ranges."""
+    new_temporal_coverages = set()
+    for temporal_coverage in temporal_coverages:
+        if "rok " in temporal_coverage:
+            temporal_coverage = temporal_coverage.replace("rok ", "")
+        if "současnost" in temporal_coverage:
+            temporal_coverage = temporal_coverage.replace("současnost", str(datetime.today().year))
+        if "dnes" in temporal_coverage:
+            temporal_coverage = temporal_coverage.replace("dnes", str(datetime.today().year))
+        if "-" in  temporal_coverage:
+            temporal_coverage = temporal_coverage.replace("-", "–")
+        if "–" in temporal_coverage and " – " not in temporal_coverage:
+            temporal_coverage = temporal_coverage.replace("–", " – ")
+
+        new_temporal_coverages.add(temporal_coverage)
+    return list(new_temporal_coverages)
+
+
+def process_spatial_and_temporal_coverage(datasets: pd.DataFrame) -> None:
+    """Process spatial and temporal coverage column programatically (without using an LLM).
+
+    The goal is to remove unusable data and unify format of data where possible."""
+    logger.info(f"Processing spatial and temporal coverage.")
     datasets["temporal_coverage"] = datasets["temporal_coverage"].apply(
-        lambda temporal_coverage: extract_year_from_date(temporal_coverage)
+        lambda temporal_coverage: extract_year_from_temporal_coverage(temporal_coverage)
     )
-    all_periods = datasets["temporal_coverage"].explode().dropna().unique()
-    logger.info(f"Extracted years from time periods. Number of unique time periods: {len(all_periods)}")
+    logger.info("Extracted years from temporal coverage.")
+    datasets["temporal_coverage"] = datasets["temporal_coverage"].apply(
+        lambda temporal_coverage: simplify_temporal_coverage(temporal_coverage)
+    )
+    logger.info("Temporal coverage simplified to contain just year or year range where applicable.")
+
+    # we don't want spatial coverage in forms of "Czech Republic" or similar - that is useless information
+    cz_spatial_coverage = ["ČESKÁ REPUBLIKA", "CZ", "CZECH REPUBLIC", "ČESKO", "CZECH"]
+    datasets["spatial_coverage"] = datasets["spatial_coverage"].apply(
+        lambda spatial_coverage: [s for s in spatial_coverage if s.upper() not in cz_spatial_coverage]
+    )
+    logger.info("Removed variants of \"Czech Republic\" from spatial coverage.")
+    # many spatial coverages contain municipality or district word (obec, okres) - remvoe
+    datasets["spatial_coverage"] = datasets["spatial_coverage"].apply(
+        lambda spatial_coverage: [s.replace("obec ", "").replace("okres ", "") for s in spatial_coverage]
+    )
+    logger.info("Removed \"obec\" and \"okres\" from spatial coverage.")
 
 
-def _unify_word_capitalization(datasets: pd.DataFrame, column: str) -> pd.DataFrame:
+def _unify_keyword_capitalization(datasets: pd.DataFrame, column: str) -> None:
     """Find words that differ just by capitalization and rewrite them into the same form."""
     all_words = datasets[column].explode().dropna().unique()
     logger.info(f"Number of words {len(all_words)}.")
-    logger.info(f"Merging words that differ just by capitalization.")
+    logger.info(f"Merging keywords that differ just by capitalization.")
 
     words_df = pd.DataFrame({
         'word': all_words,
@@ -134,7 +174,7 @@ def _unify_word_capitalization(datasets: pd.DataFrame, column: str) -> pd.DataFr
         )
 
 
-def preprocess_keywords(datasets: pd.DataFrame, client: OllamaClient | None, model_name: str, state_dir: str) -> None:
+def preprocess_keywords(datasets: pd.DataFrame, client: OllamaClient | None, state_dir: str) -> None:
     """Preprocess datasets keywords to make data preprocessing and searching more effective.
 
     Because there are a lot of keywords, they need extra preprocessing. Some contain typos,
@@ -145,8 +185,8 @@ def preprocess_keywords(datasets: pd.DataFrame, client: OllamaClient | None, mod
     col = "keywords"
     datasets[col] = datasets[col].apply(lambda k: list(set(k)))  # remove possible duplicates from keywords
     logger.info(f"Preprocessing keywords.")
-    # some keywords might be incorrectly formatted and contain commas separating multiple keywords/themes
     if OllamaClient:
+        # some keywords might be incorrectly formatted and contain commas separating multiple keywords/themes
         datasets[col] = datasets[col].apply(lambda x: preprocess_comma_separated_words(client, x, state_dir) if "," in x else x)
     # strip whitespaces from beginning and end of each word
     datasets[col] = datasets[col].apply(lambda words: [w.strip() for w in words])
@@ -155,7 +195,7 @@ def preprocess_keywords(datasets: pd.DataFrame, client: OllamaClient | None, mod
     datasets[col] = datasets[col].apply(
         lambda words: [w[:-1] if (w.endswith(".") and not w.endswith("Sb.")) or w.endswith(",") else w for w in words]
     )
-    _unify_word_capitalization(datasets, col)
+    _unify_keyword_capitalization(datasets, col)
 
     # use Levenshtein distance to find very similar words
     word_counts = datasets[col].explode().dropna().value_counts()
@@ -189,7 +229,7 @@ def preprocess_keywords(datasets: pd.DataFrame, client: OllamaClient | None, mod
     logger.info(f"Merged. Number of keywords: {len(all_words)}")
 
 
-def clean_metadata(df: pd.DataFrame, client: OllamaClient | None, categories: list[str], model_name: str, state_dir: str) -> None:
+def clean_metadata(df: pd.DataFrame, client: OllamaClient | None, categories: list[str], state_dir: str) -> None:
     """Clean the datasets' metadata."""
 
     # we don't want reoccurring words in different metadata parts - we would just process more metadata unnecessarily
@@ -207,11 +247,11 @@ def clean_metadata(df: pd.DataFrame, client: OllamaClient | None, categories: li
     df["themes"] = df["themes"].apply(lambda themes: [t for t in themes if t not in categories])
     df["keywords"] = df["keywords"].apply(lambda keywords: list(set([k for k in keywords if k not in categories + all_themes])))
 
-    preprocess_keywords(df, client, model_name, state_dir)
+    preprocess_keywords(df, client, state_dir)
 
 
 def enrich_metadata(row: Series, client: OllamaClient, all_keywords: set, all_categories: set, other_category: str) -> dict:
-    """Enrich the metadata of the datasets in the extended dataframe using LLM."""
+    """Enrich the metadata of one dataset represented by the *row* using an LLM."""
     keywords = row['keywords']
     title = row['title']
     description = row['description']
@@ -220,13 +260,14 @@ def enrich_metadata(row: Series, client: OllamaClient, all_keywords: set, all_ca
     spatial_coverage = row['spatial_coverage']
     temporal_coverage = row['temporal_coverage']
 
+    # number of remaining keywords and categories that should be generated by an LLM
     num_remaining = {
         "keywords": 3 - len(keywords) if keywords is not None else 3,
         "categories": 0 if categories is not None else 2,
     }
+    # decide which metadata we want to include in the LLM prompt
     generate_keywords = True if num_remaining["keywords"] > 0 else False
     generate_categories = True if num_remaining["categories"] > 0 else False
-
     generate_spatial_coverage = False if len(spatial_coverage) > 0 else True
     generate_temporal_coverage = False if len(temporal_coverage) > 0 else True
 
@@ -246,7 +287,7 @@ def enrich_metadata(row: Series, client: OllamaClient, all_keywords: set, all_ca
                              keywords=", ".join(keywords) if keywords is not None else "-",
                              provider=provider,
                              return_json_instructions=return_json_instructions)
-    retry = 0
+
     metadata_keys = ["keywords", "categories", "spatial_coverage", "temporal_coverage"]
     if (generate_keywords is False and generate_categories is False and
             generate_spatial_coverage is False and generate_temporal_coverage is False):
@@ -256,6 +297,7 @@ def enrich_metadata(row: Series, client: OllamaClient, all_keywords: set, all_ca
         return metadata
 
     num_retry_attempts = 3
+    retry = 0
     metadata = {}  # initialize metadata to empty dict
     while retry < 3:
         remaining_attempts = num_retry_attempts - retry
