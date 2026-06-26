@@ -2,16 +2,16 @@ import asyncio
 import os
 
 import yaml
-from data_processing.data_catalogs.data_catalog import DataCatalog
+from data_processing.data_catalog import DataCatalog
+from data_processing.knowledge_graph import KnowledgeGraph
 from llama_index.core import Settings
 from llama_index.embeddings.ollama import OllamaEmbedding
 from llama_index.llms.ollama import Ollama
 
-from data_processing.knowledge_graph import create_kg
-from data_processing.data_catalogs.nkod import NkodDataCatalog
+from data_processing.NKOD.knowledge_graph import NkodKnowledgeGraph
+from data_processing.NKOD.nkod import NkodDataCatalog
 from data_processing.database import Database
 import click
-
 
 
 class DataPreprocessingPipeline:
@@ -19,7 +19,12 @@ class DataPreprocessingPipeline:
     def __init__(self, config: dict):
         self.config = config
         self.state_dir = config["state_dir"]
+        self.database = Database(self.config)
         self.data_catalog: DataCatalog = NkodDataCatalog(config, True)
+        self.knowledge_graph: KnowledgeGraph = NkodKnowledgeGraph(
+            self.config["data_processing"]["knowledge_graph"],
+            self.database
+        )
         self.llm = Ollama(model=self.config['llm']['model_name'],
                           context_window=self.config['llm']['context_length'])
         Settings.llm = self.llm
@@ -28,7 +33,6 @@ class DataPreprocessingPipeline:
             base_url=self.config['embedding']['base_url'],
             embed_batch_size=self.config['embedding']['embed_batch_size'],
         )
-        self.database = Database(self.config, config["state_dir"])
 
     def run(self) -> list[dict] | None:
         """Run the preprocessing pipeline."""
@@ -36,10 +40,10 @@ class DataPreprocessingPipeline:
         if not os.path.exists(self.state_dir):
             os.makedirs(self.state_dir)
 
-        # asyncio.run(self.data_catalog.update_datasets())
+        asyncio.run(self.data_catalog.update_datasets())
         datasets_documents = self.data_catalog.prepare_documents_for_upload(self.data_catalog.datasets)
         self.database.load_documents(datasets_documents)
-        create_kg(self.data_catalog.datasets, self.database, self.config["data_processing"]["knowledge_graph"])
+        self.knowledge_graph.create_kg(self.data_catalog.datasets)
 
 
 @click.command()

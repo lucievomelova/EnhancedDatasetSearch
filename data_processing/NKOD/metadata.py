@@ -3,8 +3,6 @@ import os
 import re
 
 import pandas as pd
-from data_processing.database import Database
-from llama_index.core import Document
 from ollama_client import OllamaClient
 from pandas import Series
 from jinja2 import Environment, FileSystemLoader
@@ -210,35 +208,6 @@ def clean_metadata(df: pd.DataFrame, client: OllamaClient | None, categories: li
     df["keywords"] = df["keywords"].apply(lambda keywords: list(set([k for k in keywords if k not in categories + all_themes])))
 
     preprocess_keywords(df, client, model_name, state_dir)
-
-
-def create_documents(datasets: pd.DataFrame) -> list[Document]:
-    """Create llama index Documents from the dataframe. Each row will be used to create one Document.
-
-    The Document text will be: title + description + keywords + themes + categories + provider. All
-    columns will also be stored in the metadata of the Document (even those that will be part of the text)."""
-    documents = []
-    descriptions = datasets["description"]
-    datasets = datasets.where(datasets.notna(), None)
-    metadata_df = datasets.drop(columns="description").to_dict(orient="records")
-    logger.info(f"Creating {len(datasets)} llamaindex Documents.")
-
-    for description, metadata in zip(descriptions, metadata_df):
-        text = f"""
-            {metadata['title']}
-            {description}\n
-            Poskytovatel: {metadata['provider']}
-            Klíčová slova: {metadata['keywords']}
-            Témata: {metadata['themes']}
-            Kategorie: {metadata['categories']}
-            Prostorové pokrytí": {metadata['spatial_coverage']}
-            Časové pokrytí: {metadata['temporal_coverage']}
-        """
-        document = Document(text=text, metadata=metadata, id_=metadata["url"])
-        documents.append(document)
-
-    logger.info("Documents created.")
-    return documents
 
 
 def enrich_metadata(row: Series, client: OllamaClient, all_keywords: set, all_categories: set, other_category: str) -> dict:

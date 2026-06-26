@@ -4,7 +4,7 @@ response is always returned, so that the results are deterministic"""
 import pandas as pd
 import shutil
 
-from data_processing.knowledge_graph import create_kg, get_similar_datasets
+from data_processing.NKOD.knowledge_graph import NkodKnowledgeGraph
 
 
 def _sort_items_in_list_cols(list_columns: list, df1: pd.DataFrame, df2: pd.DataFrame):
@@ -100,9 +100,9 @@ def test_metadata_filters_dont_contain_data_for_missing_metadata_category(data_c
 # ======== Knowledge graph ========
 
 
-def test_create_kg(config, data_catalog, mock_database):
+def test_create_kg(config, data_catalog, knowledge_graph):
     """Test that KG creation doesn't throw any errors."""
-    create_kg(data_catalog.datasets, mock_database, config["data_processing"]["knowledge_graph"])
+    knowledge_graph.create_kg(data_catalog.datasets)
 
 
 def test_all_datasets_in_kg(config, driver):
@@ -150,8 +150,8 @@ def test_no_similarity_edges_exist(config, driver):
         assert count == 0
 
 
-def test_get_similar_datasets(config, driver):
+def test_get_similar_datasets(config, driver, knowledge_graph):
     """Test that get_similar_datasets works."""
-    similar_datasets = get_similar_datasets("http://example.com/ds2",config["data_processing"]["knowledge_graph"])
+    similar_datasets = knowledge_graph.get_similar_datasets("http://example.com/ds2")
     assert len(similar_datasets["themes"]) > 0  # there is a similar dataset based on themes
     assert len(similar_datasets["description"]) == 0  # description similarity is not calculated for test KG

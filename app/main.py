@@ -4,6 +4,11 @@ import threading
 
 import uuid
 
+from data_processing.NKOD.knowledge_graph import NkodKnowledgeGraph
+from data_processing.NKOD.nkod import NkodDataCatalog
+from data_processing.data_catalog import DataCatalog
+from data_processing.database import Database
+from data_processing.knowledge_graph import KnowledgeGraph
 from flask import Flask, render_template, request, redirect, url_for, jsonify, session
 from app.pipeline import SearchPipeline
 from app.chatbot import Chatbot
@@ -48,6 +53,9 @@ Settings.embed_model = OllamaEmbedding(
 
 search_pipeline_instances = {}  # dictionary to store search pipeline instances per session
 chatbot_instances = {}  # dictionary to store chatbot instances per session
+database: Database = Database(config)
+data_catalog: DataCatalog = NkodDataCatalog(config, False)
+knowledge_graph: KnowledgeGraph = NkodKnowledgeGraph(config["data_processing"]["knowledge_graph"], database)
 
 
 def get_current_session_id():
@@ -63,7 +71,7 @@ def get_search_pipeline():
 
     # create a new search pipeline instance for this session if it doesn't exist
     if session_id not in search_pipeline_instances:
-        search_pipeline_instances[session_id] = SearchPipeline(config, llm)
+        search_pipeline_instances[session_id] = SearchPipeline(config, llm, data_catalog, database)
     return search_pipeline_instances[session_id]
 
 
@@ -81,8 +89,7 @@ def get_chatbot():
 @app.route('/', methods=['GET', 'POST'])
 def home():
     """Display the home page for the search engine."""
-    pipeline = get_search_pipeline()
-    return render_template("home.html", filters=pipeline.data_catalog.get_filters_with_counts())
+    return render_template("home.html", filters=data_catalog.get_filters_with_counts())
 
 
 @app.route('/search', methods=['GET', 'POST'])
@@ -128,15 +135,14 @@ def search():
 def dataset_detail():
     """Display detailed view of a specific dataset by looking it up in extended_df."""
     dataset_url = request.args.get('source', '')
-    search_pipeline = get_search_pipeline()
-    dataset_info = search_pipeline.data_catalog.get_dataset_by_url(dataset_url)
+    dataset_info = data_catalog.get_dataset_by_url(dataset_url)
 
     if not dataset_info:
         return redirect(url_for('home'))
     similar_datasets = get_similar_datasets_with_preview_text(dataset_url,
                                                               dataset_info,
-                                                              search_pipeline,
-                                                              config["data_processing"]["knowledge_graph"])
+                                                              data_catalog,
+                                                              knowledge_graph)
     distributions = dataset_info["distributions"]
 
     return render_template("dataset_detail.html",

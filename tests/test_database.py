@@ -1,5 +1,4 @@
 """Tests for the database module."""
-import asyncio
 from datetime import datetime
 
 import pytest

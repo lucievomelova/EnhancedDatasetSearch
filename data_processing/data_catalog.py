@@ -1,9 +1,6 @@
-import asyncio
-
 import pandas as pd
-from data_processing.metadata import create_documents
 from llama_index.core import Document
-from utils import setup_logger, dataset_detail_url
+from utils import setup_logger
 
 logger = setup_logger(__name__)
 
@@ -54,8 +51,14 @@ class DataCatalog:
         """Get the list of llamaindex documents that should be uploaded to the knowledge base."""
         if datasets.empty:
             return []
-        documents = create_documents(datasets)
+        documents = self._create_documents(datasets)
         return documents
+
+
+    @staticmethod
+    def _create_documents(datasets: pd.DataFrame) -> list[Document]:
+        """Create llama index Documents from the dataframe. Each row will be used to create one Document."""
+        pass
 
     def get_dataset_by_url(self, url: str) -> dict | None:
         """Get extended dataset info by URL."""

@@ -91,12 +91,10 @@
                 {% for similarity_category, similar_datasets_in_category in similar_datasets.items() %}
                 {% if similar_datasets_in_category %}
                 <div class="similar-datasets-category">
-                    {% if similarity_category == "overall" %}
-                    <h4 class="similar-category-title">Most Similar Overall</h4>
-                    {% elif similarity_category == "time_periods" %}
-                    <h4 class="similar-category-title">Similar By Time Period</h4>
+                    {% if similarity_category == "provider" %}
+                    <h4 class="similar-category-title">Similar Datasets from Provider {{ dataset.categorization_metadata.provider }}</h4>
                     {% else %}
-                    <h4 class="similar-category-title">Similar By {{ similarity_category | title }}</h4>
+                    <h4 class="similar-category-title">Similar by {{ similarity_category | title }}</h4>
                     {% endif %}
 
                     <div class="similar-datasets-list">
@@ -110,25 +108,21 @@
                                     <p class="similar-text-preview">{{ similar.text_preview }}</p>
                                 </div>
                             </div>
-                            <div class="similar-dataset-menu">
-                                <button class="action-button">⋮</button>
-                                {% if similar.common_metadata %}
-                                <div class="similar-tooltip">
-                                    {% for metadata_category, values in similar.common_metadata.items() %}
-                                        {% if values %}
-                                        <div class="tooltip-section">
-                                            {% if metadata_category == "time_periods" %}
-                                            <strong>Common Time Periods:</strong>
-                                            {% else %}
-                                            <strong>Common {{ metadata_category | title }}:</strong>
+                            {% if similar.common_metadata %}
+                                <div class="similar-dataset-menu">
+                                    <button class="action-button">⋮</button>
+                                    <div class="similar-tooltip">
+                                        {% for metadata_category, values in similar.common_metadata.items() %}
+                                            {% if values %}
+                                            <div class="tooltip-section">
+                                                <strong>Common {{ metadata_category }}:</strong>
+                                                <span>{{ values | list | join(', ') }}</span>
+                                            </div>
                                             {% endif %}
-                                            <span>{{ values | list | join(', ') }}</span>
-                                        </div>
-                                        {% endif %}
-                                    {% endfor %}
+                                        {% endfor %}
+                                    </div>
                                 </div>
-                                {% endif %}
-                            </div>
+                            {% endif %}
                         </div>
                         {% endfor %}
                     </div>

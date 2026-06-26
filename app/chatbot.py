@@ -1,15 +1,13 @@
 import json
 
-from data_processing.data_catalogs.data_catalog import DataCatalog
-import data_processing.knowledge_graph as kg
-from llama_index.core.agent import AgentWorkflow
+import data_processing.NKOD.knowledge_graph as kg
 from llama_index.core.llms.function_calling import FunctionCallingLLM
 from llama_index.core.memory import ChatMemoryBuffer
 from llama_index.core.agent.workflow import FunctionAgent
 from llama_index.core.tools import FunctionTool
 
 from app.pipeline import SearchPipeline
-from utils import setup_logger, render_template, dataset_detail_url, get_nkod_url
+from utils import setup_logger, render_template, dataset_detail_url
 
 logger = setup_logger(__name__)
 
@@ -139,7 +137,7 @@ class Chatbot:
     def _tool_get_similar_datasets(self, dataset_url: str, similarity_type: str | None = None) -> list | dict | str:
         """Get similar datasets for a given dataset based on its URL."""
         try:
-            similar_datasets = kg.get_similar_datasets(dataset_url, self.config["data_processing"]["knowledge_graph"], similarity_type)
+            similar_datasets = kg.get_similar_datasets(dataset_url, self.config["data_processing"]["knowledge_graph"])
             results = {}
             for sim_type, url_score_list in similar_datasets.items():
                 results_per_sim_type = []

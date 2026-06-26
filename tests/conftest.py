@@ -7,7 +7,8 @@ from unittest.mock import MagicMock
 
 import psycopg2
 import yaml
-from data_processing.data_catalogs.nkod import NkodDataCatalog
+from data_processing.NKOD.knowledge_graph import NkodKnowledgeGraph
+from data_processing.NKOD.nkod import NkodDataCatalog
 from data_processing.database import Database
 from ollama_client import OllamaClient
 from neo4j import GraphDatabase
@@ -49,12 +50,17 @@ def driver():
 
 
 @pytest.fixture(scope="module")
+def knowledge_graph(config, mock_database):
+    knowledge_graph = NkodKnowledgeGraph(config["data_processing"]["knowledge_graph"], mock_database)
+    return knowledge_graph
+
+
+@pytest.fixture(scope="module")
 def data_catalog(config, mock_ollama_client):
     catalog = NkodDataCatalog(config)
     files_to_remove = [
         catalog._data_config["datasets_path"],
-        catalog._data_config["datasets_transformed_path"],
-        config["data"]["distributions"]["path"]
+        catalog._data_config["datasets_transformed_path"]
     ]
     _cleanup_files(files_to_remove)  # remove datasets files from previous test runs in case there was an error
     catalog.client = mock_ollama_client
@@ -69,7 +75,7 @@ def data_catalog(config, mock_ollama_client):
 
 @pytest.fixture(scope="module")
 def database(config):
-    database = Database(config, config["state_dir"])
+    database = Database(config)
     return database
 
 

@@ -23,10 +23,10 @@ logger = setup_logger(__name__)
 
 class Database:
     """Class for handling the database - Postgres with PGVector extension."""
-    def __init__(self, config: dict, state_dir: str):
+    def __init__(self, config: dict):
         self.db_config = config["db"]
         self.embedding_config = config["embedding"]
-        self.state_dir = state_dir
+        self.state_dir = config["state_dir"]
 
         self.vector_store: PGVectorStore
         """Table storing embedding vectors of datasets' documents."""

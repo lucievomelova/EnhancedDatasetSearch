@@ -1,8 +1,9 @@
 from collections import defaultdict
 
 import pandas as pd
-from data_processing.knowledge_graph import get_similar_datasets
 from app.pipeline import SearchPipeline
+from data_processing.data_catalog import DataCatalog
+from data_processing.knowledge_graph import KnowledgeGraph
 
 
 def get_common_metadata(metadata_category_list: list[str], metadata_a: dict, metadata_b: dict) -> dict[str, set[str]]:
@@ -11,7 +12,8 @@ def get_common_metadata(metadata_category_list: list[str], metadata_a: dict, met
     for cat in metadata_category_list:
         set_a = set(metadata_a[cat]) if metadata_a[cat] is not None else set()
         set_b = set(metadata_b[cat]) if metadata_b[cat] is not None else set()
-        common_metadata[cat] = set_a.intersection(set_b)
+        cat_title = cat.title().replace("_", " ")
+        common_metadata[cat_title] = set_a.intersection(set_b)
     return common_metadata
 
 
@@ -36,21 +38,20 @@ def get_all_metadata(search_results: list[dict[str, str | list | None]]) -> dict
 def get_similar_datasets_with_preview_text(
         dataset_url: str,
         dataset_info: dict,
-        pipeline: SearchPipeline,
-        kg_config: dict
+        data_catalog: DataCatalog,
+        knowledge_graph: KnowledgeGraph
 ) -> dict:
     """Get datasets similar to the specified dataset with preview texts."""
-    similar_datasets_raw = get_similar_datasets(dataset_url, kg_config)
+    similar_datasets_raw = knowledge_graph.get_similar_datasets(dataset_url)
 
     similar_datasets = {}
     for sim_category, url_score_list in similar_datasets_raw.items():
         similar_datasets[sim_category] = []
         for url, _ in url_score_list:
-            sim_dataset = pipeline.data_catalog.get_dataset_by_url(url)
+            sim_dataset = data_catalog.get_dataset_by_url(url)
             if sim_dataset:
                 text_preview = ""
                 if pd.notna(sim_dataset['text']):
-                    print(sim_dataset['text'])
                     text_preview = sim_dataset['text']
                     if len(text_preview) > 200:  # too long description text preview -> take just first sentence
                         text_preview = sim_dataset['text'][:sim_dataset['text'].find(".") + 1]
@@ -66,13 +67,13 @@ def get_similar_datasets_with_preview_text(
                     'url': url,
                     'text_preview': text_preview,
                 }
-                if sim_category == "overall":
-                    metadata_categories = ["keywords", "themes", "categories", "region", "time_periods"]
+                if sim_category == "provider":
+                    metadata_categories = ["keywords", "themes", "categories", "spatial_coverage", "temporal_coverage"]
                     common_metadata = get_common_metadata(metadata_categories,
                                                           dataset_info["categorization_metadata"],
                                                           sim_dataset["categorization_metadata"])
                     similar_dataset_info["common_metadata"] = common_metadata
-                elif sim_category != "description":
+                elif sim_category not in ["description", "provider"]:
                     common_metadata = get_common_metadata([sim_category],
                                                           dataset_info["categorization_metadata"],
                                                           sim_dataset["categorization_metadata"])
