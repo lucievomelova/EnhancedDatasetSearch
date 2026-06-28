@@ -11,7 +11,6 @@ from data_processing.data_catalog import DataCatalog
 from llama_index.core import Settings
 from llama_index.llms.ollama import Ollama
 
-from data_processing.NKOD.nkod import NkodDataCatalog
 from data_processing.database import Database
 from app.query_prepocessing import QueryPreprocessor
 from app.result_postprocessing import PostProcessor
@@ -33,14 +32,9 @@ class SearchPipeline:
 
     def __init__(self, config: dict, llm: Ollama, data_catalog: DataCatalog, database: Database):
         self.config = config
-        # self.data_catalog = NkodDataCatalog(config)
-        # self.database = Database(self.config)
-        self.index = database.index
         Settings.llm = llm
         self.query_preprocessor = QueryPreprocessor(config)
-        self.retriever = Retriever(self.config["pipeline_config"]["search"],
-                                self.index,
-                                database.document_store)
+        self.retriever = Retriever(self.config["pipeline_config"]["search"], database.index, database.document_store)
         self.postprocessor = PostProcessor(self.config["pipeline_config"]["postprocessing"], data_catalog)
 
     async def run(self, query: str, applied_filters: dict | None = None) -> list[dict[str, str | list | None]] | None:

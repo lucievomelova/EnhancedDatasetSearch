@@ -48,7 +48,7 @@ class QueryPreprocessor:
         try:
             extended_query = self.client.get_llm_response(prompt)
         except httpx.ReadTimeout as e:
-            logger.error(f"Error while extending query: {e}, the original user query will be used isntead.")
+            logger.error(f"Error while extending query: {e}, the original user query will be used instead.")
             extended_query = user_query
 
         logger.info(f"Extended query: {extended_query}")
@@ -75,18 +75,18 @@ class QueryPreprocessor:
                                  other_category=other_category)
         try:
             response = self.client.get_llm_response(prompt)
-        except httpx.ReadTimeout as e:
-            logger.error(f"Error while detecting user intent query: {e}, this step will be skipped.")
-            response = {
+            if "```" in response:
+                response = response.split("```")[1]
+                if response.startswith("json"):
+                    response = response[len("json"):].strip()
+            intent = json.loads(response)
+        except (httpx.ReadTimeout, json.decoder.JSONDecodeError) as e:
+            logger.error(f"Error while detecting user intent for query: {e}, this step will be skipped.")
+            intent = {
                 "categories": [],
                 "spatial_coverage": [],
                 "temporal_coverage": []
             }
-        if "```" in response:
-            response = response.split("```")[1]
-            if response.startswith("json"):
-                response = response[len("json"):].strip()
-        intent = json.loads(response)
         logger.info(f"Detected intent: {intent}")
 
         return intent

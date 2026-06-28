@@ -15,16 +15,16 @@ db:
   port: 5432
   document_table: test_document_store
   vector_table: test_vector_store
-  embed_dim: 2560  #2560  # 4096
+  embed_dim: 2560
 embedding:
-  model_name: "qwen3-embedding:4b"  # "qwen3-embedding:4b"
+  model_name: "qwen3-embedding:4b"
   base_url: "http://localhost:11434"
   chunk_size: 16192
   chunk_overlap: 50
   embed_batch_size: 100
   url_to_node_id_mapping_file: "test_url_to_node_id_mapping.json"
 llm:
-  model_name: "mistral-small3.2:latest"  #"qwen3.6:27b"
+  model_name: "mistral-small3.2:latest"
   base_url: "http://localhost:11434"
   context_length: 2048
 chatbot:

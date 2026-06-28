@@ -18,14 +18,12 @@ class Retriever:
         self.docstore = docstore
         self.retriever = self._create_retriever()
 
-    def _create_retriever(self, filters: MetadataFilters | None = None) -> QueryFusionRetriever:
+    def _create_retriever(self) -> QueryFusionRetriever:
         """Create fusion retriever that combines vector search and BM25 search."""
-        vector_retriever = self.index.as_retriever(similarity_top_k=self.search_config["vector_top_k"],
-                                                   filters=filters)
+        vector_retriever = self.index.as_retriever(similarity_top_k=self.search_config["vector_top_k"])
 
         bm25_retriever = BM25Retriever.from_defaults(docstore=self.docstore,
-                                                     similarity_top_k=self.search_config["bm25_top_k"],
-                                                     filters=filters)
+                                                     similarity_top_k=self.search_config["bm25_top_k"])
         retriever = QueryFusionRetriever(
             [vector_retriever, bm25_retriever],
             similarity_top_k=self.search_config["top_k"],
@@ -38,7 +36,7 @@ class Retriever:
 
         return retriever
 
-    async def run(self, user_query: str, extended_query: str | None = None, filters: dict | None = None) -> list[NodeWithScore]:
+    async def run(self, user_query: str, extended_query: str | None = None) -> list[NodeWithScore]:
         """Search for relevant datasets."""
 
         logger.info(f"Searching - query: {user_query} + extended query: {extended_query}")

@@ -7,12 +7,15 @@ from unittest.mock import MagicMock
 
 import psycopg2
 import yaml
+from app.pipeline import SearchPipeline
 from data_processing.NKOD.knowledge_graph import NkodKnowledgeGraph
 from data_processing.NKOD.nkod import NkodDataCatalog
 from data_processing.database import Database
 from ollama_client import OllamaClient
 from neo4j import GraphDatabase
 from dotenv import load_dotenv
+from llama_index.llms.ollama import Ollama
+from app.query_prepocessing import QueryPreprocessor
 
 
 @pytest.fixture(scope="module")
@@ -90,3 +93,16 @@ def connection(config):
         user=os.environ["POSTGRES_USER"]
     )
     return conn
+
+
+@pytest.fixture(scope="module")
+def search_pipeline(config, data_catalog, database):
+    llm = Ollama(model=config['llm']['model_name'], context_window=config['llm']['context_length'])
+    search_pipeline = SearchPipeline(config, llm, data_catalog, database)
+    return search_pipeline
+
+
+@pytest.fixture(scope="module")
+def query_preprocessor(config):
+    query_preprocessor = QueryPreprocessor(config)
+    return query_preprocessor
