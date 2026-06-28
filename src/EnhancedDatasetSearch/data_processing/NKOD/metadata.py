@@ -10,8 +10,8 @@ from jinja2 import Environment, FileSystemLoader
 from pandas import Series
 from polyleven import levenshtein
 
-from ollama_client import OllamaClient
-from utils import setup_logger
+from EnhancedDatasetSearch.ollama_client import OllamaClient
+from EnhancedDatasetSearch.utils import setup_logger
 
 logger = setup_logger(__name__)
 env = Environment(loader=FileSystemLoader('prompts'))

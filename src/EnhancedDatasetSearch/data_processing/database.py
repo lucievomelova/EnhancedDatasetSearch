@@ -13,7 +13,7 @@ from llama_index.embeddings.ollama import OllamaEmbedding
 from llama_index.storage.docstore.postgres import PostgresDocumentStore
 from llama_index.vector_stores.postgres import PGVectorStore
 
-from utils import setup_logger
+from EnhancedDatasetSearch.utils import setup_logger
 
 load_dotenv()
 logger = setup_logger(__name__)

@@ -2,7 +2,7 @@
 
 import pytest
 
-from app.main import app as flask_app
+from EnhancedDatasetSearch.app.main import app as flask_app
 
 
 @pytest.fixture()

@@ -1,20 +1,13 @@
-"""
-Search pipeline:
-    1. Query Preprocessing
-    2. Search
-    3. Result Postprocessing
-    4. Context
-"""
 import logging
 
 from llama_index.core import Settings
 from llama_index.llms.ollama import Ollama
 
-from app.query_prepocessing import QueryPreprocessor
-from app.result_postprocessing import PostProcessor
-from app.retrieve import Retriever
-from data_processing.data_catalog import DataCatalog
-from data_processing.database import Database
+from EnhancedDatasetSearch.app.query_prepocessing import QueryPreprocessor
+from EnhancedDatasetSearch.app.result_postprocessing import PostProcessor
+from EnhancedDatasetSearch.app.retrieve import Retriever
+from EnhancedDatasetSearch.data_processing.data_catalog import DataCatalog
+from EnhancedDatasetSearch.data_processing.database import Database
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)

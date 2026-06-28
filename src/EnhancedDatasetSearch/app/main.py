@@ -9,15 +9,15 @@ from llama_index.core import Settings
 from llama_index.embeddings.ollama import OllamaEmbedding
 from llama_index.llms.ollama import Ollama
 
-from app.chatbot import Chatbot
-from app.pipeline import SearchPipeline
-from app.ui_utils import get_filters_for_results, get_similar_datasets_with_preview_text
-from data_processing.data_catalog import DataCatalog
-from data_processing.database import Database
-from data_processing.knowledge_graph import KnowledgeGraph
-from data_processing.NKOD.knowledge_graph import NkodKnowledgeGraph
-from data_processing.NKOD.nkod import NkodDataCatalog
-from utils import setup_logger
+from EnhancedDatasetSearch.app.chatbot import Chatbot
+from EnhancedDatasetSearch.app.pipeline import SearchPipeline
+from EnhancedDatasetSearch.app.utils import get_filters_for_results, get_similar_datasets_with_preview_text
+from EnhancedDatasetSearch.data_processing.data_catalog import DataCatalog
+from EnhancedDatasetSearch.data_processing.database import Database
+from EnhancedDatasetSearch.data_processing.knowledge_graph import KnowledgeGraph
+from EnhancedDatasetSearch.data_processing.NKOD.knowledge_graph import NkodKnowledgeGraph
+from EnhancedDatasetSearch.data_processing.NKOD.nkod import NkodDataCatalog
+from EnhancedDatasetSearch.utils import setup_logger
 
 logger = setup_logger(__name__)
 

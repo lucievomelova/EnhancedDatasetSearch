@@ -2,7 +2,7 @@ import os
 
 import pandas as pd
 
-from data_processing.NKOD.utils import download_df
+from EnhancedDatasetSearch.data_processing.NKOD.utils import download_df
 
 
 def download_distribution_info(path: str, url: str, column_mapping: dict, download_new_data: bool) -> pd.DataFrame:

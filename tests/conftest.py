@@ -10,12 +10,12 @@ from dotenv import load_dotenv
 from llama_index.llms.ollama import Ollama
 from neo4j import GraphDatabase
 
-from app.pipeline import SearchPipeline
-from app.query_prepocessing import QueryPreprocessor
-from data_processing.database import Database
-from data_processing.NKOD.knowledge_graph import NkodKnowledgeGraph
-from data_processing.NKOD.nkod import NkodDataCatalog
-from ollama_client import OllamaClient
+from EnhancedDatasetSearch.app.pipeline import SearchPipeline
+from EnhancedDatasetSearch.app.query_prepocessing import QueryPreprocessor
+from EnhancedDatasetSearch.data_processing.database import Database
+from EnhancedDatasetSearch.data_processing.NKOD.knowledge_graph import NkodKnowledgeGraph
+from EnhancedDatasetSearch.data_processing.NKOD.nkod import NkodDataCatalog
+from EnhancedDatasetSearch.ollama_client import OllamaClient
 
 
 @pytest.fixture(scope="module")

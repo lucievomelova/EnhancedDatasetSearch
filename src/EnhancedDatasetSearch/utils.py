@@ -1,7 +1,6 @@
 import logging
 import sys
 
-import ollama
 from jinja2 import Environment, FileSystemLoader
 
 env = Environment(loader=FileSystemLoader('prompts'))
@@ -50,4 +49,3 @@ def get_nkod_url(config: dict, dataset_url: str):
     if dataset_url.startswith(config["app_url"]):
         dataset_url = dataset_url.replace(config["app_url"], "")
     return "https://data.gov.cz/datová-sada?iri=" + dataset_url
-

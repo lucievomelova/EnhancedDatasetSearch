@@ -14,14 +14,17 @@ import pandas as pd
 from llama_index.core import Document
 from pandas import Series
 
-from data_processing.data_catalog import DataCatalog
-from data_processing.NKOD.distributions import download_distribution_info
-from data_processing.NKOD.metadata import clean_metadata, enrich_metadata, process_spatial_and_temporal_coverage
-from data_processing.NKOD.spatial_and_temporal_data_sparql import add_metadata_to_datasets_from_sparql
-from data_processing.NKOD.utils import download_df, merge_keywords_and_themes_rows, split_dataframe, \
-    drop_irrelevant_columns
-from ollama_client import OllamaClient
-from utils import dataset_detail_url, setup_logger
+from EnhancedDatasetSearch.data_processing.data_catalog import DataCatalog
+from EnhancedDatasetSearch.data_processing.NKOD.distributions import download_distribution_info
+from EnhancedDatasetSearch.data_processing.NKOD.metadata import (
+    clean_metadata, enrich_metadata, process_spatial_and_temporal_coverage
+)
+from EnhancedDatasetSearch.data_processing.NKOD.spatial_and_temporal_data_sparql import add_metadata_to_datasets_from_sparql
+from EnhancedDatasetSearch.data_processing.NKOD.utils import (
+    download_df, merge_keywords_and_themes_rows, split_dataframe, drop_irrelevant_columns
+)
+from EnhancedDatasetSearch.ollama_client import OllamaClient
+from EnhancedDatasetSearch.utils import dataset_detail_url, setup_logger
 
 logger = setup_logger(__name__)
 executor = ThreadPoolExecutor(max_workers=4)

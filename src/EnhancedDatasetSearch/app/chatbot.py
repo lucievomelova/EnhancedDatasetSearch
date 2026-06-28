@@ -1,12 +1,12 @@
-from data_processing.data_catalog import DataCatalog
 from llama_index.core.agent.workflow import FunctionAgent
 from llama_index.core.llms.function_calling import FunctionCallingLLM
 from llama_index.core.memory import ChatMemoryBuffer
 from llama_index.core.tools import FunctionTool
 
-import data_processing.NKOD.knowledge_graph as kg
-from app.pipeline import SearchPipeline
-from utils import dataset_detail_url, render_template, setup_logger
+from EnhancedDatasetSearch.data_processing.data_catalog import DataCatalog
+import EnhancedDatasetSearch.data_processing.NKOD.knowledge_graph as kg
+from EnhancedDatasetSearch.app.pipeline import SearchPipeline
+from EnhancedDatasetSearch.utils import dataset_detail_url, render_template, setup_logger
 
 logger = setup_logger(__name__)
 

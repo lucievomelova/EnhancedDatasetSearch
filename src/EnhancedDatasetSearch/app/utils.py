@@ -2,8 +2,8 @@ from collections import defaultdict
 
 import pandas as pd
 
-from data_processing.data_catalog import DataCatalog
-from data_processing.knowledge_graph import KnowledgeGraph
+from EnhancedDatasetSearch.data_processing.data_catalog import DataCatalog
+from EnhancedDatasetSearch.data_processing.knowledge_graph import KnowledgeGraph
 
 
 def get_common_metadata(metadata_category_list: list[str], metadata_a: dict, metadata_b: dict) -> dict[str, set[str]]:

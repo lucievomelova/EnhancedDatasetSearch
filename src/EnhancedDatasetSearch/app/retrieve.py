@@ -4,7 +4,7 @@ from llama_index.core.schema import NodeWithScore
 from llama_index.retrievers.bm25 import BM25Retriever
 from llama_index.storage.docstore.postgres import PostgresDocumentStore
 
-from utils import setup_logger
+from EnhancedDatasetSearch.utils import setup_logger
 
 logger = setup_logger(__name__)
 

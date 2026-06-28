@@ -7,12 +7,12 @@ from llama_index.core import Settings
 from llama_index.embeddings.ollama import OllamaEmbedding
 from llama_index.llms.ollama import Ollama
 
-from data_processing.data_catalog import DataCatalog
-from data_processing.database import Database
-from data_processing.knowledge_graph import KnowledgeGraph
-from data_processing.NKOD.knowledge_graph import NkodKnowledgeGraph
-from data_processing.NKOD.metadata import clean_metadata, process_spatial_and_temporal_coverage
-from data_processing.NKOD.nkod import NkodDataCatalog
+from EnhancedDatasetSearch.data_processing.data_catalog import DataCatalog
+from EnhancedDatasetSearch.data_processing.database import Database
+from EnhancedDatasetSearch.data_processing.knowledge_graph import KnowledgeGraph
+from EnhancedDatasetSearch.data_processing.NKOD.knowledge_graph import NkodKnowledgeGraph
+from EnhancedDatasetSearch.data_processing.NKOD.metadata import clean_metadata, process_spatial_and_temporal_coverage
+from EnhancedDatasetSearch.data_processing.NKOD.nkod import NkodDataCatalog
 
 
 class DataPreprocessingPipeline:

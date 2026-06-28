@@ -1,7 +1,7 @@
 import pandas as pd
 from llama_index.core import Document
 
-from utils import setup_logger
+from EnhancedDatasetSearch.utils import setup_logger
 
 logger = setup_logger(__name__)
 

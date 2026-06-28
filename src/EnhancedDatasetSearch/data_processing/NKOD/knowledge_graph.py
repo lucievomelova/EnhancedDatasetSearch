@@ -3,10 +3,10 @@ import os
 import pandas as pd
 from neo4j import Driver, GraphDatabase
 
-from data_processing.database import Database
-from data_processing.knowledge_graph import KnowledgeGraph
-from data_processing.NKOD.kg_queries import *
-from utils import setup_logger
+from EnhancedDatasetSearch.data_processing.database import Database
+from EnhancedDatasetSearch.data_processing.knowledge_graph import KnowledgeGraph
+from EnhancedDatasetSearch.data_processing.NKOD.kg_queries import *
+from EnhancedDatasetSearch.utils import setup_logger
 
 logger = setup_logger(__name__)
 
