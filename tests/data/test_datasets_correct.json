@@ -1,0 +1,24 @@
+{
+  "columns": [
+    "title",
+    "description",
+    "url",
+    "keywords",
+    "themes",
+    "provider",
+    "categories",
+    "spatial_coverage",
+    "temporal_coverage"
+  ],
+  "index":[
+    0,
+    1,
+    2,
+    3
+  ],
+  "data":[
+    ["Dataset 1","Desc 1","http:\/\/example.com\/ds1",["keyword_one", "keyword_two", "keyword_three"],["theme1"],"Provider A",[],[],[]],
+    ["Dataset 2","Desc 2","http:\/\/example.com\/ds2",["keyword_one","keyword_four"],["theme2"],"Provider B",[],[],[]],
+    ["Dataset 3","Desc 3","http:\/\/example.com\/ds3",["keyword_one","keyword_four"],[],"Provider C",[],[],[]],
+    ["Dataset 4","Desc 4","http:\/\/example.com\/ds4",[],["theme2", "theme4"],"Provider D",["Energie"],[],[]]]
+}

@@ -1,10 +1,10 @@
 data:
   datasets_raw:
-    path: "data/golden/datasets_small.csv"
+    path: "data/small/datasets_small.csv"
 #    path: "data//datove_sady.csv"
     url: "https://data.gov.cz/soubor/datov%C3%A9-sady.csv"
   datasets:
-    path: "data/golden/datasets_with_metadata_small.json"
+    path: "data/small/datasets_with_metadata_small.json"
 #    path: "data//datasets_with_metadata_large.json"
   sparql_endpoint: "https://data.gov.cz/sparql"
   distributions:

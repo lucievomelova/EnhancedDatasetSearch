@@ -1,9 +1,9 @@
 data:
   datasets:
-    path: "data/golden/datove_sady_small.csv"
+    path: "data/small/datove_sady_small.csv"
     url: "https://data.gov.cz/soubor/datov%C3%A9-sady.csv"
   extended_df:
-    path: "data/golden/datasets_with_metadata_small.csv"
+    path: "data/small/datasets_with_metadata_small.csv"
   distribution:
     path: "data/distribuce.csv"
     url: "https://data.gov.cz/soubor/distribuce.csv"

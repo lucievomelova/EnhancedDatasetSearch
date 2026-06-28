@@ -1,0 +1,11 @@
+atová_sada,název,popis,poskytovatel,klíčová_slova,téma
+http://example.com/ds1,Dataset 1,Desc 1,Provider A,keyword_one,theme1
+http://example.com/ds1,Dataset 1,Desc 1,Provider A,keyword_two,theme1
+http://example.com/ds1,Dataset 1,Desc 1,Provider A,keyword_three,theme1
+http://example.com/ds2,Dataset 2,Desc 2,Provider B,keyword_one,theme2
+http://example.com/ds2,Dataset 2,Desc 2,Provider B,keyword_four,theme2
+http://example.com/ds3,Dataset 3,Desc 3,Provider C,keyword_one1,
+http://example.com/ds3,Dataset 3,Desc 3,Provider C,keyword_four,
+http://example.com/ds4,Dataset 4,Desc 4,Provider D,,Energie
+http://example.com/ds4,Dataset 4,Desc 4,Provider D,,theme2
+http://example.com/ds4,Dataset 4,Desc 4,Provider D,,theme4
