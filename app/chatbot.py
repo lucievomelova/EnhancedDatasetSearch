@@ -1,25 +1,24 @@
-import json
-
-import data_processing.NKOD.knowledge_graph as kg
+from data_processing.data_catalog import DataCatalog
+from llama_index.core.agent.workflow import FunctionAgent
 from llama_index.core.llms.function_calling import FunctionCallingLLM
 from llama_index.core.memory import ChatMemoryBuffer
-from llama_index.core.agent.workflow import FunctionAgent
 from llama_index.core.tools import FunctionTool
 
+import data_processing.NKOD.knowledge_graph as kg
 from app.pipeline import SearchPipeline
-from utils import setup_logger, render_template, dataset_detail_url
+from utils import dataset_detail_url, render_template, setup_logger
 
 logger = setup_logger(__name__)
 
 
 class Chatbot:
-    def __init__(self, config: dict, search_pipeline: SearchPipeline, llm: FunctionCallingLLM):
+    def __init__(self, config: dict, search_pipeline: SearchPipeline, data_catalog: DataCatalog, llm: FunctionCallingLLM):
         self.config = config
         self.search_pipeline = search_pipeline
-        self.data_catalog = search_pipeline.data_catalog
+        self.data_catalog = data_catalog
         self.memory = ChatMemoryBuffer.from_defaults(token_limit=config["chatbot"]["llm"]["memory_limit"])
         tools = self.create_tools()
-        system_prompt = render_template("chatbot/chat.j2")
+        system_prompt = render_template("chatbot/chat.j2", {"language": "English"})
         self.agent = FunctionAgent(
             llm=llm,
             tools=tools,

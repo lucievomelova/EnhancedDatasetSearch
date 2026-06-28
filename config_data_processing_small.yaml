@@ -19,7 +19,7 @@ db:
   vector_table: embeddings_test #"embeddings_qwen_4b"  # "embeddings_test"
   embed_dim: 2560  #2560  # 4096
 embedding:
-  model_name: "qwen3-embedding:4b"  # "qwen3-embedding:4b"
+  model_name: "qwen3-embedding:4b"
   base_url: "http://localhost:11434"
   chunk_size: 16192
   chunk_overlap: 50

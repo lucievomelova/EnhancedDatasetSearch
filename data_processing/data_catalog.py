@@ -1,15 +1,17 @@
 import pandas as pd
 from llama_index.core import Document
+
 from utils import setup_logger
 
 logger = setup_logger(__name__)
 
 
 class DataCatalog:
+    """Class representing a data catalog."""
     def __init__(self):
         self.datasets: pd.DataFrame = pd.DataFrame()
         """
-        Dataset of datasets - contains all information about each dataset in the catalog. One row represents one dataset.
+        Dataset of datasets - contains metadata about each dataset in the catalog. One row represents one dataset.
         
         For each dataset, we have the following information: title, description, url, 
         keywords, themes, provider, categories, region, time_periods

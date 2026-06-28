@@ -1,9 +1,8 @@
 import pandas as pd
 
-from data_processing.database import Database
-
 
 class KnowledgeGraph:
+    """Class representing a metadata knowledge graph."""
     def create_kg(self, datasets: pd.DataFrame) -> None:
         """Create knowledge graph."""
         pass

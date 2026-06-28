@@ -1,7 +1,7 @@
 from collections import defaultdict
 
 import pandas as pd
-from app.pipeline import SearchPipeline
+
 from data_processing.data_catalog import DataCatalog
 from data_processing.knowledge_graph import KnowledgeGraph
 

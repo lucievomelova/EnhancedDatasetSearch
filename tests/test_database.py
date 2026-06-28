@@ -1,4 +1,4 @@
-"""Tests for the database module."""
+"""Unit tests for database."""
 from datetime import datetime
 
 import pytest

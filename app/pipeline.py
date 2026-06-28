@@ -7,14 +7,14 @@ Search pipeline:
 """
 import logging
 
-from data_processing.data_catalog import DataCatalog
 from llama_index.core import Settings
 from llama_index.llms.ollama import Ollama
 
-from data_processing.database import Database
 from app.query_prepocessing import QueryPreprocessor
 from app.result_postprocessing import PostProcessor
 from app.retrieve import Retriever
+from data_processing.data_catalog import DataCatalog
+from data_processing.database import Database
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)

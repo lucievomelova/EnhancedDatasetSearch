@@ -1,21 +1,21 @@
 
 import asyncio
 import os
-
-import pytest
 from unittest.mock import MagicMock
 
 import psycopg2
+import pytest
 import yaml
-from app.pipeline import SearchPipeline
-from data_processing.NKOD.knowledge_graph import NkodKnowledgeGraph
-from data_processing.NKOD.nkod import NkodDataCatalog
-from data_processing.database import Database
-from ollama_client import OllamaClient
-from neo4j import GraphDatabase
 from dotenv import load_dotenv
 from llama_index.llms.ollama import Ollama
+from neo4j import GraphDatabase
+
+from app.pipeline import SearchPipeline
 from app.query_prepocessing import QueryPreprocessor
+from data_processing.database import Database
+from data_processing.NKOD.knowledge_graph import NkodKnowledgeGraph
+from data_processing.NKOD.nkod import NkodDataCatalog
+from ollama_client import OllamaClient
 
 
 @pytest.fixture(scope="module")
@@ -60,7 +60,7 @@ def knowledge_graph(config, mock_database):
 
 @pytest.fixture(scope="module")
 def data_catalog(config, mock_ollama_client):
-    catalog = NkodDataCatalog(config)
+    catalog = NkodDataCatalog(config, True)
     files_to_remove = [
         catalog._data_config["datasets_path"],
         catalog._data_config["datasets_transformed_path"]
@@ -69,8 +69,8 @@ def data_catalog(config, mock_ollama_client):
     catalog.client = mock_ollama_client
 
     # we have to load raw datasets from our file and then reload the remaining dataframes based on it
-    catalog._load_datasets_raw(False)
-    catalog._transform_datasets_raw(True)
+    # catalog._load_datasets_raw(True)
+    # catalog._transform_datasets_raw(True)
     asyncio.run(catalog.update_datasets())
     yield catalog
     _cleanup_files(files_to_remove)  # remove datasets files from this test run

@@ -10,12 +10,10 @@ Identify the intent behind the user's search query. Classify the intent into
 predefined categories and identify if it's related to specific spatial or temporal coverage.
 
 ## Category
-Classify the query intent into at most {{ num_categories }} of the following
-categories: {{ categories }}. If none of the provided categories is appropriate, use {{ other_category }}.
+Classify the query intent into at most {{ num_categories }} of the following categories: {{ categories }}.
 
 ## Spatial coverage
-Is the user looking for data about a specific geographical region?
-e.g. a city, region, places with specific geographical attributes (like rivers, mountains, etc.).
+Is the user looking for data about a specific geographical region? e.g. a city or a region.
 If yes, return the place name or names separated by commas. Be sure to:
 - Return the basic place name without additional descriptions
 - if there are multiple related places, return all of them - e.g. if the region is "Praha 1", return both "Praha" and "Praha 1"
@@ -23,10 +21,11 @@ If yes, return the place name or names separated by commas. Be sure to:
 
 ## Temporal coverage
 Is the user looking for data from a specific time period or date range?
-e.g. historical data from a specific decade or year, data from the last year, data from February, etc.
+e.g. data from a specific decade or year, data from February, etc.
 If yes, return the time period or date range. Be sure to:
-- if there are multiple periods mentioned, return all of them separated by commas
-- if the time period is vague (e.g. "recent data"), do not return it
+- if there are multiple periods mentioned, return all separated by commas
+- always return the actual time period, DO NOT return anything relative like "last year", "current year", "now"
+- DO NOT return any frequency related temporal coverage
 
 Return the intent in the following JSON format:
 {

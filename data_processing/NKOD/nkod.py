@@ -5,30 +5,30 @@ will be downloaded and if there are changes detected in some datasets at NKOD, t
 then added again.
 """
 import asyncio
+import os
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 
 import numpy as np
 import pandas as pd
-import os
+from llama_index.core import Document
+from pandas import Series
 
 from data_processing.data_catalog import DataCatalog
 from data_processing.NKOD.distributions import download_distribution_info
+from data_processing.NKOD.metadata import clean_metadata, enrich_metadata, process_spatial_and_temporal_coverage
 from data_processing.NKOD.spatial_and_temporal_data_sparql import add_metadata_to_datasets_from_sparql
-from llama_index.core import Document
+from data_processing.NKOD.utils import download_df, merge_keywords_and_themes_rows, split_dataframe, \
+    drop_irrelevant_columns
 from ollama_client import OllamaClient
-from pandas import Series
-
-from data_processing.NKOD.metadata import  enrich_metadata, clean_metadata, process_spatial_and_temporal_coverage
-from utils import setup_logger, dataset_detail_url
-from data_processing.NKOD.utils import drop_irrelevant_columns, merge_keywords_and_themes_rows, split_dataframe, download_df
+from utils import dataset_detail_url, setup_logger
 
 logger = setup_logger(__name__)
 executor = ThreadPoolExecutor(max_workers=4)
 
 
 class NkodDataCatalog(DataCatalog):
-    """Class for handling NKOD datasets."""
+    """Class representing the NKOD."""
 
     def __init__(self, config: dict, download_new_data: bool = False) -> None:
         """Initialize the NKOD data catalog class.
@@ -142,36 +142,46 @@ class NkodDataCatalog(DataCatalog):
 
     def _load_datasets_raw(self, download_new_data: bool) -> None:
         """Load the raw NKOD dataset of datasets."""
-        # TODO this is just for debugging or testing
-        if not download_new_data or os.path.exists(self._data_config["datasets_raw_path"]):
-            logger.info("Using old datasets_raw file.")
-            self.datasets_raw = pd.read_csv(self._data_config["datasets_raw_path"], sep=",", dtype="string")
+        if not download_new_data:
             return
-        else:
-            today = datetime.today().date()
-            if os.path.exists(self._data_config["datasets_raw_path"]):
-                logger.info("File containing datasets_raw exists.")
-                mod_time = os.path.getmtime(self._data_config["datasets_raw_path"])
-                mod_datetime = datetime.fromtimestamp(mod_time)
-                if mod_datetime.date() != today:
-                    # if the file is outdated, rename it and keep it as a backup
-                    old_file_name = self._data_config["datasets_path"].replace(".json", f"_old.json")
-                    os.rename(self._data_config["datasets_raw_path"], old_file_name)
-            self.datasets_raw = download_df(self._data_config["datasets_raw_path"], self._data_config["datasets_raw_url"])
+        today = datetime.today().date()
+        if os.path.exists(self._data_config["datasets_raw_path"]):
+            mod_time = os.path.getmtime(self._data_config["datasets_raw_path"])
+            mod_datetime = datetime.fromtimestamp(mod_time)
+            #  check if datasets_raw file is up to date - if it is, we don't have to download it again
+            if mod_datetime.date() == today:
+                logger.info("File containing datasets_raw exists and is up to date - loading.")
+                self.datasets_raw = pd.read_csv(self._data_config["datasets_raw_path"], sep=",", dtype="string")
+            else:
+                # if the file is outdated, rename it and keep it as a backup
+                old_file_name = self._data_config["datasets_path"].replace(".json", f"_old.json")
+                os.rename(self._data_config["datasets_raw_path"], old_file_name)
+                # download the most recent raw datasets file
+                self.datasets_raw = download_df(self._data_config["datasets_raw_path"], self._data_config["datasets_raw_url"])
         logger.info("Raw dataset info loaded, starting preprocessing.")
 
     def _transform_datasets_raw(self, download_new_data: bool) -> None:
         """Apply initial transformations on the raw dataset."""
-        # TODO this is just for debugging or testing
-        if not download_new_data and os.path.exists(self._data_config["datasets_transformed_path"]):
-            logger.info("Using old datasets_raw_transformed file.")
-            self.datasets_raw_transformed = pd.read_csv(self._data_config["datasets_transformed_path"], sep=",", dtype="string")
-            return
+        if not download_new_data:
+            return  # we don't need to load transformed_datasets_raw
+
+        today = datetime.today().date()
+        if os.path.exists(self._data_config["datasets_transformed_path"]):
+            mod_time = os.path.getmtime(self._data_config["datasets_transformed_path"])
+            mod_datetime = datetime.fromtimestamp(mod_time)
+            #  check if datasets_raw_transformed file is up to date - if it is, we can load the data from there
+            if mod_datetime.date() == today:
+                logger.info("File containing datasets_raw_transformed exists and is up to date - loading.")
+                self.datasets_raw_transformed = pd.read_csv(self._data_config["datasets_transformed_path"], sep=",", dtype="string")
+                return
+
+        # transform data from datasets_raw to obtained datasets_raw_transformed
 
         self.datasets_raw_transformed = self.datasets_raw.rename(columns=self._column_mapping)
         self.datasets_raw_transformed = merge_keywords_and_themes_rows(self.datasets_raw_transformed)
         self.datasets_raw_transformed = drop_irrelevant_columns(self.datasets_raw_transformed,
                                                                 self._data_processing_config["irrelevant_columns"])
+
         # add category column, now empty for each dataset
         self.datasets_raw_transformed["categories"] = [[] for _ in range(len(self.datasets_raw_transformed))]
         clean_metadata(self.datasets_raw_transformed,
@@ -354,6 +364,7 @@ class NkodDataCatalog(DataCatalog):
         }
 
     def get_filters_with_counts(self) -> dict:
+        """Get metadata filters"""
         if not self.filters_with_counts:
             self.filters_with_counts = {
                 col_name: {"title": title, "value_counts": self.datasets[col_name].explode().value_counts(dropna=True).to_dict()}

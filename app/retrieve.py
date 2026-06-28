@@ -1,12 +1,10 @@
 from llama_index.core import VectorStoreIndex
+from llama_index.core.retrievers import QueryFusionRetriever
 from llama_index.core.schema import NodeWithScore
+from llama_index.retrievers.bm25 import BM25Retriever
 from llama_index.storage.docstore.postgres import PostgresDocumentStore
 
 from utils import setup_logger
-from llama_index.core.retrievers import QueryFusionRetriever
-from llama_index.retrievers.bm25 import BM25Retriever
-from llama_index.core.vector_stores import MetadataFilters, ExactMatchFilter
-
 
 logger = setup_logger(__name__)
 

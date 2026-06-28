@@ -1,3 +1,6 @@
+"""Evaluation script for evaluating the search pipeline.
+The evaluation is based on a golden dataset of example queries and expected search results."""
+
 import asyncio
 import logging
 
@@ -8,6 +11,7 @@ import pandas as pd
 import yaml
 from llama_index.llms.ollama import Ollama
 from sklearn.metrics import ndcg_score
+
 from app.pipeline import SearchPipeline
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
@@ -19,6 +23,7 @@ mlflow.set_experiment("SearchPipeline Evaluation")
 @click.command()
 @click.option('--config', default='config.yaml', help='Path to the configuration YAML file.')
 def main(config: str):
+    """Setup and run the evaluation."""
     with open(config, "r") as f:
         config = yaml.safe_load(f)
 

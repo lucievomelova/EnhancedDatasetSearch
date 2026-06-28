@@ -1,9 +1,12 @@
+"""File with functions performing Cypher (Neo4j querying language) queries."""
+
 from collections import defaultdict
 
 from neo4j import Session
 
 
-def ingest_dataset(tx, metadata, graph_name):
+def create_dataset_node(tx, metadata, graph_name):
+    """Create a dataset node in the knowledge graph."""
     tx.run("""
         MERGE (d:Dataset {url: $url, graph: $graph})
         SET d.title = $title
@@ -11,7 +14,8 @@ def ingest_dataset(tx, metadata, graph_name):
            title=metadata["title"], url=metadata["url"], graph=graph_name)
 
 
-def ingest_keyword(tx, dataset_url, keyword, graph_name):
+def create_keyword_node(tx, dataset_url, keyword, graph_name):
+    """Create a keyword node in the knowledge graph if it doesn't exist and connect it to the specified dataset node."""
     tx.run("""
         MATCH (d:Dataset {url: $url, graph: $graph})
         MERGE (k:Keyword {name: $kw})
@@ -19,7 +23,8 @@ def ingest_keyword(tx, dataset_url, keyword, graph_name):
         """, url=dataset_url, kw=keyword, graph=graph_name)
 
 
-def ingest_theme(tx, dataset_url, theme, graph_name):
+def create_theme_node(tx, dataset_url, theme, graph_name):
+    """Create a theme node in the knowledge graph if it doesn't exist and connect it to the specified dataset node."""
     tx.run("""
         MATCH (d:Dataset {url: $url, graph: $graph})
         MERGE (t:Theme {name: $theme})
@@ -27,7 +32,8 @@ def ingest_theme(tx, dataset_url, theme, graph_name):
         """, url=dataset_url, theme=theme, graph=graph_name)
 
 
-def ingest_provider(tx, dataset_url, provider, graph_name):
+def create_provider_node(tx, dataset_url, provider, graph_name):
+    """Create a provider node in the knowledge graph if it doesn't exist and connect it to the specified dataset node."""
     tx.run("""
         MATCH (d:Dataset {url: $url, graph: $graph})
         MERGE (p:Provider {name: $provider})
@@ -35,7 +41,8 @@ def ingest_provider(tx, dataset_url, provider, graph_name):
         """, url=dataset_url, provider=provider, graph=graph_name)
 
 
-def ingest_category(tx, dataset_url, category, graph_name):
+def create_category_node(tx, dataset_url, category, graph_name):
+    """Create a category node in the knowledge graph if it doesn't exist and connect it to the specified dataset node."""
     tx.run("""
         MATCH (d:Dataset {url: $url, graph: $graph})
         MERGE (c:Category {name: $category})
@@ -43,7 +50,8 @@ def ingest_category(tx, dataset_url, category, graph_name):
         """, url=dataset_url, category=category, graph=graph_name)
 
 
-def ingest_spatial_coverage(tx, dataset_url, spatial_coverage, graph_name):
+def create_spatial_coverage_node(tx, dataset_url, spatial_coverage, graph_name):
+    """Create a spatial_coverage node in the knowledge graph if it doesn't exist and connect it to the specified dataset node."""
     tx.run("""
         MATCH (d:Dataset {url: $url, graph: $graph})
         MERGE (r:SpatialCoverage {name: $spatial_coverage})
@@ -51,7 +59,8 @@ def ingest_spatial_coverage(tx, dataset_url, spatial_coverage, graph_name):
         """, url=dataset_url, spatial_coverage=spatial_coverage, graph=graph_name)
 
 
-def ingest_temporal_coverage(tx, dataset_url, temporal_coverage, graph_name):
+def create_temporal_coverage_node(tx, dataset_url, temporal_coverage, graph_name):
+    """Create a temporal_coverage node in the knowledge graph if it doesn't exist and connect it to the specified dataset node."""
     tx.run("""
         MATCH (d:Dataset {url: $url, graph: $graph})
         MERGE (t:TemporalCoverage {name: $temporal_coverage})

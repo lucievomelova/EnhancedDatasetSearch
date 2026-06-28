@@ -1,13 +1,15 @@
-import pandas as pd
-import numpy as np
-import requests
-from utils import setup_logger
+"""Helper functions for NKOD data processing."""
 
+import numpy as np
+import pandas as pd
+import requests
+
+from utils import setup_logger
 
 logger = setup_logger(__name__)
 
 
-def split_dataframe(df, chunk_size=100) -> list[pd.DataFrame]:
+def split_dataframe(df: pd.DataFrame, chunk_size=100) -> list[pd.DataFrame]:
     """Split dataframe into chunks of specified size."""
     chunks = list()
     num_chunks = len(df) // chunk_size + 1
@@ -16,19 +18,25 @@ def split_dataframe(df, chunk_size=100) -> list[pd.DataFrame]:
     return chunks
 
 
-def download_df(path: str, url: str) -> pd.DataFrame:
-    """Download a csv file, load it and return it as a pandas dataframe."""
+def download_df(file_path: str, url: str) -> pd.DataFrame:
+    """Download a csv file, save it, load it and return the loaded pandas dataframe.
+
+    Args:
+        file_path: path to where the csv file will be stored
+        url: download URL
+    """
     response = requests.get(url)
-    with open(path, "wb") as f:
-        logger.info(f"Downloading {path.split("/")[-1]}.")
+    with open(file_path, "wb") as f:
+        logger.info(f"Downloading {file_path.split("/")[-1]}.")
         f.write(response.content)
-    df = pd.read_csv(path, sep=",", dtype="string")
+    df = pd.read_csv(file_path, sep=",", dtype="string")
     return df
 
 
 def drop_irrelevant_columns(df: pd.DataFrame, irrelevant_columns: list) -> pd.DataFrame:
     """Drop irrelevant columns from datasets_raw."""
-    columns_to_drop = list(set(irrelevant_columns) & set(df.columns))  # intersection of two lists
+    # columns to drop - intersection of actual list of columns and specified list of columns to be dropped
+    columns_to_drop = list(set(irrelevant_columns) & set(df.columns))
     df = df.drop(columns=columns_to_drop)
     return df
 
@@ -36,8 +44,9 @@ def drop_irrelevant_columns(df: pd.DataFrame, irrelevant_columns: list) -> pd.Da
 def merge_keywords_and_themes_rows(df: pd.DataFrame) -> pd.DataFrame:
     """Merge rows about the same dataset into one so that we have one row per dataset.
 
-    Right now, there is a separate row for the same dataset for each keyword and theme
-    associated with it. We want a single row per dataset with all keywords and themes merged into one list.
+    In the original csv downloaded from the Czech Dataset Portal there is a separate row for the same dataset
+    for each keyword and theme associated with it. We want a single row per dataset with all
+    keywords and themes merged into one list.
     """
     list_columns = ["keywords", "themes"]  # columns that contain multiple values per dataset -> merge into one list
     groupby_column = "url"  # group by dataset URL

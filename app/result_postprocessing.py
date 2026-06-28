@@ -1,7 +1,7 @@
-from data_processing.data_catalog import DataCatalog
-from llama_index.core.schema import NodeWithScore
 from llama_index.core.postprocessor import SentenceTransformerRerank
+from llama_index.core.schema import NodeWithScore
 
+from data_processing.data_catalog import DataCatalog
 from utils import setup_logger
 
 logger = setup_logger(__name__)

@@ -1,3 +1,6 @@
+"""File containing functions for extracting spatial and temporal coverage from NKOD using SPARQL and processing
+of the retrieved data."""
+
 from datetime import datetime
 
 import pandas as pd
@@ -10,7 +13,7 @@ logger = setup_logger(__name__)
 
 
 def get_spatial_and_temporal_coverage(graph: Graph) -> tuple[dict, dict]:
-    """Run a sparql query to get spatial and temporal coverage from NKOD for all datasets."""
+    """Run a SPARQL query to get spatial and temporal coverage from NKOD for all datasets."""
 
     query = """
     PREFIX dct: <http://purl.org/dc/terms/>
@@ -42,9 +45,10 @@ def get_spatial_and_temporal_coverage(graph: Graph) -> tuple[dict, dict]:
         if url not in temporal_data:
             temporal_data[url] = []
         temporal_coverage = get_range_from_start_and_end(str(start), str(end))
-        if temporal_coverage not in temporal_data[url]:  # check so we dont add something multiple times
+        if temporal_coverage not in temporal_data[url]:  # check so we don't add something multiple times
             temporal_data[url].append(temporal_coverage)
-        if spatial and str(spatial) not in spatial_data[url]:  # check so we dont add something multiple times
+        if spatial and str(spatial) not in spatial_data[url]:  # check so we don't add something multiple times
+            # skip Czech Republic as spatial coverage because it is not a useful information
             if str(spatial) not in ["Česká Republika", "Česká republika"]:
                 spatial_data[url].append(str(spatial))
     return temporal_data, spatial_data
@@ -62,22 +66,25 @@ def get_year_from_date(date: str) -> str:
 
 
 def get_range_from_start_and_end(temporal_start: str, temporal_end: str) -> str:
-    """Get either a range of years *e.g. 2010-2020) or a single year if start and end are the same."""
+    """Process extracted temporal coverage into a suitable format - a year or range of years.
+
+    Get either a range of years (e.g. 2010 – 2020) or a single year if start and end are the same."""
     year_start = get_year_from_date(temporal_start)
     year_end = get_year_from_date(temporal_end)
     if year_start == year_end:
-        return year_start
+        return year_start  # return single year, because start and end are the same
     elif year_start  == "None":
-        return year_end
+        return year_end  # return single year, because start is not set
     elif year_end == "None":
-        return year_start
-    return f"{year_start} - {year_end}"
+        return year_start  # return single year, because end is not set
+    return f"{year_start} – {year_end}"  # range
 
 
 def add_metadata_to_datasets_from_sparql(config: dict, datasets: pd.DataFrame | None) -> None:
-    """Add additional metadata to datasets - temporal and spatial coverage.
+    """Add spatial and temporal coverage to datasets' dataframe.
     
-    These metadata will be extracted using a sparql query"""
+    These metadata will be extracted using a sparql query, processed into a suitable format and then put in the
+    corresponding columns in the given datframe."""
     logger.info("Adding spatial and temporal coverage data.")
     if datasets is None:
         logger.error("No datasets provided.")
@@ -91,6 +98,7 @@ def add_metadata_to_datasets_from_sparql(config: dict, datasets: pd.DataFrame | 
         datasets["spatial_coverage"] = datasets["url"].map(lambda x: spatial_data.get(x, []))
         logger.info("Spatial and temporal info added.")
     except Exception as e:
-        logger.error("NKOD SPARQL endpoint inaccessible. Cannot retrieve spatial and temporal coverage data. Error: " + str(e))
+        logger.error(f"NKOD SPARQL endpoint inaccessible. Cannot retrieve spatial and temporal coverage: {str(e)}")
+        # set all spatial and temporal coverage as empty if there's an error
         datasets["temporal_coverage"] = [[] for _ in range(len(datasets))]
         datasets["spatial_coverage"] = [[] for _ in range(len(datasets))]

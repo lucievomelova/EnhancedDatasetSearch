@@ -1,4 +1,7 @@
+"""Simple unit tests for the Flask user interface."""
+
 import pytest
+
 from app.main import app as flask_app
 
 

@@ -1,26 +1,23 @@
 import asyncio
 import os
 import threading
-
 import uuid
 
-from data_processing.NKOD.knowledge_graph import NkodKnowledgeGraph
-from data_processing.NKOD.nkod import NkodDataCatalog
-from data_processing.data_catalog import DataCatalog
-from data_processing.database import Database
-from data_processing.knowledge_graph import KnowledgeGraph
-from flask import Flask, render_template, request, redirect, url_for, jsonify, session
-from app.pipeline import SearchPipeline
-from app.chatbot import Chatbot
 import yaml
-
-from app.ui_utils import get_similar_datasets_with_preview_text, get_filters_for_results
+from flask import Flask, jsonify, redirect, render_template, request, session, url_for
 from llama_index.core import Settings
 from llama_index.embeddings.ollama import OllamaEmbedding
 from llama_index.llms.ollama import Ollama
 
+from app.chatbot import Chatbot
+from app.pipeline import SearchPipeline
+from app.ui_utils import get_filters_for_results, get_similar_datasets_with_preview_text
+from data_processing.data_catalog import DataCatalog
+from data_processing.database import Database
+from data_processing.knowledge_graph import KnowledgeGraph
+from data_processing.NKOD.knowledge_graph import NkodKnowledgeGraph
+from data_processing.NKOD.nkod import NkodDataCatalog
 from utils import setup_logger
-
 
 logger = setup_logger(__name__)
 
@@ -82,7 +79,7 @@ def get_chatbot():
     # create a new chatbot instance for this session if it doesn't exist
     if session_id not in chatbot_instances:
         pipeline = get_search_pipeline()
-        chatbot_instances[session_id] = Chatbot(config, pipeline, llm)
+        chatbot_instances[session_id] = Chatbot(config, pipeline, data_catalog, llm)
     return chatbot_instances[session_id]
 
 
@@ -144,7 +141,8 @@ def dataset_detail():
                                                               data_catalog,
                                                               knowledge_graph)
     distributions = dataset_info["distributions"]
-
+    for i, d in enumerate(distributions, start=1):
+        d["title"] = f"Distribution {i}" if d["title"] is None else d["title"]
     return render_template("dataset_detail.html",
                            dataset=dataset_info,
                            similar_datasets=similar_datasets,
@@ -164,7 +162,7 @@ def reset_chatbot():
         session_id = session['session_id']
         if session_id in chatbot_instances:
             del chatbot_instances[session_id]
-            chatbot_instances[session_id] = Chatbot(config, get_search_pipeline())
+            chatbot_instances[session_id] = Chatbot(config, get_search_pipeline(), data_catalog)
 
     return jsonify({'success': True, 'message': 'Chatbot memory cleared.'})
 

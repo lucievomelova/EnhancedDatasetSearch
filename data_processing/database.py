@@ -3,19 +3,17 @@ import os
 from datetime import datetime
 
 import psycopg2
-from llama_index.core import Document, StorageContext
+from dotenv import load_dotenv
+from llama_index.core import Document, StorageContext, VectorStoreIndex
+from llama_index.core.base.embeddings.base import BaseEmbedding
 from llama_index.core.ingestion import IngestionPipeline
 from llama_index.core.node_parser import SentenceSplitter
-from llama_index.embeddings.ollama import OllamaEmbedding
-from llama_index.vector_stores.postgres import PGVectorStore
-from llama_index.storage.docstore.postgres import PostgresDocumentStore
-from llama_index.core import VectorStoreIndex
 from llama_index.core.schema import QueryBundle
-from llama_index.core.base.embeddings.base import BaseEmbedding
-from dotenv import load_dotenv
+from llama_index.embeddings.ollama import OllamaEmbedding
+from llama_index.storage.docstore.postgres import PostgresDocumentStore
+from llama_index.vector_stores.postgres import PGVectorStore
 
 from utils import setup_logger
-
 
 load_dotenv()
 logger = setup_logger(__name__)

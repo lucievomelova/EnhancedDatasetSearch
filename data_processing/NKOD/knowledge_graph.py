@@ -1,17 +1,20 @@
 import os
 
 import pandas as pd
-from neo4j import GraphDatabase, Driver
+from neo4j import Driver, GraphDatabase
 
 from data_processing.database import Database
-from utils import setup_logger
 from data_processing.knowledge_graph import KnowledgeGraph
 from data_processing.NKOD.kg_queries import *
+from utils import setup_logger
 
 logger = setup_logger(__name__)
 
 class NkodKnowledgeGraph(KnowledgeGraph):
-    """Knowledge graph for the NKOD."""
+    """Knowledge graph for the NKOD.
+
+    The knowledge graph contains nodes representing datasets and datasets' metadata (e.g. keywords, categories...).
+    Each dataset is connected to all metadata nodes that it contains as its metadata."""
     def __init__(self, kg_config: dict, database: Database):
         self.driver: Driver = GraphDatabase.driver(
             os.environ['NEO4J_URI'],
@@ -41,21 +44,31 @@ class NkodKnowledgeGraph(KnowledgeGraph):
                     logger.info(f"{i}/{len(datasets)}")
                 metadata = row.drop(columns="description")
                 # add dataset nodes
-                session.execute_write(ingest_dataset, metadata, self.kg_config["name"])
+                session.execute_write(create_dataset_node, metadata, self.kg_config["name"])
                 url = row["url"]
 
                 # add keywords, themes, categories, spatial coverage, temporal coverage and provider nodes
                 for keyword in row["keywords"]:
-                    session.execute_write(ingest_keyword, url, keyword.title(), self.kg_config["name"])
+                    session.execute_write(create_keyword_node, url, keyword.title(), self.kg_config["name"])
                 for theme in row["themes"]:
-                    session.execute_write(ingest_theme, url, theme.title(), self.kg_config["name"])
+                    session.execute_write(create_theme_node, url, theme.title(), self.kg_config["name"])
                 for category in row["categories"]:
-                    session.execute_write(ingest_category, url, category.title(), self.kg_config["name"])
+                    session.execute_write(create_category_node, url, category.title(), self.kg_config["name"])
                 for spatial_coverage in row["spatial_coverage"]:
-                    session.execute_write(ingest_spatial_coverage, url, spatial_coverage.title(), self.kg_config["name"])
+                    session.execute_write(
+                        create_spatial_coverage_node,
+                        url,
+                        spatial_coverage.title(),
+                        self.kg_config["name"]
+                    )
                 for temporal_coverage in row["temporal_coverage"]:
-                    session.execute_write(ingest_temporal_coverage, url, temporal_coverage.title(), self.kg_config["name"])
-                session.execute_write(ingest_provider, url, row["provider"].title(), self.kg_config["name"])
+                    session.execute_write(
+                        create_temporal_coverage_node,
+                        url,
+                        temporal_coverage.title(),
+                        self.kg_config["name"]
+                    )
+                session.execute_write(create_provider_node, url, row["provider"].title(), self.kg_config["name"])
 
         self.add_similarity_edges(datasets, self.kg_config)
         logger.info("Knowledge graph creation completed.")
@@ -111,6 +124,5 @@ class NkodKnowledgeGraph(KnowledgeGraph):
                     self.kg_config
                 )
                 logger.info(f"Retrieved {len(similar_datasets[metadata_category])} similar datasets based on common {metadata_category}.")
-
 
         return similar_datasets

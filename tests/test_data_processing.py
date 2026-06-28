@@ -1,10 +1,9 @@
-"""Unit tests for data processing code. All LLM and embedding model calls are replaced with mock objects and empty
-response is always returned, so that the results are deterministic"""
-
-import pandas as pd
+"""Unit tests for data catalog and knowledge graph. All LLM and embedding model calls are replaced with mock
+objects and empty response is always returned, so that the results are deterministic."""
+import os
 import shutil
 
-from data_processing.NKOD.knowledge_graph import NkodKnowledgeGraph
+import pandas as pd
 
 
 def _sort_items_in_list_cols(list_columns: list, df1: pd.DataFrame, df2: pd.DataFrame):
@@ -15,12 +14,16 @@ def _sort_items_in_list_cols(list_columns: list, df1: pd.DataFrame, df2: pd.Data
 
 
 # copy old datasets file so that it can be used in NKOD pipeline
-src = "tests/data/test_datasets_old.json"
-dst = "tests/data/test_datasets.json"
-shutil.copy(src, dst)
+src_file = "tests/data/test_datasets_old.json"
+dst_file = "tests/data/test_datasets.json"
+shutil.copy(src_file, dst_file)
+
+# set last modification time to now to ensure that the file will not be overwritten in tests
+datasets_raw_file_path = "tests/data/test_datasets_raw.csv"
+os.utime(datasets_raw_file_path, None)
 
 
-# ======== NKOD ========
+# ====== Data catalog tests ======
 
 def test_rows_merged(data_catalog):
     """Test that rows belonging to the same dataset are correctly merged into one."""
@@ -97,7 +100,7 @@ def test_metadata_filters_dont_contain_data_for_missing_metadata_category(data_c
         assert not filters[metadata_category]["value_counts"]  # value counts must be an empty dict
 
 
-# ======== Knowledge graph ========
+# ====== Knowledge graph tests ======
 
 
 def test_create_kg(config, data_catalog, knowledge_graph):

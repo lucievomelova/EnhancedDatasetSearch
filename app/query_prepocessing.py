@@ -1,10 +1,10 @@
 import json
 
 import httpx
-from ollama import Client
+from jinja2 import Environment, FileSystemLoader
+
 from ollama_client import OllamaClient
 from utils import setup_logger
-from jinja2 import Environment, FileSystemLoader
 
 logger = setup_logger(__name__)
 env = Environment(loader=FileSystemLoader('prompts'))

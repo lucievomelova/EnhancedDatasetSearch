@@ -1,14 +1,16 @@
+"""File containing functions for NKOD datasets' metadata processing."""
+
 import json
 import os
 import re
 from datetime import datetime
 
 import pandas as pd
-from ollama_client import OllamaClient
-from pandas import Series
 from jinja2 import Environment, FileSystemLoader
+from pandas import Series
 from polyleven import levenshtein
 
+from ollama_client import OllamaClient
 from utils import setup_logger
 
 logger = setup_logger(__name__)
