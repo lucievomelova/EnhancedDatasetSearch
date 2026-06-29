@@ -23,10 +23,6 @@ embedding:
   chunk_overlap: 50
   embed_batch_size: 100
   url_to_node_id_mapping_file: "test_url_to_node_id_mapping.json"
-llm:
-  model_name: "mistral-small3.2:latest"
-  base_url: "http://localhost:11434"
-  context_length: 2048
 chatbot:
   llm:
     model_name: "mistral-small3.2:latest"
@@ -34,6 +30,10 @@ chatbot:
     context_length: 4096
     memory_limit: 4096
 pipeline_config:
+  llm:
+    model_name: "mistral-small3.2:latest"
+    base_url: "http://localhost:11434"
+    context_length: 2048
   preprocessing:
     detect_intent: true
     extend_query: true
@@ -52,6 +52,10 @@ pipeline_config:
     top_k: 20  # only used for llm and sentence_transformer rerankers
     score_cutoff: 0.2
 data_processing:
+  llm:
+    model_name: "mistral-small3.2:latest"
+    base_url: "http://localhost:11434"
+    context_length: 2048
   knowledge_graph:
     name: "test_kg"
     top_k: 5

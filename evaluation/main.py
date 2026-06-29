@@ -12,7 +12,9 @@ import yaml
 from llama_index.llms.ollama import Ollama
 from sklearn.metrics import ndcg_score
 
-from app.pipeline import SearchPipeline
+from EnhancedDatasetSearch.data_processing.database import Database
+from EnhancedDatasetSearch.data_processing.NKOD.nkod import NkodDataCatalog
+from EnhancedDatasetSearch.app.pipeline import SearchPipeline
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
@@ -21,17 +23,19 @@ logger = logging.getLogger(__name__)
 mlflow.set_experiment("SearchPipeline Evaluation")
 
 @click.command()
-@click.option('--config', default='config.yaml', help='Path to the configuration YAML file.')
-def main(config: str):
+@click.option('--config_path', default='config.yaml', help='Path to the configuration YAML file.')
+def main(config_path: str):
     """Setup and run the evaluation."""
-    with open(config, "r") as f:
+    with open(config_path, "r") as f:
         config = yaml.safe_load(f)
 
-    llm = Ollama(model=config['chatbot']['llm']['model_name'],
-                 context_window=config['chatbot']['llm']['context_length'],
+    llm = Ollama(model=config['pipeline_config']['llm']['model_name'],
+                 context_window=config['pipeline_config']['llm']['context_length'],
                  request_timeout=300)
 
-    search_pipeline = SearchPipeline(config, llm)
+    data_catalog = NkodDataCatalog(config)
+    database = Database(config)
+    search_pipeline = SearchPipeline(config, llm, data_catalog, database)
     search_result_top_k = config["pipeline_config"]["search"]["top_k"]
     with mlflow.start_run() as parent_run:
         for key in config["pipeline_config"]:
@@ -39,21 +43,23 @@ def main(config: str):
             for sub_key in config["pipeline_config"][key]:
                 params[f"{key}_{sub_key}"] = config["pipeline_config"][key][sub_key]
             mlflow.log_params(params)
-        ndcg, recalls = asyncio.run(evaluate(search_pipeline, search_result_top_k))
+        ndcg, recalls = asyncio.run(evaluate(data_catalog, search_pipeline, search_result_top_k))
 
-        mlflow.log_metric("ndcg", ndcg)
+        mlflow.log_metric("ndcg_avg", ndcg)
         mlflow.log_metric("recall_avg", sum(recalls)/len(recalls))
         mlflow.log_param("Embedding model", config["embedding"]["model_name"])
-        mlflow.log_param("LLM", config["llm"]["model_name"])
+        mlflow.log_param("LLM", config["pipeline_config"]["llm"]["model_name"])
+        mlflow.log_param("cutoff", config["pipeline_config"]["postprocessing"]["score_cutoff"])
 
 
-async def evaluate(search_pipeline: SearchPipeline, search_result_top_k: int) -> tuple[list, list]:
+async def evaluate(data_catalog: NkodDataCatalog, search_pipeline: SearchPipeline, search_result_top_k: int) -> tuple[list, list]:
     golden_dataset = pd.read_csv("data/golden/golden_dataset.csv")
     # find all unique queries in golden dataset
     queries = golden_dataset["query"].unique()
     y_pred_all = []
     y_true_all = []
     recalls = []
+    ndcgs = []
     for query in queries:
         with mlflow.start_run(nested=True) as child_run:
             logger.info(f"Evaluating query: {query}")
@@ -67,11 +73,12 @@ async def evaluate(search_pipeline: SearchPipeline, search_result_top_k: int) ->
             for _, true_row in results_true.iterrows():
                 for i, pred_row in enumerate(results_pred):
                     if pred_row["url"] == true_row["url"]:
+                        y_true[i] = 1 / true_row["ranking"]
                         # more items can have the same ranking - distribute points among them fairly
                         # e.g. if two items are ranked as 3rd, they should get the average of points for 3rd and 4th place
-                        num_of_same_rankings = len(results_true[results_true["ranking"] == true_row["ranking"]])
-                        points_to_distribute = sum([true_row["ranking"] - i for i in range(num_of_same_rankings)]) / len(results_true)
-                        y_true[i] = points_to_distribute / num_of_same_rankings
+                        # num_of_same_rankings = len(results_true[results_true["ranking"] == true_row["ranking"]])
+                        # points_to_distribute = sum([true_row["ranking"] - i for i in range(num_of_same_rankings)]) / len(results_true)
+                        # y_true[i] = points_to_distribute / num_of_same_rankings
                         relevant_count += 1
 
             # because the amount of search results is different each time, pad it with 0
@@ -82,18 +89,31 @@ async def evaluate(search_pipeline: SearchPipeline, search_result_top_k: int) ->
             y_true_all.append(y_true)
             recall = relevant_count / len(results_true)
             recalls.append(recall)
+            ndcg = ndcg_score(np.array([y_true]), np.array([y_pred]))
+            ndcgs.append(ndcg)
 
             mlflow.log_param("query", query)
             mlflow.log_metric("recall", recall)
+            mlflow.log_metric("ndcg", ndcg)
             mlflow.log_metric("number_of_results", len(results_pred))
             mlflow.log_metric("number_of_correct", len(results_true))
-            for i in range(len(results_true)):
+            for i in range(len(results_pred)):
                 mlflow.log_param(f"{i}. result", f"{results_pred[i]["title"]}, {results_pred[i]["url"]}")
+            # returned_urls = [r["url"] for r in results_pred]
+
+            # for i, row in results_true.iterrows():
+            #     match = data_catalog.datasets.loc[data_catalog.datasets["url"] == row["url"], "title"]
+            #     title = match.iloc[0] if not match.empty else "-"
+            #     if row["url"] in returned_urls:
+            #         mlflow.log_param(f"{i}. expected result - {title}, {row["url"]}", True)
+            #     else:
+            #         mlflow.log_param(f"{i}. expected result - {title}, {row["url"]}", False)
 
     y_pred_all = np.array(y_pred_all)
     y_true_all = np.array(y_true_all)
-    ndcg = ndcg_score(y_pred_all, y_true_all)
-
+    ndcg = ndcg_score(y_true_all, y_pred_all)
+    logger.info(f"ndcg_score: {ndcg}")
+    ndcg = sum(ndcgs) / len(ndcgs)
     logger.info(f"ndcg: {ndcg}, recall: {recalls}")
     return ndcg, recalls
 

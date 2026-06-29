@@ -68,12 +68,9 @@ def data_catalog(config, mock_ollama_client):
     _cleanup_files(files_to_remove)  # remove datasets files from previous test runs in case there was an error
     catalog.client = mock_ollama_client
 
-    # we have to load raw datasets from our file and then reload the remaining dataframes based on it
-    # catalog._load_datasets_raw(True)
-    # catalog._transform_datasets_raw(True)
     asyncio.run(catalog.update_datasets())
     yield catalog
-    _cleanup_files(files_to_remove)  # remove datasets files from this test run
+    # _cleanup_files(files_to_remove)  # remove datasets files from this test run
 
 
 @pytest.fixture(scope="module")
@@ -97,7 +94,7 @@ def connection(config):
 
 @pytest.fixture(scope="module")
 def search_pipeline(config, data_catalog, database):
-    llm = Ollama(model=config['llm']['model_name'], context_window=config['llm']['context_length'])
+    llm = Ollama(model=config["pipeline_config"]["llm"]["model_name"], context_window=config["pipeline_config"]["llm"]["context_length"])
     search_pipeline = SearchPipeline(config, llm, data_catalog, database)
     return search_pipeline
 

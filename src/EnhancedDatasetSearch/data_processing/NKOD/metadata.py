@@ -298,22 +298,15 @@ def enrich_metadata(row: Series, client: OllamaClient, all_keywords: set, all_ca
             metadata[k] = []
         return metadata
 
-    num_retry_attempts = 3
-    retry = 0
-    metadata = {}  # initialize metadata to empty dict
-    while retry < 3:
-        remaining_attempts = num_retry_attempts - retry
-        metadata, retries = client.get_llm_json_response(prompt, num_retry_attempts=remaining_attempts)
-        if all(k in metadata_keys for k in metadata):  # check that all returned keys are actually metadata keys
-            for k in metadata_keys:  # fill in missing values with empty lists
-                if k not in metadata:
-                    metadata[k] = []
-            # check that the model did not generate more metadata than we specified
-            for k, num in num_remaining.items():
-                if num > 0 and len(metadata[k]) > num_remaining[k]:
-                    continue
-            break
-        retry += retries + 1 # the result is missing a key, retry
+    metadata, retries = client.get_llm_json_response(prompt, num_retry_attempts=3)
+    if all(k in metadata_keys for k in metadata):  # check that all returned keys are actually metadata keys
+        for k in metadata_keys:  # fill in missing values with empty lists
+            if k not in metadata:
+                metadata[k] = []
+        # check that the model did not generate more metadata than we specified
+        for k, num in num_remaining.items():
+            if num > 0 and len(metadata[k]) > num_remaining[k]:
+                continue
 
     # fill missing metadata categories (if there are any) with emty list and return it to avoid blocking the pipeline
     for k in metadata_keys:

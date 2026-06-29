@@ -1,5 +1,13 @@
-url,title,description,provider,keywords,themes,categories,temporal_coverage,spatial_coverage
-http://example.com/ds1,Dataset 1,Desc 1,Provider A,"['keyword_one', 'keyword_two', 'keyword_three']","['theme1']",[],[],[]
-http://example.com/ds2,Dataset 2,Desc 2,Provider B,"['keyword_one', 'keyword_four']","['theme2']",[],[],[]
-http://example.com/ds3,Dataset 3,Desc 3,Provider C,"['keyword_one', 'keyword_four']",[],[],[],[]
-http://example.com/ds4,Dataset 4,Desc 4,Provider D,[],"['theme2', 'theme4']","['Energie']",[], []
+url,title,description,provider,keywords,themes,temporal_coverage,spatial_coverage,full_description,categories
+http://example.com/ds1,Dataset 1,Desc 1,Provider A,"['keyword_one', 'keyword_two', 'keyword_three']","['theme1']",[],[],"Dataset 1
+Desc 1
+(Provider A | keyword_one, keyword_three, keyword_two | theme1 |  | )",[]
+http://example.com/ds2,Dataset 2,Desc 2,Provider B,"['keyword_one', 'keyword_four']","['theme2']",[],[],"Dataset 2
+Desc 2
+(Provider B | keyword_four, keyword_one | theme2 |  | )",[]
+http://example.com/ds3,Dataset 3,Desc 3,Provider C,"['keyword_one', 'keyword_four']",[],[],[],"Dataset 3
+Desc 3
+(Provider C | keyword_four, keyword_one1 |  |  | )",[]
+http://example.com/ds4,Dataset 4,Desc 4,Provider D,[],"['theme2', 'theme4']",[],[],"Dataset 4
+Desc 4
+(Provider D |  | Energie, theme2, theme4 |  | )","['Energie']"

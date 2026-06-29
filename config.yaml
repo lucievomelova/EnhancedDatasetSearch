@@ -25,10 +25,6 @@ embedding:
   chunk_overlap: 50
   embed_batch_size: 100
   url_to_node_id_mapping_file: "url_to_node_id_mapping.json"  #"url_to_node_id_mapping_test.json"
-llm:
-  model_name: "qwen3.6:27b"  #"mistral-small3.2:latest"  #"qwen3.6:27b"
-  base_url: "http://localhost:11434"
-  context_length: 4096
 chatbot:
   llm:
     model_name: "qwen3.6:27b"  #"mistral-small3.2:latest"
@@ -36,10 +32,14 @@ chatbot:
     context_length: 4096
     memory_limit: 4096
 pipeline_config:
+  llm:
+    model_name: "mistral-small3.2:latest"  #"mistral-small3.2:latest"  #"qwen3.6:27b"
+    base_url: "http://localhost:11434"
+    context_length: 4096
   preprocessing:
     detect_intent: true
     extend_query: true
-    timeout: 60
+    timeout: 20
   search:
     top_k: 30
     vector_top_k: 20
@@ -54,6 +54,10 @@ pipeline_config:
     top_k: 20  # only used for llm and sentence_transformer rerankers
     score_cutoff: 0.2
 data_processing:
+  llm:
+    model_name: "mistral-small3.2:latest"  #"mistral-small3.2:latest"  #"qwen3.6:27b"
+    base_url: "http://localhost:11434"
+    context_length: 4096
   knowledge_graph:
     name: "graph_qwen4b"  # test_graph, graph_qwen4b
     top_k: 5

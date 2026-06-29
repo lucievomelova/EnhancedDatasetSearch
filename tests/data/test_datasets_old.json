@@ -8,7 +8,8 @@
     "provider",
     "categories",
     "spatial_coverage",
-    "temporal_coverage"
+    "temporal_coverage",
+    "full_description"
   ],
   "index":[
     0,
@@ -18,10 +19,10 @@
     4
   ],
   "data":[
-    ["Dataset 1","Desc 1","http:\/\/example.com\/ds1",["keyword_one", "keyword_two", "keyword_three"],["theme1"],"Provider A",[],[],[]],
-    ["Dataset 2","Desc 2","http:\/\/example.com\/ds2",["keyword_one","keyword_four"],["theme2"],"Provider B",[],[],[]],
-    ["Dataset 3","Desc 3","http:\/\/example.com\/ds3",["keyword_one", "keyword_four"],[],"Provider C",[],[],[]],
-    ["Dataset 5","Desc 5","http:\/\/example.com\/ds5",[],["theme1", "theme5"],"Provider E",[],[],[]],
-    ["Dataset 6","Desc 6","http:\/\/example.com\/ds6",[],[],"Provider A",[],[],[]]
+    ["Dataset 1","Desc 1","http:\/\/example.com\/ds1",["keyword_one", "keyword_two", "keyword_three"],["theme1"],"Provider A",[],[],[],"Dataset 1\nDesc 1\n(Provider A | keyword_one, keyword_three, keyword_two | theme1 |  | )"],
+    ["Dataset 2","Desc 2","http:\/\/example.com\/ds2",["keyword_one","keyword_four"],["theme2"],"Provider B",[],[],[],"Dataset 2\nDesc 2\n(Provider B | keyword_four, keyword_one | theme2 |  | )"],
+    ["Dataset 3","Desc 3","http:\/\/example.com\/ds3",["keyword_one", "keyword_four"],[],"Provider C",[],[],[],"Dataset 3\nDesc 3\n(Provider C | keyword_four, keyword_one1 |  |  | )"],
+    ["Dataset 5","Desc 5","http:\/\/example.com\/ds5",[],["theme1", "theme5"],"Provider E",[],[],[],"Dataset 5\nDesc 5\n(Provider E |  | theme1, theme5 |  | )"],
+    ["Dataset 6","Desc 6","http:\/\/example.com\/ds6",[],[],"Provider A",[],[],[],"Dataset 6\nDesc 5\n(Provider A |  |  |  | )"]
   ]
 }

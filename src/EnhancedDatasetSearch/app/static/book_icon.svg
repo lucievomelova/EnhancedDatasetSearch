@@ -1,26 +1,60 @@
-<svg width="128" height="96" viewBox="22 -7 85 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <!-- Left page -->
-  <path d="M64 16 C52 12 36 12 24 16 V76 C36 72 52 72 64 76"
-        stroke="black" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+<!--<svg width="128" height="96" viewBox="22 -20 85 100" fill="none" xmlns="http://www.w3.org/2000/svg">-->
+<!--  &lt;!&ndash; Left page &ndash;&gt;-->
+<!--  <path d="M64 16 C52 12 36 12 24 16 V76 C36 72 52 72 64 76"-->
+<!--        stroke="black" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>-->
 
-  <!-- Right page -->
-  <path d="M64 16 C76 12 92 12 104 16 V76 C92 72 76 72 64 76"
-        stroke="black" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+<!--  &lt;!&ndash; Right page &ndash;&gt;-->
+<!--  <path d="M64 16 C76 12 92 12 104 16 V76 C92 72 76 72 64 76"-->
+<!--        stroke="black" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>-->
 
-  <!-- Spine -->
-  <line x1="64" y1="16" x2="64" y2="76" stroke="black" stroke-width="4" stroke-linecap="round"/>
+<!--  &lt;!&ndash; Spine &ndash;&gt;-->
+<!--  <line x1="64" y1="16" x2="64" y2="76" stroke="black" stroke-width="4" stroke-linecap="round"/>-->
 
-  <!-- DS letters -->
-  <text x="44" y="38" text-anchor="middle"
-        font-size="24" font-family="sans-serif"
-        font-weight="bold" fill="black">DS</text>
+<!--  &lt;!&ndash; DS letters &ndash;&gt;-->
+<!--  <text x="44" y="38" text-anchor="middle"-->
+<!--        font-size="24" font-family="sans-serif"-->
+<!--        font-weight="bold" fill="black">DS</text>-->
 
-  <!-- Left page text lines -->
-  <path d="M34 48 C44 44 52 44 58 48" stroke="black" stroke-width="3" fill="none" stroke-linecap="round"/>
-  <path d="M34 58 C44 54 52 54 56 58" stroke="black" stroke-width="3" fill="none" stroke-linecap="round"/>
+<!--  &lt;!&ndash; Left page text lines &ndash;&gt;-->
+<!--  <path d="M34 48 C44 44 52 44 58 48" stroke="black" stroke-width="3" fill="none" stroke-linecap="round"/>-->
+<!--  <path d="M34 58 C44 54 52 54 56 58" stroke="black" stroke-width="3" fill="none" stroke-linecap="round"/>-->
 
-  <!-- Right page text lines (aligned with left) -->
-  <path d="M70 38 C80 34 88 34 94 38" stroke="black" stroke-width="3" fill="none" stroke-linecap="round"/>
-  <path d="M70 48 C80 44 88 44 94 48" stroke="black" stroke-width="3" fill="none" stroke-linecap="round"/>
-  <path d="M70 58 C80 54 88 54 94 58" stroke="black" stroke-width="3" fill="none" stroke-linecap="round"/>
+<!--  &lt;!&ndash; Right page text lines (aligned with left) &ndash;&gt;-->
+<!--  <path d="M70 38 C80 34 88 34 94 38" stroke="black" stroke-width="3" fill="none" stroke-linecap="round"/>-->
+<!--  <path d="M70 48 C80 44 88 44 94 48" stroke="black" stroke-width="3" fill="none" stroke-linecap="round"/>-->
+<!--  <path d="M70 58 C80 54 88 54 94 58" stroke="black" stroke-width="3" fill="none" stroke-linecap="round"/>-->
+<!--</svg>-->
+
+<svg width="100%" height="100%" viewBox="0 0 160 160" fill="none" xmlns="http://www.w3.org/2000/svg">
+
+  <path d="M 80 40
+           C 60 28 34 34 24 46
+           V 116
+           C 34 104 60 98 80 110"
+        stroke="#111111" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <path d="M 80 40
+           C 100 28 126 34 136 46
+           V 116
+           C 126 104 100 98 80 110"
+        stroke="#111111" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <line x1="80" y1="40" x2="80" y2="54" stroke="#111111" stroke-width="2.5" stroke-linecap="round"/>
+  <line x1="80" y1="90" x2="80" y2="110" stroke="#111111" stroke-width="2.5" stroke-linecap="round"/>
+
+  <text x="80" y="90"
+        text-anchor="middle"
+        font-family="sans-serif"
+        font-size="50"
+        font-weight="600"
+        fill="#111111"
+        letter-spacing="1.5">DS</text>
+
+
+  <path d="M 80 40
+           C  28 34 34 24 46
+           V 116
+           C 34 104 60 98 80 110"
+        stroke="#111111" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+
 </svg>

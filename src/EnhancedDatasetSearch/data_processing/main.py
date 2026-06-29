@@ -26,8 +26,8 @@ class DataPreprocessingPipeline:
             self.config["data_processing"]["knowledge_graph"],
             self.database
         )
-        self.llm = Ollama(model=self.config['llm']['model_name'],
-                          context_window=self.config['llm']['context_length'])
+        self.llm = Ollama(model=self.config["data_processing"]["llm"]["model_name"],
+                          context_window=self.config["data_processing"]["llm"]["context_length"])
         Settings.llm = self.llm
         Settings.embed_model = OllamaEmbedding(
             model_name=self.config['embedding']['model_name'],
@@ -48,9 +48,9 @@ class DataPreprocessingPipeline:
         # self.data_catalog.datasets.to_json(self.config["data"]["datasets"]["path"], orient="split", force_ascii=False)
 
         asyncio.run(self.data_catalog.update_datasets())
-        datasets_documents = self.data_catalog.prepare_documents_for_upload(self.data_catalog.datasets)
-        self.database.load_documents(datasets_documents)
-        self.knowledge_graph.create_kg(self.data_catalog.datasets)
+        # datasets_documents = self.data_catalog.prepare_documents_for_upload(self.data_catalog.datasets)
+        # self.database.load_documents(datasets_documents)
+        # self.knowledge_graph.create_kg(self.data_catalog.datasets)
 
 
 @click.command()

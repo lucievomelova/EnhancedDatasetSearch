@@ -47,7 +47,7 @@ class NkodDataCatalog(DataCatalog):
         """Indicates if new datasets_raw file should be downloaded and processed or not."""
 
         self.config = config
-        self.client = OllamaClient(self.config["llm"])
+        self.client = OllamaClient(self.config["data_processing"]["llm"])
 
         self.distributions = download_distribution_info(config["data"]["distributions"]["path"],
                                                         config["data"]["distributions"]["url"],
@@ -134,7 +134,7 @@ class NkodDataCatalog(DataCatalog):
 
         for col in self.list_columns:
             self.datasets[col] = self.datasets[col].apply(
-                lambda lst: [x for x in lst if pd.notna(x) and x is not None and x != np.nan]
+                lambda lst: sorted([x for x in lst if pd.notna(x) and x is not None and x != np.nan])
             )
 
         self.all_keywords = set(self.datasets["keywords"].explode().dropna().unique())
@@ -169,31 +169,39 @@ class NkodDataCatalog(DataCatalog):
             return  # we don't need to load transformed_datasets_raw
 
         today = datetime.today().date()
+        mod_datetime = None
         if os.path.exists(self._data_config["datasets_transformed_path"]):
             mod_time = os.path.getmtime(self._data_config["datasets_transformed_path"])
             mod_datetime = datetime.fromtimestamp(mod_time)
-            #  check if datasets_raw_transformed file is up to date - if it is, we can load the data from there
-            if mod_datetime.date() == today:
-                logger.info("File containing datasets_raw_transformed exists and is up to date - loading.")
-                self.datasets_raw_transformed = pd.read_csv(self._data_config["datasets_transformed_path"], sep=",", dtype="string")
-                return
+        #  check if datasets_raw_transformed file is up to date - if it is, we can load the data from there
+        if mod_datetime is not None and mod_datetime.date() == today:
+            logger.info("File containing datasets_raw_transformed exists and is up to date - loading.")
+            self.datasets_raw_transformed = pd.read_csv(self._data_config["datasets_transformed_path"], sep=",", converters={col: pd.eval for col in self.list_columns})
+        else:
+            # transform data from datasets_raw to obtained datasets_raw_transformed
+            self.datasets_raw_transformed = self.datasets_raw.rename(columns=self._column_mapping)
+            self.datasets_raw_transformed = merge_keywords_and_themes_rows(self.datasets_raw_transformed)
+            self.datasets_raw_transformed = drop_irrelevant_columns(self.datasets_raw_transformed,
+                                                                    self._data_processing_config["irrelevant_columns"])
 
-        # transform data from datasets_raw to obtained datasets_raw_transformed
+            add_metadata_to_datasets_from_sparql(self.config, self.datasets_raw_transformed)
 
-        self.datasets_raw_transformed = self.datasets_raw.rename(columns=self._column_mapping)
-        self.datasets_raw_transformed = merge_keywords_and_themes_rows(self.datasets_raw_transformed)
-        self.datasets_raw_transformed = drop_irrelevant_columns(self.datasets_raw_transformed,
-                                                                self._data_processing_config["irrelevant_columns"])
+            # store full description before any processing is applied so taht later we are able to detect changes
+            # in datasets' metadata
+            self.datasets_raw_transformed["full_description"] = self.datasets_raw_transformed.apply(
+                lambda r: f"{r["title"]}\n{r["description"]}\n({r["provider"]} | "
+                          f"{", ".join(sorted(r["keywords"]))} | "
+                          f"{", ".join(sorted(r["themes"]))} | "
+                          f"{", ".join(sorted(r["spatial_coverage"]))} | "
+                          f"{", ".join(sorted(r["temporal_coverage"]))})", axis=1)
+            # add category column, now empty for each dataset
+            self.datasets_raw_transformed["categories"] = [[] for _ in range(len(self.datasets_raw_transformed))]
+            clean_metadata(self.datasets_raw_transformed,
+                           None,
+                           self._data_processing_config["categories"],
+                           self._state_dir)
 
-        # add category column, now empty for each dataset
-        self.datasets_raw_transformed["categories"] = [[] for _ in range(len(self.datasets_raw_transformed))]
-        clean_metadata(self.datasets_raw_transformed,
-                       None,
-                       self._data_processing_config["categories"],
-                       self._state_dir)
-        add_metadata_to_datasets_from_sparql(self.config, self.datasets_raw_transformed)
-
-        self.datasets_raw_transformed.to_csv(self._data_config["datasets_transformed_path"], index=False, header=True)
+            self.datasets_raw_transformed.to_csv(self._data_config["datasets_transformed_path"], index=False, header=True)
 
         # metadata cleaned -> find all unique keywords and themes, which will be used for metadata enrichment
         self._all_keywords_raw = set(self.datasets_raw_transformed["keywords"].explode().dropna().unique())
@@ -204,9 +212,14 @@ class NkodDataCatalog(DataCatalog):
         # find new or updated datasets by comparing new and old datasets if old datasets exist
         removed_urls = None  # for tracking which urls were present before but are not present now
         if not self.datasets.empty:
-            merged_df = pd.merge(self.datasets_raw_transformed, self.datasets["url"], on="url", how='outer', indicator=True)
-            new_datasets = merged_df[merged_df['_merge'] == 'left_only'][self.datasets_raw_transformed.columns]
+            # merge by url and full description to find all changes
+            merged_df = pd.merge(self.datasets_raw_transformed, self.datasets[["url", "full_description"]], on=["url", "full_description"], how='outer', indicator=True)
+
+            # get urls of removed and updated datasets, so we can remove them
             removed_urls = merged_df[merged_df['_merge'] == 'right_only']["url"].tolist()
+
+            # new OR updated datasets, but we remove updated datasets and process them again, so we call them all new
+            new_datasets = merged_df[merged_df['_merge'] == 'left_only'][self.datasets_raw_transformed.columns]
             logger.info(f"Number of new or updated datasets: {new_datasets.shape[0]}.")
         else:  # otherwise all datasets are new
             logger.info(f"Old file not found. Adding all datasets to DB ({self.datasets_raw_transformed.shape[0]} datasets).")
@@ -227,7 +240,6 @@ class NkodDataCatalog(DataCatalog):
         # file for storing intermediate results - it must be csv, because json doesn't have an append option
         # but later we want to use json because of faster loading time
         tmp_file_name = self._data_config["datasets_path"].replace(".json", f"_tmp.csv")
-        print(self.datasets.columns)
         if not self.datasets.empty:  # if datasets is not empty, put current state of it in tmp file
             self.datasets.to_csv(tmp_file_name, index=False, header=True)
         # do the updates in chunks -> in case of script failure we can resume from the last chunk
@@ -309,6 +321,7 @@ class NkodDataCatalog(DataCatalog):
             "categories": categories,
             "spatial_coverage": generated_metadata["spatial_coverage"],
             "temporal_coverage": generated_metadata["temporal_coverage"],
+            "full_description": row["full_description"]
         }
         return metadata
 

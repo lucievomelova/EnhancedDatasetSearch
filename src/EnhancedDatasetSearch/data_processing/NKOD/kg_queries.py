@@ -84,7 +84,7 @@ def create_description_similarity_edges(tx, dataset_url: str, similar_datasets: 
     )
 
 def run_similarity_query(tx, dataset_url: str, kg_config: dict) -> list[tuple[str, float]]:
-    """Run a query to get similar datasets based on a specific similarity type."""
+    """Run a query to get similar datasets based on description similarity."""
     result = tx.run(
         """
         MATCH (d:Dataset {url: $url, graph: $graph})-[r:SIMILAR]-(similar:Dataset {graph: $graph})

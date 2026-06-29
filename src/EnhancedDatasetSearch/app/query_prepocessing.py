@@ -25,13 +25,24 @@ def _metadata_filters_selected(applied_filters: dict | None) -> bool:
 class QueryPreprocessor:
     def __init__(self, config: dict) -> None:
         self.config = config
-        self.client = OllamaClient(config["llm"], timeout=config["pipeline_config"]["preprocessing"]["timeout"])
+        self.client = OllamaClient(config["pipeline_config"]["llm"], timeout=config["pipeline_config"]["preprocessing"]["timeout"])
 
     def run(self, user_query: str, applied_filters: dict | None, categories: list[str], other_category: str) -> (dict, str):
         """Preprocess the user query."""
         logger.info(f"Preprocessing user query: {user_query} with metadata filters: {applied_filters}")
-        intent = self.detect_user_intent(user_query, applied_filters, categories, other_category)
-        extended_query = self.extend_user_query(user_query, applied_filters, intent)
+
+        if self.config["pipeline_config"]["preprocessing"]["detect_intent"]:
+            intent = self.detect_user_intent(user_query, applied_filters, categories, other_category)
+        else:
+            intent = {
+                "categories": [],
+                "spatial_coverage": [],
+                "temporal_coverage": []
+            }
+        if self.config["pipeline_config"]["preprocessing"]["extend_query"]:
+            extended_query = self.extend_user_query(user_query, applied_filters, intent)
+        else:
+            extended_query = "-"
         return intent, extended_query
 
     def extend_user_query(self, user_query: str, applied_filters: dict | None, intent: dict) -> str:

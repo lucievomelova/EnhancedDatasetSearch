@@ -4,9 +4,8 @@ import pandas as pd
 class KnowledgeGraph:
     """Class representing a metadata knowledge graph."""
     def create_kg(self, datasets: pd.DataFrame) -> None:
-        """Create knowledge graph."""
+        """Create the knowledge graph."""
         pass
-
 
     def get_similar_datasets(self, dataset_url: str) -> dict[str, list[tuple[str, float]]]:
         """Get similar datasets based on the knowledge graph.

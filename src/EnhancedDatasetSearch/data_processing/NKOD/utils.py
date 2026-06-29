@@ -61,7 +61,7 @@ def merge_keywords_and_themes_rows(df: pd.DataFrame) -> pd.DataFrame:
     df = df.drop_duplicates(subset=[groupby_column])
 
     # if a list contains NaN value, remove it from the list
-    df = df.map(lambda x: x if not isinstance(x, list) else [i for i in x if pd.notna(i)])
+    df = df.map(lambda x: x if not isinstance(x, list) else sorted([i for i in x if pd.notna(i)]))
     df = df.replace(np.nan, None)  # remaining NaNs to None
     logger.info(f"Keywords and themes merged, number of rows: {df.shape[0]}.")
     return df

@@ -27,7 +27,6 @@ class OllamaClient:
 
     def get_llm_json_response(self, prompt: str, num_retry_attempts: int = 3) -> (dict | None, int):
         """Call LLM with the specified prompt and parse the returned json response to dict."""
-
         retry = 0
         while True:
             response = self.client.generate(model=self.llm_config["model_name"],
@@ -43,5 +42,5 @@ class OllamaClient:
             except json.decoder.JSONDecodeError as e:
                 logger.error(f"Error while deserializing LLM response from json: {e}. Retrying...")
                 if retry >= num_retry_attempts:
-                    return None, retry
+                    return {}, retry
                 retry += 1
