@@ -1,5 +1,3 @@
-from collections import defaultdict
-
 import pandas as pd
 
 from EnhancedDatasetSearch.data_processing.data_catalog import DataCatalog
@@ -15,24 +13,6 @@ def get_common_metadata(metadata_category_list: list[str], metadata_a: dict, met
         cat_title = cat.title().replace("_", " ")
         common_metadata[cat_title] = set_a.intersection(set_b)
     return common_metadata
-
-
-def get_all_metadata(search_results: list[dict[str, str | list | None]]) -> dict[str, set[str]]:
-    """Get all metadata appearing in search results.
-
-    The retrieved metadata can be used for dynamic filtering on the search result page.
-    Returns:
-        a dict, where key is the metadata category and value is a set of all metadata values
-        appearing in the search results for that category."""
-    all_metadata = defaultdict(set)
-    for result in search_results:
-        metadata = result['categorization_metadata'] if result['categorization_metadata'] is not None else {}
-        for metadata_category, metadata_values in metadata.items():
-            if isinstance(metadata_values, str):
-                all_metadata[metadata_category].add(metadata_values)
-            elif isinstance(metadata_values, list):
-                all_metadata[metadata_category].update(metadata_values)
-    return all_metadata
 
 
 def get_similar_datasets_with_preview_text(

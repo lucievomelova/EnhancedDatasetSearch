@@ -1,0 +1,24 @@
+{{ intro }}
+
+# Input
+The search query: "{{ user_query }}".
+{% if filters_selected %}
+The selected metadata filters are: {{ applied_filters }}
+{% endif %}
+
+## Detected User Intent
+- Categories: {{ categories_intent }}
+- Spatial coverage: {{ spatial_intent }}
+- Temporal coverage: {{ temporal_intent }}
+
+# Your Task
+Expand the query to improve its effectiveness for searching in the catalog. Consider the following guidelines:
+1. Maintain and emphasize user intent.
+2. Use synonyms, related terms, or more specific phrases.
+3. You can construct multiple queries and separate them by commas.
+{% if filters_selected %}
+4. Incorporate the applied metadata filters into the query.
+{% endif %}
+
+Return ONLY the expanded query as a plain text string without any additional explanations or formatting.
+The query should be in natural language. It should NOT exceed 50 words.

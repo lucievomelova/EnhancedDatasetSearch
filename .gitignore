@@ -7,3 +7,5 @@ venv
 experiments
 state
 *.json
+*.egg-info
+*.db

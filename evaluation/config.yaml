@@ -54,6 +54,7 @@ pipeline_config:
     top_k: 20  # only used for llm and sentence_transformer rerankers
     score_cutoff: 0.1
 data_processing:
+  timeout: 120
   llm:
     model_name: "mistral-small3.2:latest"  #"mistral-small3.2:latest"  #"qwen3.6:27b"
     base_url: "http://localhost:11434"

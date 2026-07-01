@@ -32,6 +32,10 @@ chatbot:
     context_length: 4096
     memory_limit: 4096
 pipeline_config:
+  llm:
+    model_name: "mistral-small3.2:latest"  #"qwen3.6:27b"
+    base_url: "http://localhost:11434"
+    context_length: 2048
   preprocessing:
     detect_intent: true
     extend_query: true
@@ -50,6 +54,7 @@ pipeline_config:
     top_k: 20  # only used for llm and sentence_transformer rerankers
     score_cutoff: 0.2
 data_processing:
+  timeout: 120
   llm:
     model_name: "mistral-small3.2:latest"  #"qwen3.6:27b"
     base_url: "http://localhost:11434"

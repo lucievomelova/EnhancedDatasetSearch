@@ -1,0 +1,19 @@
+{{ intro }}
+
+# Input
+The user query: {{ user_query }}
+
+## Detected User Intent
+You know that the user is looking for data with the following intent:
+- Categories: {{ categories_intent }}
+- Geographical regions: {{ regions_intent }}
+- Time Periods: {{ time_periods_intent }}
+
+# Your Task
+Expand the user search query so that the retrieval of relevant datasets
+is more effective. Use synonyms, related terms, and broader concepts.
+
+Provide {{ min_num }}-{{ max_num }} alternative search queries that capture the essence of the user's intent.
+
+Return only the alternative queries without any additional commentary. The queries MUST BE in Czech.
+Return each query on a separate line.

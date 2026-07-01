@@ -1,5 +1,6 @@
 import json
 
+import httpx
 from ollama import Client
 
 from EnhancedDatasetSearch.utils import setup_logger
@@ -29,18 +30,24 @@ class OllamaClient:
         """Call LLM with the specified prompt and parse the returned json response to dict."""
         retry = 0
         while True:
-            response = self.client.generate(model=self.llm_config["model_name"],
-                                            prompt=prompt,
-                                            format='json',
-                                            options={
-                                                "num_ctx": self.llm_config["context_length"],
-                                                "temperature": 0}
-                                            ).response
             try:
+                response = self.client.generate(model=self.llm_config["model_name"],
+                                                prompt=prompt,
+                                                format='json',
+                                                options={
+                                                    "num_ctx": self.llm_config["context_length"],
+                                                    "temperature": 0}
+                                                ).response
                 response_dict = json.loads(response)
                 return response_dict, retry
             except json.decoder.JSONDecodeError as e:
                 logger.error(f"Error while deserializing LLM response from json: {e}. Retrying...")
+                retry += 1
                 if retry >= num_retry_attempts:
                     return {}, retry
+            except httpx.ReadTimeout as e:
+                logger.error(f"Timeout error: {e}. Retrying...")
                 retry += 1
+                if retry >= num_retry_attempts:
+                    return {}, retry
+

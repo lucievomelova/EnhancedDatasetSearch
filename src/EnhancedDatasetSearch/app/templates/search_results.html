@@ -67,7 +67,6 @@
     <div class="container-search-results">
         <div class="header">
             <h1 class="title"><a href="/" class="home-link">
-              <img src="{{ url_for('static', filename='book_icon.svg') }}" width="36" height="36" alt="Enhanced NKOD Dataset Search icon"/>
             Enhanced NKOD Dataset Search</a></h1>
 
             <form method="POST" action="/search" class="search-form" id="searchForm">
@@ -194,6 +193,7 @@
                 overlay.classList.add('active');
             }
         });
+        applyFilters();
     </script>
 </body>
 </html>

@@ -7,6 +7,7 @@ from EnhancedDatasetSearch.data_processing.database import Database
 from EnhancedDatasetSearch.data_processing.knowledge_graph import KnowledgeGraph
 from EnhancedDatasetSearch.data_processing.NKOD.kg_queries import *
 from EnhancedDatasetSearch.utils import setup_logger
+from pandas import Series
 
 logger = setup_logger(__name__)
 
@@ -23,13 +24,51 @@ class NkodKnowledgeGraph(KnowledgeGraph):
         self.kg_config = kg_config
         self.database = database
 
+    def _add_dataset_node(self, row: Series, graph_name: str) -> None:
+        """Add a dataset node to KG represented by a dataframe row and create all its metadata relationships."""
+        with self.driver.session() as session:
+            metadata = row.drop(columns="description")
+            # add dataset node
+            session.execute_write(create_dataset_node, metadata, graph_name)
+            url = row["url"]
+
+            # add keywords, themes, categories, spatial coverage, temporal coverage and provider nodes
+            for keyword in row["keywords"]:
+                session.execute_write(create_keyword_node, url, keyword.title(), graph_name)
+            for theme in row["themes"]:
+                session.execute_write(create_theme_node, url, theme.title(), graph_name)
+            for category in row["categories"]:
+                session.execute_write(create_category_node, url, category.title(), graph_name)
+            for spatial_coverage in row["spatial_coverage"]:
+                session.execute_write(
+                    create_spatial_coverage_node,
+                    url,
+                    spatial_coverage.title(),
+                    graph_name
+                )
+            for temporal_coverage in row["temporal_coverage"]:
+                session.execute_write(
+                    create_temporal_coverage_node,
+                    url,
+                    temporal_coverage.title(),
+                    graph_name
+                )
+            session.execute_write(create_provider_node, url, row["provider"].title(), graph_name)
+
+    def create_or_update_kg(self, datasets: pd.DataFrame, new_datasets: pd.DataFrame, removed_urls: list) -> None:
+        """Create a knowledge graph or update it if it exists."""
+        if len(new_datasets) == len(datasets):
+            self.create_kg(datasets)
+        else:
+            self.update_kg(datasets, new_datasets, removed_urls)
+
+
     def create_kg(self, datasets: pd.DataFrame) -> None:
         """Create knowledge graph based on dataset metadata and description embedding similarity."""
         logger.info(f"Creating knowledge graph from dataset metadata for {len(datasets)} datasets.")
 
-        # delete old data and create constraints on nodes
+        # create constraints on nodes
         with self.driver.session() as session:
-            session.run(f"MATCH (n) WHERE n.graph = $graph DETACH DELETE n;", graph=self.kg_config["name"])
             session.run("CREATE CONSTRAINT dataset_url IF NOT EXISTS FOR (d:Dataset) REQUIRE (d.url, d.graph) IS UNIQUE;")
             session.run("CREATE CONSTRAINT keyword_name IF NOT EXISTS FOR (k:Keyword) REQUIRE k.name IS UNIQUE;")
             session.run("CREATE CONSTRAINT theme_name IF NOT EXISTS FOR (t:Theme) REQUIRE t.name IS UNIQUE;")
@@ -38,59 +77,73 @@ class NkodKnowledgeGraph(KnowledgeGraph):
             session.run("CREATE CONSTRAINT spatial_coverage_name IF NOT EXISTS FOR (r:SpatialCoverage) REQUIRE r.name IS UNIQUE;")
             session.run("CREATE CONSTRAINT temporal_coverage_name IF NOT EXISTS FOR (t:TemporalCoverage) REQUIRE t.name IS UNIQUE;")
 
+        # use a temporary graph name to create the new KG so that the old one is still avaiable and there is no downtime
+        # once the new KG is created, delete the old one and rename the new on
+        tmp_graph_name = f"{self.kg_config["name"]}_staging"
+        logger.info(f"Creating knowledge graph {tmp_graph_name}.")
+
+        for i, (_, row) in enumerate(datasets.iterrows()):
+            if i % 500 == 0:
+                logger.info(f"{i}/{len(datasets)}")
+            self._add_dataset_node(row, tmp_graph_name)
+
+        self.add_similarity_edges(datasets, tmp_graph_name)
+
+        # delete old graph and rename the new one
+        logger.info(f"Deleting old graph {self.kg_config["name"]} and swapping staging graph to live.")
         with self.driver.session() as session:
-            for i, (_, row) in enumerate(datasets.iterrows()):
-                if i % 500 == 0:
-                    logger.info(f"{i}/{len(datasets)}")
-                metadata = row.drop(columns="description")
-                # add dataset nodes
-                session.execute_write(create_dataset_node, metadata, self.kg_config["name"])
-                url = row["url"]
-
-                # add keywords, themes, categories, spatial coverage, temporal coverage and provider nodes
-                for keyword in row["keywords"]:
-                    session.execute_write(create_keyword_node, url, keyword.title(), self.kg_config["name"])
-                for theme in row["themes"]:
-                    session.execute_write(create_theme_node, url, theme.title(), self.kg_config["name"])
-                for category in row["categories"]:
-                    session.execute_write(create_category_node, url, category.title(), self.kg_config["name"])
-                for spatial_coverage in row["spatial_coverage"]:
-                    session.execute_write(
-                        create_spatial_coverage_node,
-                        url,
-                        spatial_coverage.title(),
-                        self.kg_config["name"]
-                    )
-                for temporal_coverage in row["temporal_coverage"]:
-                    session.execute_write(
-                        create_temporal_coverage_node,
-                        url,
-                        temporal_coverage.title(),
-                        self.kg_config["name"]
-                    )
-                session.execute_write(create_provider_node, url, row["provider"].title(), self.kg_config["name"])
-
-        self.add_similarity_edges(datasets, self.kg_config)
+            session.run(f"MATCH (n) WHERE n.graph = $graph DETACH DELETE n;", graph=self.kg_config["name"])
+            session.run(f"MATCH (n) WHERE n.graph = $graph_old SET n.graph = $graph_new;", graph_old=tmp_graph_name, graph_new=self.kg_config["name"])
         logger.info("Knowledge graph creation completed.")
 
-    def add_similarity_edges(self, datasets: pd.DataFrame, kg_config: dict) -> None:
+    def update_kg(self, datasets: pd.DataFrame, new_datasets: pd.DataFrame, removed_urls: list):
+        """Update an existing knowledge graph by adding new datasets."""
+        # remove removed datasets by url
+        logger.info(f"Removing {len(removed_urls)} datasets from the knowledge graph.")
+        deleted_neighbor_urls = []
+        if removed_urls is not None:
+            for url in removed_urls:
+                with self.driver.session() as session:
+                    # first find neighbors of nodes to be deleted
+                    result = session.run("""
+                        MATCH (d:Dataset {url: $url, graph: $graph})-[:SIMILAR]-(neighbor:Dataset {graph: $graph})
+                        RETURN neighbor.url AS neighborUrl""", url=url, graph=self.kg_config["name"])
+                    deleted_neighbor_urls = [record["neighborUrl"] for record in result]
+                    # delete nodes
+                    session.run("MATCH (n:Dataset) WHERE n.url = $url DETACH DELETE n;", url=url)
+        logger.info(f"Adding {len(new_datasets)} new datasets to the knowledge graph.")
+        for i, (_, row) in enumerate(new_datasets.iterrows()):
+            with self.driver.session() as session:
+                # new datasets contain new or updated datasets, so we must remove dataset nodes that exist in the KG
+                session.run("MATCH (n:Dataset) WHERE n.url = $url DETACH DELETE n;", url=row["url"])
+                self._add_dataset_node(row, self.kg_config["name"])  # add nodes
+
+        logger.info(f"Creating similarity edges for {len(new_datasets)} new datasets.")
+        self.add_similarity_edges(new_datasets, self.kg_config["name"])
+
+        # add similarity edges to datasets that lost a neighbor
+        logger.info(f"Creating similarity edges for {len(deleted_neighbor_urls)} datasets that lost a neighbor.")
+        deleted_neighbor_rows = datasets[datasets["url"].isin(deleted_neighbor_urls)]
+        self.add_similarity_edges(deleted_neighbor_rows, self.kg_config["name"])
+        logger.info("Knowledge graph creation complete.")
+
+    def add_similarity_edges(self, datasets: pd.DataFrame, graph_name: str) -> None:
         """Add similarity edges between datasets based on description embedding and metadata."""
         for i, (_, row) in enumerate(datasets.iterrows()):
             if i % 500 == 0:
                 logger.info(f"Adding description similarity edges for dataset {i}")
             # description embedding similarity edges
-            similarity_threshold = self.kg_config["similarity_threshold"]
             similar_datasets = self.database.get_similar_datasets_by_embedding(
                 row["url"],
-                similarity_threshold,
-                kg_config["top_k"]
+                self.kg_config["similarity_threshold"],
+                self.kg_config["top_k"]
             )
             with self.driver.session() as session:
                 session.execute_write(
                     create_description_similarity_edges,
                     row["url"],
                     similar_datasets,
-                    kg_config["name"]
+                    graph_name
                 )
 
     def get_similar_datasets(self, dataset_url: str) -> dict[str, list[tuple[str, float]]]:

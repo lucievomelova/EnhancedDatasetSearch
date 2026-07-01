@@ -1,7 +1,5 @@
 document.addEventListener('DOMContentLoaded', function() {
     initializeFilters();
-    initializeFilterToggles();
-    initializeSidebarToggle();
 });
 
 function initializeFilters() {

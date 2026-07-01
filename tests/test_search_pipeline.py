@@ -1,10 +1,10 @@
 """Unit tests for the search pipeline. Here we use real LLM calls to test that they do not introduce errors. But
 tha tests do not rely on the results of these calls in any way to ensure that the test results are deterministic."""
 import pytest
-from llama_index.core.schema import BaseNode, NodeWithScore, TextNode
+from llama_index.core.schema import NodeWithScore, TextNode
 
-from EnhancedDatasetSearch.app.result_postprocessing import PostProcessor
-from EnhancedDatasetSearch.app.retrieve import Retriever
+from EnhancedDatasetSearch.search.result_postprocessing import PostProcessor
+from EnhancedDatasetSearch.search.retrieve import Retriever
 
 pytest_plugins = ('pytest_asyncio',)
 

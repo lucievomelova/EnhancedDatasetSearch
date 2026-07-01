@@ -51,7 +51,7 @@ def merge_keywords_and_themes_rows(df: pd.DataFrame) -> pd.DataFrame:
     list_columns = ["keywords", "themes"]  # columns that contain multiple values per dataset -> merge into one list
     groupby_column = "url"  # group by dataset URL
     for col in list_columns:
-        sub_df = df.groupby(groupby_column)[col].apply(lambda x: list(set(x))).reset_index()
+        sub_df = df.groupby(groupby_column)[col].apply(lambda x: sorted(list(set(x.dropna())))).reset_index()
         df = df.drop(columns=[col])
         df = pd.merge(df, sub_df, on=groupby_column, how='left')
 
@@ -61,7 +61,7 @@ def merge_keywords_and_themes_rows(df: pd.DataFrame) -> pd.DataFrame:
     df = df.drop_duplicates(subset=[groupby_column])
 
     # if a list contains NaN value, remove it from the list
-    df = df.map(lambda x: x if not isinstance(x, list) else sorted([i for i in x if pd.notna(i)]))
+    df = df.map(lambda x: x if not isinstance(x, list) else [i for i in x if pd.notna(i) and i != ""])
     df = df.replace(np.nan, None)  # remaining NaNs to None
     logger.info(f"Keywords and themes merged, number of rows: {df.shape[0]}.")
     return df

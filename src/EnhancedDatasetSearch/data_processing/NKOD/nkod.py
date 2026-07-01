@@ -5,6 +5,7 @@ will be downloaded and if there are changes detected in some datasets at NKOD, t
 then added again.
 """
 import asyncio
+import hashlib
 import os
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
@@ -47,7 +48,7 @@ class NkodDataCatalog(DataCatalog):
         """Indicates if new datasets_raw file should be downloaded and processed or not."""
 
         self.config = config
-        self.client = OllamaClient(self.config["data_processing"]["llm"])
+        self.client = OllamaClient(self.config["data_processing"]["llm"], self.config["data_processing"]["timeout"])
 
         self.distributions = download_distribution_info(config["data"]["distributions"]["path"],
                                                         config["data"]["distributions"]["url"],
@@ -127,6 +128,7 @@ class NkodDataCatalog(DataCatalog):
             # tmp file exists -> metadata enrichment of new datasets was interrupted -> continue where we stopped
             logger.info("Loading datasets from tmp file.")
             self.datasets = pd.read_csv(tmp_file_name, sep=",", converters={col: pd.eval for col in self.list_columns})
+            # self.datasets.to_csv(tmp_file_name, index=False, header=True)
         else:
             logger.warning("Datasets file not found.")
             self.datasets = pd.DataFrame()
@@ -186,18 +188,22 @@ class NkodDataCatalog(DataCatalog):
 
             add_metadata_to_datasets_from_sparql(self.config, self.datasets_raw_transformed)
 
-            # store full description before any processing is applied so taht later we are able to detect changes
+            # store full description hash before any processing is applied so that later we are able to detect changes
             # in datasets' metadata
             self.datasets_raw_transformed["full_description"] = self.datasets_raw_transformed.apply(
                 lambda r: f"{r["title"]}\n{r["description"]}\n({r["provider"]} | "
                           f"{", ".join(sorted(r["keywords"]))} | "
                           f"{", ".join(sorted(r["themes"]))} | "
                           f"{", ".join(sorted(r["spatial_coverage"]))} | "
-                          f"{", ".join(sorted(r["temporal_coverage"]))})", axis=1)
+                          f"{", ".join(sorted(r["temporal_coverage"]))})", axis=1
+            )
+            self.datasets_raw_transformed["full_description_hash"] = self.datasets_raw_transformed.apply(
+                lambda r: hashlib.md5(r["full_description"].encode("utf-8")).hexdigest(), axis=1
+            )
             # add category column, now empty for each dataset
             self.datasets_raw_transformed["categories"] = [[] for _ in range(len(self.datasets_raw_transformed))]
             clean_metadata(self.datasets_raw_transformed,
-                           None,
+                           self.client,
                            self._data_processing_config["categories"],
                            self._state_dir)
 
@@ -207,19 +213,21 @@ class NkodDataCatalog(DataCatalog):
         self._all_keywords_raw = set(self.datasets_raw_transformed["keywords"].explode().dropna().unique())
         logger.info(f"Number of unique keywords in transformed datasets_raw: {len(self._all_keywords_raw)}")
 
-    def get_new_datasets(self) -> pd.DataFrame:
+    def get_new_datasets(self) -> (pd.DataFrame, list):
         """Get a dataframe of new or updated datasets and update self.datasets with the new data."""
         # find new or updated datasets by comparing new and old datasets if old datasets exist
         removed_urls = None  # for tracking which urls were present before but are not present now
         if not self.datasets.empty:
             # merge by url and full description to find all changes
-            merged_df = pd.merge(self.datasets_raw_transformed, self.datasets[["url", "full_description"]], on=["url", "full_description"], how='outer', indicator=True)
+            merged_df = pd.merge(self.datasets_raw_transformed, self.datasets[["url", "full_description_hash"]], on=["url", "full_description_hash"], how='outer', indicator=True)
 
             # get urls of removed and updated datasets, so we can remove them
             removed_urls = merged_df[merged_df['_merge'] == 'right_only']["url"].tolist()
 
             # new OR updated datasets, but we remove updated datasets and process them again, so we call them all new
             new_datasets = merged_df[merged_df['_merge'] == 'left_only'][self.datasets_raw_transformed.columns]
+            new_datasets.drop(columns="full_description")
+
             logger.info(f"Number of new or updated datasets: {new_datasets.shape[0]}.")
         else:  # otherwise all datasets are new
             logger.info(f"Old file not found. Adding all datasets to DB ({self.datasets_raw_transformed.shape[0]} datasets).")
@@ -233,7 +241,7 @@ class NkodDataCatalog(DataCatalog):
             # find which rows are already in the datasets based on url - don't add them again
             merged_df = pd.merge(self.datasets["url"], new_datasets, on="url", how='outer', indicator=True)
             new_datasets = merged_df.query("_merge == 'right_only'").drop('_merge', axis=1).reset_index(drop=True)
-        return new_datasets
+        return new_datasets, removed_urls
 
     async def enrich_new_datasets_metadata(self, new_datasets: pd.DataFrame) -> None:
         """Enrich metadata of new_datasets and update self.datasets with the enriched data."""
@@ -275,13 +283,14 @@ class NkodDataCatalog(DataCatalog):
         # save after metadata cleaning as json
         self.datasets.to_json(self._data_config["datasets_path"], orient="split", force_ascii=False)
 
-    async def update_datasets(self) -> None:
+    async def update_datasets(self) -> (pd.DataFrame, list):
         """Update datasets based on the last downloaded datasets_raw table.
 
         Remove datasets that are not present, update existing datasets or add new datasets, then enrich new
         or existing datasets' metadata using an LLM."""
-        new_datasets = self.get_new_datasets()
+        new_datasets, removed_urls = self.get_new_datasets()
         await self.enrich_new_datasets_metadata(new_datasets)
+        return new_datasets, removed_urls
 
     async def _create_metadata_for_chunk(self, new_datasets:  pd.DataFrame):
         """Create metadata dict for a chunk of new datasets asynchronously."""
@@ -321,7 +330,7 @@ class NkodDataCatalog(DataCatalog):
             "categories": categories,
             "spatial_coverage": generated_metadata["spatial_coverage"],
             "temporal_coverage": generated_metadata["temporal_coverage"],
-            "full_description": row["full_description"]
+            "full_description_hash": row["full_description_hash"]
         }
         return metadata
 

@@ -8,6 +8,8 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='styles/styles.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='styles/dataset_detail.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='styles/chatbot_button.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css">
+
 </head>
 <body>
     <div class="language-selector">
@@ -17,12 +19,18 @@
         </select>
     </div>
 
+
     <div class="container-dataset-detail">
         <div class="detail-header">
-            <h1 class="detail-title">{{ dataset.title }}</h1>
+            <div class="detail-titles">
+                <h1 class="title"><a href="/" class="home-link">Enhanced NKOD Dataset Search</a></h1>
+                <h2 class="detail-title">{{ dataset.title }}</h2>
+            </div>
+
             <a href="https://data.gov.cz/datová-sada?iri={{ dataset.url }}" target="_blank" rel="noopener noreferrer" class="external-link-button">
                 View on the Czech Dataset Portal
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
+                     fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
                     <polyline points="15 3 21 3 21 9"></polyline>
                     <line x1="10" y1="14" x2="21" y2="3"></line>
@@ -30,18 +38,11 @@
             </a>
         </div>
 
-            <div class="detail-section">
-                <p class="detail-text">{{ dataset.text }}</p>
+            <div>
+                <p>{{ dataset.text }}</p>
             </div>
 
-            {% if dataset.explanation %}
-            <div class="detail-section">
-                <h3 class="section-title">Why this result?</h3>
-                <p class="detail-explanation">{{ dataset.explanation }}</p>
-            </div>
-            {% endif %}
-
-            <div class="detail-section">
+            <div>
                 <div class="metadata-grid">
                     {% for metadata_category, metadata_values in dataset.categorization_metadata.items() %}
                     {% if metadata_values %}
@@ -67,7 +68,7 @@
             </div>
 
             {% if distributions %}
-                <div class="detail-section">
+                <div>
                     <h3 class="section-title">Distributions</h3>
                     <div class="distributions">
                         <div class="distribution-list">
@@ -87,7 +88,7 @@
             {% endif %}
 
             {% if similar_datasets %}
-            <div class="detail-section">
+            <div>
                 <h3 class="section-title">Similar Datasets</h3>
                 {% for similarity_category, similar_datasets_in_category in similar_datasets.items() %}
                 {% if similar_datasets_in_category %}

@@ -1,10 +1,10 @@
 data:
   datasets_raw:
-#    path: "data/golden/datasets_small.csv"
+#    path: "data/small/datasets_small.csv"
     path: "data//datove_sady.csv"
     url: "https://data.gov.cz/soubor/datov%C3%A9-sady.csv"
   datasets:
-#    path: "data/golden/datasets_with_metadata_small.json"
+#    path: "data/small/datasets_with_metadata_small.json"
     path: "data//datasets_with_metadata_large.json"
   sparql_endpoint: "https://data.gov.cz/sparql"
   distributions:
@@ -27,13 +27,13 @@ embedding:
   url_to_node_id_mapping_file: "url_to_node_id_mapping.json"  #"url_to_node_id_mapping_test.json"
 chatbot:
   llm:
-    model_name: "qwen3.6:27b"  #"mistral-small3.2:latest"
+    model_name: mistral-small3.2:latest  #qwen3.6:35b-a3b  #"qwen3.6:27b"  #"mistral-small3.2:latest"
     base_url: "http://localhost:11434"
     context_length: 4096
     memory_limit: 4096
 pipeline_config:
   llm:
-    model_name: "mistral-small3.2:latest"  #"mistral-small3.2:latest"  #"qwen3.6:27b"
+    model_name: mistral-small3.2:latest  #"mistral-small3.2:latest"  #"qwen3.6:27b"
     base_url: "http://localhost:11434"
     context_length: 4096
   preprocessing:
@@ -44,7 +44,7 @@ pipeline_config:
     top_k: 30
     vector_top_k: 20
     bm25_top_k: 20
-    mode: relative_score
+    mode: dist_based_score
     retriever_weights:
       - 0.7  # vector_retriever
       - 0.3  # bm25_retriever
@@ -54,12 +54,13 @@ pipeline_config:
     top_k: 20  # only used for llm and sentence_transformer rerankers
     score_cutoff: 0.2
 data_processing:
+  timeout: 120
   llm:
-    model_name: "mistral-small3.2:latest"  #"mistral-small3.2:latest"  #"qwen3.6:27b"
+    model_name: mistral-small3.2:latest  #"mistral-small3.2:latest"  #"qwen3.6:27b"
     base_url: "http://localhost:11434"
-    context_length: 4096
+    context_length: 2048
   knowledge_graph:
-    name: "graph_qwen4b"  # test_graph, graph_qwen4b
+    name: "graph_qwen4b" #"graph_qwen4b"  # test_graph, graph_qwen4b
     top_k: 5
     similarity_threshold: 0.7
   column_mapping:

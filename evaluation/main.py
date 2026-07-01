@@ -73,12 +73,8 @@ async def evaluate(data_catalog: NkodDataCatalog, search_pipeline: SearchPipelin
             for _, true_row in results_true.iterrows():
                 for i, pred_row in enumerate(results_pred):
                     if pred_row["url"] == true_row["url"]:
-                        y_true[i] = 1 / true_row["ranking"]
                         # more items can have the same ranking - distribute points among them fairly
-                        # e.g. if two items are ranked as 3rd, they should get the average of points for 3rd and 4th place
-                        # num_of_same_rankings = len(results_true[results_true["ranking"] == true_row["ranking"]])
-                        # points_to_distribute = sum([true_row["ranking"] - i for i in range(num_of_same_rankings)]) / len(results_true)
-                        # y_true[i] = points_to_distribute / num_of_same_rankings
+                        y_true[i] = 1 / true_row["ranking"]
                         relevant_count += 1
 
             # because the amount of search results is different each time, pad it with 0
@@ -99,15 +95,6 @@ async def evaluate(data_catalog: NkodDataCatalog, search_pipeline: SearchPipelin
             mlflow.log_metric("number_of_correct", len(results_true))
             for i in range(len(results_pred)):
                 mlflow.log_param(f"{i}. result", f"{results_pred[i]["title"]}, {results_pred[i]["url"]}")
-            # returned_urls = [r["url"] for r in results_pred]
-
-            # for i, row in results_true.iterrows():
-            #     match = data_catalog.datasets.loc[data_catalog.datasets["url"] == row["url"], "title"]
-            #     title = match.iloc[0] if not match.empty else "-"
-            #     if row["url"] in returned_urls:
-            #         mlflow.log_param(f"{i}. expected result - {title}, {row["url"]}", True)
-            #     else:
-            #         mlflow.log_param(f"{i}. expected result - {title}, {row["url"]}", False)
 
     y_pred_all = np.array(y_pred_all)
     y_true_all = np.array(y_true_all)

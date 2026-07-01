@@ -9,8 +9,8 @@ from llama_index.core import Settings
 from llama_index.embeddings.ollama import OllamaEmbedding
 from llama_index.llms.ollama import Ollama
 
-from EnhancedDatasetSearch.app.chatbot import Chatbot
-from EnhancedDatasetSearch.app.pipeline import SearchPipeline
+from EnhancedDatasetSearch.search.chatbot import Chatbot
+from EnhancedDatasetSearch.search.pipeline import SearchPipeline
 from EnhancedDatasetSearch.app.utils import get_filters_for_results, get_similar_datasets_with_preview_text
 from EnhancedDatasetSearch.data_processing.data_catalog import DataCatalog
 from EnhancedDatasetSearch.data_processing.database import Database
@@ -112,10 +112,7 @@ def search():
     filters = {}
     if query:
         logger.info(f"Session: {session}")
-        future = asyncio.run_coroutine_threadsafe(
-            pipeline.run(query, applied_filters),
-            loop
-        )
+        future = asyncio.run_coroutine_threadsafe(pipeline.run(query, applied_filters), loop)
         results = future.result()
         filters = get_filters_for_results(results)
 

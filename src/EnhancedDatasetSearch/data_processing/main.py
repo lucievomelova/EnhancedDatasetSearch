@@ -47,10 +47,10 @@ class DataPreprocessingPipeline:
         # save after metadata cleaning as json
         # self.data_catalog.datasets.to_json(self.config["data"]["datasets"]["path"], orient="split", force_ascii=False)
 
-        asyncio.run(self.data_catalog.update_datasets())
-        # datasets_documents = self.data_catalog.prepare_documents_for_upload(self.data_catalog.datasets)
+        new_datasets, removed_urls = asyncio.run(self.data_catalog.update_datasets())
+        datasets_documents = self.data_catalog.prepare_documents_for_upload(self.data_catalog.datasets)
         # self.database.load_documents(datasets_documents)
-        # self.knowledge_graph.create_kg(self.data_catalog.datasets)
+        self.knowledge_graph.create_or_update_kg(self.data_catalog.datasets, new_datasets, removed_urls)
 
 
 @click.command()

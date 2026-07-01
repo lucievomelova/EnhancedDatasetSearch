@@ -14,7 +14,7 @@ from EnhancedDatasetSearch.ollama_client import OllamaClient
 from EnhancedDatasetSearch.utils import setup_logger
 
 logger = setup_logger(__name__)
-env = Environment(loader=FileSystemLoader('prompts'))
+env = Environment(loader=FileSystemLoader('llm_inputs/prompts'))
 intro_template = env.get_template("intro.j2")
 intro_prompt = intro_template.render()
 return_json_template = env.get_template("return_json.j2")
