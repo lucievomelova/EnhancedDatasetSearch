@@ -115,6 +115,12 @@ class NkodKnowledgeGraph(KnowledgeGraph):
         for i, (_, row) in enumerate(new_datasets.iterrows()):
             with self.driver.session() as session:
                 # new datasets contain new or updated datasets, so we must remove dataset nodes that exist in the KG
+
+                result = session.run("""
+                    MATCH (d:Dataset {url: $url, graph: $graph})-[:SIMILAR]-(neighbor:Dataset {graph: $graph})
+                    RETURN neighbor.url AS neighborUrl""", url=url, graph=self.kg_config["name"])
+                deleted_neighbor_urls.extend([record["neighborUrl"] for record in result])
+                
                 session.run("MATCH (n:Dataset) WHERE n.url = $url DETACH DELETE n;", url=row["url"])
                 self._add_dataset_node(row, self.kg_config["name"])  # add nodes
 

@@ -9,7 +9,7 @@
     "categories",
     "spatial_coverage",
     "temporal_coverage",
-    "full_description"
+    "full_description_hash"
   ],
   "index":[
     0,
@@ -18,8 +18,8 @@
     3
   ],
   "data":[
-    ["Dataset 1","Desc 1","http:\/\/example.com\/ds1",["keyword_one", "keyword_two", "keyword_three"],["theme1"],"Provider A",[],[],[],"Dataset 1\nDesc 1\n(Provider A | keyword_one, keyword_three, keyword_two | theme1 |  | )"],
-    ["Dataset 2","Desc 2","http:\/\/example.com\/ds2",["keyword_one","keyword_four"],["theme2"],"Provider B",[],[],[],"Dataset 2\nDesc 2\n(Provider B | keyword_four, keyword_one | theme2 |  | )"],
-    ["Dataset 3","Desc 3","http:\/\/example.com\/ds3",["keyword_one","keyword_four"],[],"Provider C",[],[],[],"Dataset 3\nDesc 3\n(Provider C | keyword_four, keyword_one1 |  |  | )"],
-    ["Dataset 4","Desc 4","http:\/\/example.com\/ds4",[],["theme2", "theme4"],"Provider D",["Energie"],[],[],"Dataset 4\nDesc 4\n(Provider D |  | Energie, theme2, theme4 |  | )"]]
+    ["Dataset 1","Desc 1","http:\/\/example.com\/ds1",["keyword_one", "keyword_two", "keyword_three"],["theme1"],"Provider A",[],[],[],"53066b2ce0ab417abc77bf00e354ae07"],
+    ["Dataset 2","Desc 2","http:\/\/example.com\/ds2",["keyword_one","keyword_four"],["theme2"],"Provider B",[],[],[],"d1f38ea2221a10c8d01f6553d3a1933a"],
+    ["Dataset 3","Desc 3","http:\/\/example.com\/ds3",["keyword_one","keyword_four"],[],"Provider C",[],[],[],"99614da066f40c9112423e2f53fa9446"],
+    ["Dataset 4","Desc 4","http:\/\/example.com\/ds4",[],["theme2", "theme4"],"Provider D",["Energie"],[],[],"9a188fe785d0c1661ae9d0184df73d92"]]
 }

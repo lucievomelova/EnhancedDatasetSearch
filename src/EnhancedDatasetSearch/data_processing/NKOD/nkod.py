@@ -124,6 +124,7 @@ class NkodDataCatalog(DataCatalog):
         if os.path.exists(self._data_config["datasets_path"]):
             logger.info("Loading datasets file.")
             self.datasets = pd.read_json(self._data_config["datasets_path"], orient="split")
+
         elif os.path.exists(tmp_file_name):
             # tmp file exists -> metadata enrichment of new datasets was interrupted -> continue where we stopped
             logger.info("Loading datasets from tmp file.")
@@ -226,7 +227,7 @@ class NkodDataCatalog(DataCatalog):
 
             # new OR updated datasets, but we remove updated datasets and process them again, so we call them all new
             new_datasets = merged_df[merged_df['_merge'] == 'left_only'][self.datasets_raw_transformed.columns]
-            new_datasets.drop(columns="full_description")
+            new_datasets = new_datasets.drop(columns="full_description")
 
             logger.info(f"Number of new or updated datasets: {new_datasets.shape[0]}.")
         else:  # otherwise all datasets are new

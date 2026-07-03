@@ -70,7 +70,7 @@ def data_catalog(config, mock_ollama_client):
 
     asyncio.run(catalog.update_datasets())
     yield catalog
-    # _cleanup_files(files_to_remove)  # remove datasets files from this test run
+    _cleanup_files(files_to_remove)  # remove datasets files from this test run
 
 
 @pytest.fixture(scope="module")

@@ -1,13 +1,13 @@
-url,title,description,provider,keywords,themes,temporal_coverage,spatial_coverage,full_description,categories
-http://example.com/ds1,Dataset 1,Desc 1,Provider A,"['keyword_one', 'keyword_two', 'keyword_three']","['theme1']",[],[],"Dataset 1
+url,title,description,provider,keywords,themes,temporal_coverage,spatial_coverage,full_description,full_description_hash,categories
+http://example.com/ds1,Dataset 1,Desc 1,Provider A,"['keyword_two', 'keyword_three', 'keyword_one']",['theme1'],[],[],"Dataset 1
 Desc 1
-(Provider A | keyword_one, keyword_three, keyword_two | theme1 |  | )",[]
-http://example.com/ds2,Dataset 2,Desc 2,Provider B,"['keyword_one', 'keyword_four']","['theme2']",[],[],"Dataset 2
+(Provider A | keyword_one, keyword_three, keyword_two | theme1 |  | )",53066b2ce0ab417abc77bf00e354ae07,[]
+http://example.com/ds2,Dataset 2,Desc 2,Provider B,"['keyword_one', 'keyword_four']",['theme2'],[],[],"Dataset 2
 Desc 2
-(Provider B | keyword_four, keyword_one | theme2 |  | )",[]
+(Provider B | keyword_four, keyword_one | theme2 |  | )",d1f38ea2221a10c8d01f6553d3a1933a,[]
 http://example.com/ds3,Dataset 3,Desc 3,Provider C,"['keyword_one', 'keyword_four']",[],[],[],"Dataset 3
 Desc 3
-(Provider C | keyword_four, keyword_one1 |  |  | )",[]
+(Provider C | keyword_four, keyword_one1 |  |  | )",99614da066f40c9112423e2f53fa9446,[]
 http://example.com/ds4,Dataset 4,Desc 4,Provider D,[],"['theme2', 'theme4']",[],[],"Dataset 4
 Desc 4
-(Provider D |  | Energie, theme2, theme4 |  | )","['Energie']"
+(Provider D |  | Energie, theme2, theme4 |  | )",9a188fe785d0c1661ae9d0184df73d92,['Energie']
