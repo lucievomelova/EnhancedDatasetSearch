@@ -38,7 +38,7 @@ pipeline_config:
     context_length: 4096
   preprocessing:
     detect_intent: false
-    extend_query: true
+    extend_query: false
     timeout: 60
   search:
     top_k: 30

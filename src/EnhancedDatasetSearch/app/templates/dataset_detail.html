@@ -38,11 +38,11 @@
             </a>
         </div>
 
-            <div>
+            <div class="detail-text">
                 <p>{{ dataset.text }}</p>
             </div>
 
-            <div>
+            <div class="detail-section">
                 <div class="metadata-grid">
                     {% for metadata_category, metadata_values in dataset.categorization_metadata.items() %}
                     {% if metadata_values %}

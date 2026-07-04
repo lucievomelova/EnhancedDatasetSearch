@@ -41,16 +41,11 @@ class DataPreprocessingPipeline:
         if not os.path.exists(self.state_dir):
             os.makedirs(self.state_dir)
 
-        # process_spatial_and_temporal_coverage(self.data_catalog.datasets)
-        # clean_metadata(self.data_catalog.datasets, self.data_catalog.client, self.config["data_processing"]["categories"], self.state_dir)
-
-        # save after metadata cleaning as json
-        # self.data_catalog.datasets.to_json(self.config["data"]["datasets"]["path"], orient="split", force_ascii=False)
-
         new_datasets, removed_urls = asyncio.run(self.data_catalog.update_datasets())
         datasets_documents = self.data_catalog.prepare_documents_for_upload(self.data_catalog.datasets)
-        # self.database.load_documents(datasets_documents)
-        self.knowledge_graph.create_or_update_kg(self.data_catalog.datasets, new_datasets, removed_urls)
+        self.database.load_documents(datasets_documents)
+        # self.knowledge_graph.create_or_update_kg(self.data_catalog.datasets, new_datasets, removed_urls)
+        self.knowledge_graph.create_or_update_kg(self.data_catalog.datasets, self.data_catalog.datasets, [])
 
 
 @click.command()

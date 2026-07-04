@@ -58,7 +58,7 @@ data_processing:
   llm:
     model_name: "mistral-small3.2:latest"  #"qwen3.6:27b"
     base_url: "http://localhost:11434"
-    context_length: 2048
+    context_length: 4096
   knowledge_graph:
     name: "test_graph"  # test_graph, graph_qwen4b
     top_k: 5

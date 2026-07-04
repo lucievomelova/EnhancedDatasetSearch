@@ -49,9 +49,9 @@ pipeline_config:
       - 0.7  # vector_retriever
       - 0.3  # bm25_retriever
   postprocessing:
-    reranker: simple  # simple / llm / sentence_transformer
-    sentence_transformer_model: "cross-encoder/ms-marco-MiniLM-L-2-v2"  # only used for sentence_transformer reranker
-    top_k: 20  # only used for llm and sentence_transformer rerankers
+    reranker: sentence_transformer  # simple / llm / sentence_transformer
+    sentence_transformer_model: "cross-encoder/mmarco-mMiniLMv2-L12-H384-v1"  # only used for sentence_transformer reranker
+    top_k: 30  # only used for llm and sentence_transformer rerankers
     score_cutoff: 0.2
 data_processing:
   timeout: 120

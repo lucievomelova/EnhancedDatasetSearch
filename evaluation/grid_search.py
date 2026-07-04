@@ -13,40 +13,61 @@ import pandas as pd
 import yaml
 import os
 
-from EnhancedDatasetSearch.app.query_prepocessing import QueryPreprocessor
+from EnhancedDatasetSearch.data_processing.data_catalog import DataCatalog
 from llama_index.llms.ollama import Ollama
 from sklearn.metrics import ndcg_score
 
 from EnhancedDatasetSearch.data_processing.database import Database
 from EnhancedDatasetSearch.data_processing.NKOD.nkod import NkodDataCatalog
-from EnhancedDatasetSearch.app.pipeline import SearchPipeline
+from EnhancedDatasetSearch.search.pipeline import SearchPipeline
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
-
-mlflow.set_experiment("SearchPipeline Evaluation")
+mlflow.set_experiment("SearchPipeline Evaluation - grid search")
 golden_dataset = pd.read_csv("data/golden/golden_dataset.csv")
 
 
-def create_extended_queries(config) -> dict:
-    extended_queries = {}
-    preprocessor = QueryPreprocessor(config)
-    queries = golden_dataset["query"].unique()
-    for query in queries:
-        intent, extended_query = preprocessor.run(query, None, config["data_processing"]["categories"], config["data_processing"]["other_category"])
-        extended_queries[query] = extended_query
-    return extended_queries
+# custom Search pipeline so that intent and extended query are not regenerated on each run to save time
+class EvaluationSearchPipeline():
+    def __init__(self, config: dict, llm: Ollama, data_catalog: DataCatalog, database: Database, k: int):
+        self.search_pipeline = SearchPipeline(config, llm, data_catalog, database)
+        self.extended_queries: dict[str, list[str]]
+        self.config = config
+        self.create_extended_queries(k)
 
-extended_queries = {}
+    def create_extended_queries(self, k: int = 3) -> None:
+        model_name = self.config["pipeline_config"]["llm"]["model_name"].replace(".", "_").replace(":", "_")
+        intent = self.config["pipeline_config"]["preprocessing"]["detect_intent"]
+        file = f"evaluation/extended_queries_{model_name}_intent_{str(intent)}.json"
+        if os.path.exists(file):
+            with open(file, "r", encoding="utf-8") as f:
+                self.extended_queries = json.load(f)
+                return
+        self.extended_queries = {}
+        queries = golden_dataset["query"].unique()
+        for query in queries:
+            for i in range(k):
+                intent, extended_query = self.search_pipeline.query_preprocessor.run(
+                    query, None,
+                    self.config["data_processing"]["categories"],
+                    self.config["data_processing"]["other_category"]
+                )
+                if query not in self.extended_queries:
+                    self.extended_queries[query] = [extended_query]
+                else:
+                    self.extended_queries[query].append(extended_query)
+        with open(file, "w", encoding="utf-8") as f:
+            json.dump(self.extended_queries, f, ensure_ascii=False, indent=4)
 
-# override Search pipeline so taht intent and extended query are not regenerated on each run to save time
-class EvaluationSearchPipeline(SearchPipeline):
-    async def run(self, query: str, applied_filters: dict | None = None) -> list[dict[str, str | list | None]] | None:
-        extended_query = extended_queries[query]
+    async def run(self, query: str, index: int) -> list[dict[str, str | list | None]] | None:
+        if self.config["pipeline_config"]["preprocessing"]["extend_query"]:
+            extended_query = self.extended_queries[query][index]
+        else:
+            extended_query = ""
 
-        search_results = await self.retriever.run(query, extended_query)
-        nodes = self.postprocessor.run(query, extended_query, search_results, {})
+        search_results = await self.search_pipeline.retriever.run(query, extended_query)
+        nodes = self.search_pipeline.postprocessor.run(query, extended_query, search_results, {})
         if nodes is not None:
             return nodes
         return None
@@ -59,35 +80,35 @@ def main(config_path: str):
     with open(config_path, "r") as f:
         grid_search_config = yaml.safe_load(f)
 
-    global extended_queries
-    file = "evaluation/extended_queries_qwen_36_27b.json"
-    if os.path.exists(file):
-        with open(file, "r", encoding="utf-8") as f:
-            extended_queries = json.load(f)
-    else:
-        extended_queries = create_extended_queries(grid_search_config)
-        with open(file, "w", encoding="utf-8") as f:
-            json.dump(extended_queries, f, ensure_ascii=False, indent=4)
-
     data_catalog = NkodDataCatalog(grid_search_config)
     config = copy.deepcopy(grid_search_config)
     i = 1
-    for top_k in grid_search_config["pipeline_config"]["search"]["top_k"]:
-        config["pipeline_config"]["search"]["top_k"] = top_k
-        for vector_top_k in grid_search_config["pipeline_config"]["search"]["vector_top_k"]:
-            config["pipeline_config"]["search"]["vector_top_k"] = vector_top_k
-            for bm25_top_k in grid_search_config["pipeline_config"]["search"]["bm25_top_k"]:
-                config["pipeline_config"]["search"]["bm25_top_k"] = bm25_top_k
-                for mode in grid_search_config["pipeline_config"]["search"]["mode"]:
-                    config["pipeline_config"]["search"]["mode"] = mode
-                    for retriever_weights in grid_search_config["pipeline_config"]["search"]["retriever_weights"]:
-                        config["pipeline_config"]["search"]["retriever_weights"] = retriever_weights
-                        for reranker in grid_search_config["pipeline_config"]["postprocessing"]["reranker"]:
-                            config["pipeline_config"]["postprocessing"]["reranker"] = reranker
-                            for score_cutoff in grid_search_config["pipeline_config"]["postprocessing"]["score_cutoff"]:
-                                config["pipeline_config"]["postprocessing"]["score_cutoff"] = score_cutoff
-                                logger.info(f"{i}. Configuration: {config["pipeline_config"]}")
-                                run_experiment(config, data_catalog)
+    pipeline_config_gs = grid_search_config["pipeline_config"]
+    pipeline_config = config["pipeline_config"]
+    for model_name in pipeline_config_gs["llm"]["model_name"]:
+        pipeline_config["llm"]["model_name"] = model_name
+        for intent in pipeline_config_gs["preprocessing"]["detect_intent"]:
+            pipeline_config["preprocessing"]["detect_intent"] = intent
+            for extend_query in pipeline_config_gs["preprocessing"]["extend_query"]:
+                pipeline_config["preprocessing"]["extend_query"] = extend_query
+                for top_k in pipeline_config_gs["search"]["top_k"]:
+                    pipeline_config["search"]["top_k"] = top_k
+                    for vector_top_k in pipeline_config_gs["search"]["vector_top_k"]:
+                        pipeline_config["search"]["vector_top_k"] = vector_top_k
+                        for bm25_top_k in pipeline_config_gs["search"]["bm25_top_k"]:
+                            pipeline_config["search"]["bm25_top_k"] = bm25_top_k
+                            for mode in pipeline_config_gs["search"]["mode"]:
+                                pipeline_config["search"]["mode"] = mode
+                                for retriever_weights in pipeline_config_gs["search"]["retriever_weights"]:
+                                    pipeline_config["search"]["retriever_weights"] = retriever_weights
+                                    for reranker in pipeline_config_gs["postprocessing"]["reranker"]:
+                                        pipeline_config["postprocessing"]["reranker"] = reranker
+                                        for score_cutoff in pipeline_config_gs["postprocessing"]["score_cutoff"]:
+                                            pipeline_config["postprocessing"]["score_cutoff"] = score_cutoff
+                                            for reranker in pipeline_config_gs["postprocessing"]["reranker"]:
+                                                pipeline_config["postprocessing"]["reranker"] = reranker
+                                                logger.info(f"{i}. Configuration: {pipeline_config}")
+                                                run_experiment(config, data_catalog)
 
 
 def run_experiment(config: dict, data_catalog: NkodDataCatalog) -> None:
@@ -96,62 +117,63 @@ def run_experiment(config: dict, data_catalog: NkodDataCatalog) -> None:
                  request_timeout=300)
 
     database = Database(config)
-    search_pipeline = EvaluationSearchPipeline(config, llm, data_catalog, database)
+    queries_k = 1
+    search_pipeline = EvaluationSearchPipeline(config, llm, data_catalog, database, queries_k)
 
-    search_result_top_k = config["pipeline_config"]["search"]["top_k"]
     with mlflow.start_run():
         for key in config["pipeline_config"]:
             params = {}
             for sub_key in config["pipeline_config"][key]:
                 params[f"{key}_{sub_key}"] = config["pipeline_config"][key][sub_key]
             mlflow.log_params(params)
-        ndcg, recalls = asyncio.run(evaluate(search_pipeline, search_result_top_k))
+        ndcg, recall_avg, recall = asyncio.run(evaluate(search_pipeline, queries_k))
 
         mlflow.log_metric("ndcg", ndcg)
-        mlflow.log_metric("recall", sum(recalls)/len(recalls))
+        mlflow.log_metric("recall_avg", recall_avg)
+        mlflow.log_metric("recall", recall)
         mlflow.log_param("Embedding model", config["embedding"]["model_name"])
         mlflow.log_param("LLM", config["pipeline_config"]["llm"]["model_name"])
 
 
-async def evaluate(search_pipeline: EvaluationSearchPipeline, search_result_top_k: int) -> tuple[list, list]:
-    # find all unique queries in golden dataset
-    queries = golden_dataset["query"].unique()
-    y_pred_all = []
-    y_true_all = []
-    recalls = []
-    ndcgs = []
+async def evaluate(search_pipeline: EvaluationSearchPipeline, queries_k: int) -> tuple[float, float, float]:
+    golden_dataset = pd.read_csv("data/golden/golden_dataset.csv")
+    queries = golden_dataset["query"].unique()  # get all unique queries from golden dataset
+    recalls, ndcgs = [], []
+    total_relevant, total_retrieved_relevant = 0, 0
+
     for query in queries:
         with mlflow.start_run(nested=True) as child_run:
-            logger.info(f"Evaluating query: {query}")
-            results_pred = await search_pipeline.run(query)
-            results_true = golden_dataset[golden_dataset["query"] == query][["url", "ranking"]]
+            recalls_iteration = []
+            ndcgs_iteration = []
+            iterations = queries_k
+            for i in range(iterations):
+                logger.info(f"Evaluating query: {query}")
+                results_pred = await search_pipeline.run(query, i)
+                results_true = golden_dataset[golden_dataset["query"] == query][["url", "ranking"]]
 
-            k = len(results_pred)
-            y_pred = [(k - i) * 1/k for i in range(k)]  # artificial scores based on ranking position
-            y_true = [0] * k  # initialize all true relevance scores to 0
-            relevant_count = 0
-            for _, true_row in results_true.iterrows():
+                max_rank = results_true["ranking"].max()
+                relevance = {row["url"]: max_rank - row["ranking"] + 1 for _, row in results_true.iterrows()}
+                y_true, y_pred = [], []
+
+                relevant_count = 0
                 for i, pred_row in enumerate(results_pred):
-                    if pred_row["url"] == true_row["url"]:
-                        y_true[i] = 1 / true_row["ranking"]
-                        # more items can have the same ranking - distribute points among them fairly
-                        # e.g. if two items are ranked as 3rd, they should get the average of points for 3rd and 4th place
-                        # num_of_same_rankings = len(results_true[results_true["ranking"] == true_row["ranking"]])
-                        # points_to_distribute = sum([true_row["ranking"] - i for i in range(num_of_same_rankings)]) / len(results_true)
-                        # y_true[i] = points_to_distribute / num_of_same_rankings
+                    rel = relevance.get(pred_row["url"], 0)
+                    y_true.append(rel)
+                    if rel > 0:
                         relevant_count += 1
+                    y_pred.append(len(results_pred) - i)
 
-            # because the amount of search results is different each time, pad it with 0
-            y_pred.extend([0] * (search_result_top_k - k))
-            y_true.extend([0] * (search_result_top_k - k))
+                recall = relevant_count / len(results_true)
+                recalls_iteration.append(recall)
+                ndcg = ndcg_score(np.array([y_true]), np.array([y_pred]))
+                ndcgs_iteration.append(ndcg)
+                total_relevant += len(results_true)
+                total_retrieved_relevant += relevant_count
 
-            y_pred_all.append(y_pred)
-            y_true_all.append(y_true)
-            recall = relevant_count / len(results_true)
+            recall = sum(recalls_iteration) / iterations
+            ndcg = sum(ndcgs_iteration) / iterations
             recalls.append(recall)
-            ndcg = ndcg_score(np.array([y_true]), np.array([y_pred]))
             ndcgs.append(ndcg)
-
             mlflow.log_param("query", query)
             mlflow.log_metric("recall", recall)
             mlflow.log_metric("ndcg", ndcg)
@@ -159,23 +181,12 @@ async def evaluate(search_pipeline: EvaluationSearchPipeline, search_result_top_
             mlflow.log_metric("number_of_correct", len(results_true))
             for i in range(len(results_pred)):
                 mlflow.log_param(f"{i}. result", f"{results_pred[i]["title"]}, {results_pred[i]["url"]}")
-            # returned_urls = [r["url"] for r in results_pred]
 
-            # for i, row in results_true.iterrows():
-            #     match = data_catalog.datasets.loc[data_catalog.datasets["url"] == row["url"], "title"]
-            #     title = match.iloc[0] if not match.empty else "-"
-            #     if row["url"] in returned_urls:
-            #         mlflow.log_param(f"{i}. expected result - {title}, {row["url"]}", True)
-            #     else:
-            #         mlflow.log_param(f"{i}. expected result - {title}, {row["url"]}", False)
-
-    y_pred_all = np.array(y_pred_all)
-    y_true_all = np.array(y_true_all)
-    ndcg = ndcg_score(y_true_all, y_pred_all)
-    logger.info(f"ndcg_score: {ndcg}")
     ndcg = sum(ndcgs) / len(ndcgs)
-    logger.info(f"ndcg: {ndcg}, recall: {recalls}")
-    return ndcg, recalls
+    recall_avg = sum(recalls)/len(recalls)
+    recall = total_retrieved_relevant / total_relevant
+    logger.info(f"ndcg: {ndcg}, recall_avg: {recall_avg}, recall: {recall}")
+    return ndcg, recall_avg, recall
 
 
 if __name__ == "__main__":

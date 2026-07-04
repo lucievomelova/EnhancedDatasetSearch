@@ -44,7 +44,7 @@ body.home-page .search-form {
 /* Filter bar */
 .filter-bar {
     display: flex;
-    gap: 12px;
+    gap: 6px;
     align-items: flex-start;
     flex-wrap: wrap;
     margin-top: var(--spacing-sm);

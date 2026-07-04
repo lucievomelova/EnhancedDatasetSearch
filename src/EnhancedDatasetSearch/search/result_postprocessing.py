@@ -12,6 +12,11 @@ class PostProcessor:
     def __init__(self, postprocessing_config: dict, data_catalog: DataCatalog) -> None:
         self.postprocessing_config = postprocessing_config
         self.data_catalog = data_catalog
+        self.top_k = self.postprocessing_config["top_k"]
+        if self.postprocessing_config["reranker"] == "sentence_transformer":
+            self.sentence_transformer = SentenceTransformerRerank(
+                model=self.postprocessing_config["sentence_transformer_model"], top_n=self.top_k
+            )
 
     def run(self, user_query: str,
                               extended_query: str,
@@ -40,13 +45,11 @@ class PostProcessor:
         # sort results by retrieval score
         if reranker == "simple":
             results = sorted(results, key=lambda r: r.score, reverse=True)
+            if len(results) > self.top_k:
+                results = results[:self.top_k]  # keep only top_k results if there are more
 
         # sort results using sentence transformer
         elif reranker == "sentence_transformer":
-            transformer = SentenceTransformerRerank(
-                model=self.postprocessing_config["sentence_transformer_model"], top_n=self.postprocessing_config["top_k"]
-            )
-
-            results = transformer.postprocess_nodes(nodes=results, query_str=user_query)
+            results = self.sentence_transformer.postprocess_nodes(nodes=results, query_str=user_query)
         logger.info(f"Reranking complete.")
         return results

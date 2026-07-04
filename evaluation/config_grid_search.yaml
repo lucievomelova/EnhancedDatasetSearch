@@ -31,17 +31,17 @@ chatbot:
     memory_limit: 4096
 pipeline_config:
   llm:
-    model_name: "qwen3.6:27b"  #"mistral-small3.2:latest"  #"qwen3.6:27b" "qwen3.6:35b-a3b"
+    model_name: ["mistral-small3.2:latest", "qwen3:14b", "qwen3.6:35b-a3b"]  #"qwen3.6:27b" "qwen3.6:35b-a3b"
     base_url: "http://localhost:11434"
     context_length: 4096
   preprocessing:
-    detect_intent: true
-    extend_query: true
+    detect_intent: [true, false]
+    extend_query: [true, false]
     timeout: 60
   search:
     top_k: [40]
-    vector_top_k: [25]
-    bm25_top_k: [25]
+    vector_top_k: [30, 25]
+    bm25_top_k: [30, 25]
     mode: [dist_based_score]
     retriever_weights:
       - [0.3, 0.7]
@@ -50,9 +50,9 @@ pipeline_config:
       - [0.6, 0.4]
       - [0.7, 0.3]
   postprocessing:
-    reranker: [simple]  # simple / llm / sentence_transformer
-    sentence_transformer_model: "cross-encoder/ms-marco-MiniLM-L-2-v2"  # only used for sentence_transformer reranker
-    top_k: 20  # only used for llm and sentence_transformer rerankers
+    reranker: [simple]  # simple / sentence_transformer
+    sentence_transformer_model: "cross-encoder/mmarco-mMiniLMv2-L12-H384-v1"  # only used for sentence_transformer reranker
+    top_k: 30
     score_cutoff: [0.2, 0.1]
 data_processing:
   timeout: 120

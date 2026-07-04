@@ -320,6 +320,7 @@ class NkodDataCatalog(DataCatalog):
         categories = row["categories"] if row["categories"] is not None else []
         categories = list(set(categories + generated_metadata["categories"]))
         self._all_keywords_raw.update(set(keywords))  # update keywords set
+        print(row["title"], generated_metadata)
 
         metadata = {
             "title": row["title"],
