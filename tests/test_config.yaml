@@ -5,9 +5,11 @@ data:
   datasets:
     path: "tests/data/test_datasets.json"
   sparql_endpoint: "https://data.gov.cz/sparql"
-  distributions:
-    path: "tests/data/distributions.csv"
+  distributions_raw:
+    path: "tests/data/distributions_raw.csv"
     url: "https://data.gov.cz/soubor/distribuce.csv"
+  distributions:
+    path: "tests/data/distributions.json"
 state_dir: "state"
 app_url: "http://127.0.0.1:5000/"
 db:

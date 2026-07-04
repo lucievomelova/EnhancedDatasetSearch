@@ -1,7 +1,5 @@
 """File with functions performing Cypher (Neo4j querying language) queries."""
 
-from collections import defaultdict
-
 from neo4j import Session
 
 
@@ -66,6 +64,17 @@ def create_temporal_coverage_node(tx, dataset_url, temporal_coverage, graph_name
         MERGE (t:TemporalCoverage {name: $temporal_coverage})
         MERGE (d)-[:HAS_TEMPORAL_COVERAGE]->(t)
         """, url=dataset_url, temporal_coverage=temporal_coverage, graph=graph_name)
+
+
+def get_similar_neighbors_urls(session: Session, dataset_url: str, graph_name: str) -> list[str]:
+    """Get urls of datasets similar to the specified dataset (in other words connected by SIMILAR relationship)."""
+    query = """
+        MATCH (d:Dataset {url: $url, graph: $graph})-[:SIMILAR]-(neighbor:Dataset {graph: $graph})
+        RETURN neighbor.url AS neighborUrl
+        """
+    result = session.run(query, url=dataset_url, graph=graph_name)
+    neighbor_urls = [record["neighborUrl"] for record in result]
+    return neighbor_urls
 
 
 def create_description_similarity_edges(tx, dataset_url: str, similar_datasets: dict[str, float], graph_name: str):

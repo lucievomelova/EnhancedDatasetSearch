@@ -4,24 +4,31 @@ from llama_index.core.schema import NodeWithScore
 from llama_index.retrievers.bm25 import BM25Retriever
 from llama_index.storage.docstore.postgres import PostgresDocumentStore
 
+from EnhancedDatasetSearch.database import Database
 from EnhancedDatasetSearch.utils import setup_logger
 
 logger = setup_logger(__name__)
 
 
 class Retriever:
-    def __init__(self, search_config: dict, index: VectorStoreIndex, docstore: PostgresDocumentStore):
-        self.search_config = search_config
-        self.index = index
-        self.docstore = docstore
-        self.retriever = self._create_retriever()
+    """Retriever - searches the document and vector store based on the provided search query.
+
+    For retrieval, QueryFusionRetriever is used. It combines a VectorIndexRetriever and BM25Retriever."""
+    def __init__(self, search_config: dict, database: Database):
+        self.search_config: dict = search_config
+        self.index: VectorStoreIndex = database.index
+        self.document_store: PostgresDocumentStore = database.document_store
+        self.retriever: QueryFusionRetriever = self._create_retriever()
 
     def _create_retriever(self) -> QueryFusionRetriever:
         """Create fusion retriever that combines vector search and BM25 search."""
-        vector_retriever = self.index.as_retriever(similarity_top_k=self.search_config["vector_top_k"])
-
-        bm25_retriever = BM25Retriever.from_defaults(docstore=self.docstore,
-                                                     similarity_top_k=self.search_config["bm25_top_k"])
+        vector_retriever = self.index.as_retriever(
+            similarity_top_k=self.search_config["vector_top_k"]
+        )
+        bm25_retriever = BM25Retriever.from_defaults(
+            docstore=self.document_store,
+            similarity_top_k=self.search_config["bm25_top_k"]
+        )
         retriever = QueryFusionRetriever(
             [vector_retriever, bm25_retriever],
             similarity_top_k=self.search_config["top_k"],
@@ -31,12 +38,10 @@ class Retriever:
             verbose=True,
             retriever_weights=self.search_config["retriever_weights"],
         )
-
         return retriever
 
     async def run(self, user_query: str, extended_query: str | None = None) -> list[NodeWithScore]:
         """Search for relevant datasets."""
-
         logger.info(f"Searching - query: {user_query} + extended query: {extended_query}")
         nodes = await self.retriever.aretrieve(f'{user_query}, {extended_query}')
         node_ids = [n.id_ for n in nodes]

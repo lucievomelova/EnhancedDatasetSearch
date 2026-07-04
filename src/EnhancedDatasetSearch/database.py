@@ -37,9 +37,11 @@ class Database:
             base_url=self.embedding_config['base_url'],
             embed_batch_size=self.embedding_config['embed_batch_size'],
         )
-        self.storage_context: StorageContext
+        self._storage_context: StorageContext
         self.index: VectorStoreIndex
-        self.pipeline: IngestionPipeline
+        """Vector store index."""
+
+        self._ingestion_pipeline: IngestionPipeline
         """Ingestion pipeline - for loading documents into the database."""
 
         self._setup_vector_index()
@@ -70,19 +72,19 @@ class Database:
             table_name=self.db_config['document_table'],
         )
 
-        self.storage_context = StorageContext.from_defaults(
+        self._storage_context = StorageContext.from_defaults(
             vector_store=self.vector_store,
             docstore=self.document_store
         )
         self.index = VectorStoreIndex(
             nodes=[],
             embed_model=self.embedding_model,
-            storage_context=self.storage_context
+            storage_context=self._storage_context
         )
 
     def _setup_ingestion_pipeline(self, vector_store: PGVectorStore, document_store: PostgresDocumentStore) -> None:
         """Set up the ingestion pipeline with the new vector and document stores."""
-        self.pipeline = IngestionPipeline(
+        self._ingestion_pipeline = IngestionPipeline(
             transformations=[
                 SentenceSplitter(chunk_size=self.embedding_config['chunk_size'],
                                  chunk_overlap=self.embedding_config['chunk_overlap']),
@@ -176,7 +178,7 @@ class Database:
         vector_store, document_store = self._create_staging_vector_and_doc_store(staging_suffix)
         self._setup_ingestion_pipeline(vector_store, document_store)
 
-        nodes = self.pipeline.run(documents=new_documents, show_progress=True, num_workers=8)
+        nodes = self._ingestion_pipeline.run(documents=new_documents, show_progress=True, num_workers=8)
         self.url_to_node_id_mapping = {}
         for node in nodes:
             if node.ref_doc_id not in self.url_to_node_id_mapping:
@@ -223,7 +225,10 @@ class Database:
                         similar_nodes[r.node.ref_doc_id] = max(similar_nodes[r.node.ref_doc_id], r.score)
 
         # get k nodes with max score
-        sorted_similar_nodes = {ref_doc_id: similar_nodes[ref_doc_id] for ref_doc_id in sorted(similar_nodes, key=similar_nodes.get, reverse=True)}
+        sorted_similar_nodes = {
+            ref_doc_id: similar_nodes[ref_doc_id]
+            for ref_doc_id in sorted(similar_nodes, key=similar_nodes.get, reverse=True)
+        }
         if len(sorted_similar_nodes) > k:
             sorted_similar_nodes = dict(list(sorted_similar_nodes.items())[:k])  # keep only top k
         return sorted_similar_nodes

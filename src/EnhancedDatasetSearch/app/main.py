@@ -9,20 +9,19 @@ from llama_index.core import Settings
 from llama_index.embeddings.ollama import OllamaEmbedding
 from llama_index.llms.ollama import Ollama
 
+from EnhancedDatasetSearch.app.utils import get_filters_for_results, get_similar_datasets_with_preview_text
+from EnhancedDatasetSearch.data_catalog import DataCatalog
 from EnhancedDatasetSearch.search.chatbot import Chatbot
 from EnhancedDatasetSearch.search.pipeline import SearchPipeline
-from EnhancedDatasetSearch.app.utils import get_filters_for_results, get_similar_datasets_with_preview_text
-from EnhancedDatasetSearch.data_processing.data_catalog import DataCatalog
-from EnhancedDatasetSearch.data_processing.database import Database
-from EnhancedDatasetSearch.data_processing.knowledge_graph import KnowledgeGraph
-from EnhancedDatasetSearch.data_processing.NKOD.knowledge_graph import NkodKnowledgeGraph
-from EnhancedDatasetSearch.data_processing.NKOD.nkod import NkodDataCatalog
+from EnhancedDatasetSearch.database import Database
+from EnhancedDatasetSearch.knowledge_graph import KnowledgeGraph
+from EnhancedDatasetSearch.NKOD.knowledge_graph import NkodKnowledgeGraph
+from EnhancedDatasetSearch.NKOD.nkod import NkodDataCatalog
 from EnhancedDatasetSearch.utils import setup_logger
 
 logger = setup_logger(__name__)
 
-# create event loop
-loop = asyncio.new_event_loop()
+loop = asyncio.new_event_loop()  # create event loop
 
 def start_loop():
     asyncio.set_event_loop(loop)
@@ -51,7 +50,7 @@ Settings.embed_model = OllamaEmbedding(
 search_pipeline_instances = {}  # dictionary to store search pipeline instances per session
 chatbot_instances = {}  # dictionary to store chatbot instances per session
 database: Database = Database(config)
-data_catalog: DataCatalog = NkodDataCatalog(config, False)
+data_catalog: DataCatalog = NkodDataCatalog(config)
 knowledge_graph: KnowledgeGraph = NkodKnowledgeGraph(config["data_processing"]["knowledge_graph"], database)
 
 

@@ -3,8 +3,8 @@ from llama_index.core.llms.function_calling import FunctionCallingLLM
 from llama_index.core.memory import ChatMemoryBuffer
 from llama_index.core.tools import FunctionTool
 
-from EnhancedDatasetSearch.data_processing.data_catalog import DataCatalog
-import EnhancedDatasetSearch.data_processing.NKOD.knowledge_graph as kg
+from EnhancedDatasetSearch.data_catalog import DataCatalog
+import EnhancedDatasetSearch.NKOD.knowledge_graph as kg
 from EnhancedDatasetSearch.search.pipeline import SearchPipeline
 from EnhancedDatasetSearch.utils import dataset_detail_url, render_template, setup_logger
 
@@ -12,6 +12,11 @@ logger = setup_logger(__name__)
 
 
 class Chatbot:
+    """The chatbot class.
+
+    This class handles the chatbot backend logic - message generation and tool calling.
+    The chatbot is powered by llama_index FunctionAgent."""
+
     def __init__(self, config: dict, search_pipeline: SearchPipeline, data_catalog: DataCatalog, llm: FunctionCallingLLM):
         self.config = config
         self.search_pipeline = search_pipeline
@@ -27,8 +32,8 @@ class Chatbot:
             system_prompt=system_prompt,
         )
 
-
     def create_tools(self) -> list[FunctionTool]:
+        """Create tools for the chatbot."""
         search_in_data_catalog = FunctionTool.from_defaults(
             async_fn=self._tool_search,
             name="search_in_data_catalog",

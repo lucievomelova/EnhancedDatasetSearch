@@ -7,9 +7,11 @@ data:
 #    path: "data/small/datasets_with_metadata_small.json"
     path: "data//datasets_with_metadata_large.json"
   sparql_endpoint: "https://data.gov.cz/sparql"
-  distributions:
-    path: "data/distributions.csv"
+  distributions_raw:
+    path: "data/distributions_raw.csv"
     url: "https://data.gov.cz/soubor/distribuce.csv"
+  distributions:
+    path: "data/distributions.json"
 state_dir: "state"
 app_url: "http://127.0.0.1:5000/"
 db:
@@ -49,9 +51,9 @@ pipeline_config:
       - 0.7  # vector_retriever
       - 0.3  # bm25_retriever
   postprocessing:
-    reranker: sentence_transformer  # simple / llm / sentence_transformer
+    reranker: simple  # simple  / sentence_transformer
     sentence_transformer_model: "cross-encoder/mmarco-mMiniLMv2-L12-H384-v1"  # only used for sentence_transformer reranker
-    top_k: 30  # only used for llm and sentence_transformer rerankers
+    top_k: 30
     score_cutoff: 0.2
 data_processing:
   timeout: 120

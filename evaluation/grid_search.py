@@ -13,12 +13,12 @@ import pandas as pd
 import yaml
 import os
 
-from EnhancedDatasetSearch.data_processing.data_catalog import DataCatalog
 from llama_index.llms.ollama import Ollama
 from sklearn.metrics import ndcg_score
 
-from EnhancedDatasetSearch.data_processing.database import Database
-from EnhancedDatasetSearch.data_processing.NKOD.nkod import NkodDataCatalog
+from EnhancedDatasetSearch.data_catalog import DataCatalog
+from EnhancedDatasetSearch.database import Database
+from EnhancedDatasetSearch.NKOD.nkod import NkodDataCatalog
 from EnhancedDatasetSearch.search.pipeline import SearchPipeline
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
@@ -67,7 +67,7 @@ class EvaluationSearchPipeline():
             extended_query = ""
 
         search_results = await self.search_pipeline.retriever.run(query, extended_query)
-        nodes = self.search_pipeline.postprocessor.run(query, extended_query, search_results, {})
+        nodes = self.search_pipeline.postprocessor.run(query, search_results)
         if nodes is not None:
             return nodes
         return None

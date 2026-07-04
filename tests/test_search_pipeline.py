@@ -51,7 +51,7 @@ def test_detect_user_intent(config, query_preprocessor):
 @pytest.mark.asyncio(loop_scope="session")
 async def test_retriever(config, database):
     """Test that retriever doesn't throw any errors and returns a list with no duplicates."""
-    retriever = Retriever(config["pipeline_config"]["search"], database.index, database.document_store)
+    retriever = Retriever(config["pipeline_config"]["search"], database)
     results = await retriever.run(user_query="Desc", extended_query="")
     assert isinstance(results, list)
 
@@ -68,8 +68,7 @@ def test_reranking(config, data_catalog):
     postprocessor = PostProcessor(config["pipeline_config"]["postprocessing"], data_catalog)
     reranked_results = postprocessor.rerank(
         user_query="test query",
-        results=example_search_results,
-        intent={}
+        results=example_search_results
     )
     assert isinstance(reranked_results, list)
     for i in range(len(reranked_results)):

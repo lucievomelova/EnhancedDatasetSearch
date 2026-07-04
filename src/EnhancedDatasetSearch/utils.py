@@ -1,3 +1,5 @@
+"""General util functions used across submodules."""
+
 import logging
 import sys
 
@@ -11,6 +13,7 @@ return_json_instructions = return_json_template.render()
 
 
 def setup_logger(name: str = 'app', level=logging.INFO):
+    """Set up logger."""
     logger = logging.getLogger(name)
     logger.propagate = False
     if not logger.handlers:
@@ -23,12 +26,11 @@ def setup_logger(name: str = 'app', level=logging.INFO):
         console_handler = logging.StreamHandler(sys.stdout)
         console_handler.setFormatter(formatter)
         logger.addHandler(console_handler)
-
     return logger
 
 
 def render_template(filename: str, args: dict = {}, include_intro: bool = True, include_return_instructions: bool = True) -> str:
-    """Prepare a prompt from jinja template."""
+    """Prepare a prompt from Jinja2 template."""
 
     if include_intro:
         args["intro"] = intro_prompt

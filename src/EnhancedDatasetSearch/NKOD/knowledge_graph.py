@@ -3,9 +3,9 @@ import os
 import pandas as pd
 from neo4j import Driver, GraphDatabase
 
-from EnhancedDatasetSearch.data_processing.database import Database
-from EnhancedDatasetSearch.data_processing.knowledge_graph import KnowledgeGraph
-from EnhancedDatasetSearch.data_processing.NKOD.kg_queries import *
+from EnhancedDatasetSearch.NKOD.kg_queries import *
+from EnhancedDatasetSearch.database import Database
+from EnhancedDatasetSearch.knowledge_graph import KnowledgeGraph
 from EnhancedDatasetSearch.utils import setup_logger
 from pandas import Series
 
@@ -62,7 +62,6 @@ class NkodKnowledgeGraph(KnowledgeGraph):
         else:
             self.update_kg(datasets, new_datasets, removed_urls)
 
-
     def create_kg(self, datasets: pd.DataFrame) -> None:
         """Create knowledge graph based on dataset metadata and description embedding similarity."""
         logger.info(f"Creating knowledge graph from dataset metadata for {len(datasets)} datasets.")
@@ -105,24 +104,20 @@ class NkodKnowledgeGraph(KnowledgeGraph):
             for url in removed_urls:
                 with self.driver.session() as session:
                     # first find neighbors of nodes to be deleted
-                    result = session.run("""
-                        MATCH (d:Dataset {url: $url, graph: $graph})-[:SIMILAR]-(neighbor:Dataset {graph: $graph})
-                        RETURN neighbor.url AS neighborUrl""", url=url, graph=self.kg_config["name"])
-                    deleted_neighbor_urls = [record["neighborUrl"] for record in result]
+                    deleted_neighbor_urls = get_similar_neighbors_urls(session, url, self.kg_config["name"])
                     # delete nodes
                     session.run("MATCH (n:Dataset) WHERE n.url = $url DETACH DELETE n;", url=url)
         logger.info(f"Adding {len(new_datasets)} new datasets to the knowledge graph.")
         for _, row in new_datasets.iterrows():
             with self.driver.session() as session:
-                # new datasets contain new or updated datasets, so we must remove dataset nodes that exist in the KG
+                # new datasets contain new or updated datasets, so we must first remove dataset nodes that already
+                # exist in the KG, they will be added again
 
-                result = session.run("""
-                    MATCH (d:Dataset {url: $url, graph: $graph})-[:SIMILAR]-(neighbor:Dataset {graph: $graph})
-                    RETURN neighbor.url AS neighborUrl""", url=row["url"], graph=self.kg_config["name"])
-                deleted_neighbor_urls.extend([record["neighborUrl"] for record in result])
-                
+                # first find neighbors of nodes to be deleted
+                deleted_neighbor_urls.extend(get_similar_neighbors_urls(session, row["url"], self.kg_config["name"]))
+                # delete node if it already exists in the KG
                 session.run("MATCH (n:Dataset) WHERE n.url = $url DETACH DELETE n;", url=row["url"])
-                self._add_dataset_node(row, self.kg_config["name"])  # add nodes
+                self._add_dataset_node(row, self.kg_config["name"])  # add node to the KG
 
         logger.info(f"Creating similarity edges for {len(new_datasets)} new datasets.")
         self.add_similarity_edges(new_datasets, self.kg_config["name"])
@@ -182,6 +177,7 @@ class NkodKnowledgeGraph(KnowledgeGraph):
                     metadata_category,
                     self.kg_config
                 )
-                logger.info(f"Retrieved {len(similar_datasets[metadata_category])} similar datasets based on common {metadata_category}.")
+                logger.info(f"Retrieved {len(similar_datasets[metadata_category])}"
+                            f"similar datasets based on common {metadata_category}.")
 
         return similar_datasets

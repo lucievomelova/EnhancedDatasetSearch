@@ -2,7 +2,8 @@ import pandas as pd
 
 
 class KnowledgeGraph:
-    """Class representing a metadata knowledge graph."""
+    """Class representing a generic metadata knowledge graph."""
+
     def create_or_update_kg(self, datasets: pd.DataFrame, new_datasets: pd.DataFrame, removed_urls: list) -> None:
         """Create or update the knowledge graph."""
         pass

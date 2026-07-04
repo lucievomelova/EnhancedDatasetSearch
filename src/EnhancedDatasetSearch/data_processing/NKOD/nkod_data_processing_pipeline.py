@@ -15,8 +15,7 @@ import pandas as pd
 from llama_index.core import Document
 from pandas import Series
 
-from EnhancedDatasetSearch.data_processing.data_catalog import DataCatalog
-from EnhancedDatasetSearch.data_processing.NKOD.distributions import download_distribution_info
+from EnhancedDatasetSearch.data_processing.data_processing_pipeline import DataProcessingPipeline
 from EnhancedDatasetSearch.data_processing.NKOD.metadata import (
     clean_metadata, enrich_metadata, process_spatial_and_temporal_coverage
 )
@@ -31,72 +30,55 @@ logger = setup_logger(__name__)
 executor = ThreadPoolExecutor(max_workers=4)
 
 
-class NkodDataCatalog(DataCatalog):
-    """Class representing the NKOD."""
+class NkodDataProcessingPipeline(DataProcessingPipeline):
+    """Class representing the NKOD data processing pipeline.
 
-    def __init__(self, config: dict, download_new_data: bool = False) -> None:
-        """Initialize the NKOD data catalog class.
+    It downloads the metadata dataset from the Czech Dataset Portal, applies transformation, cleaning,
+    metadata enrichment and then the resulting dataset is stored in memory. The same dataset is then loaded by
+    the NkodDataCatalog class."""
+
+    def __init__(self, config: dict) -> None:
+        """Initialize the NkodDataProcessingPipeline class.
 
         Args:
             config: the loaded config
-            download_new_data: specifies if new datasets should be downloaded from NKOD. This should be True if data
             processing will be started, otherwise it should be False, because it will trigger a knowledge base update.
         """
         super().__init__()
 
-        self._download_new_data: bool = download_new_data
-        """Indicates if new datasets_raw file should be downloaded and processed or not."""
+        self._download_new_data: bool = True
+        """Indicates if new datasets_raw file should be downloaded and processed or not.
+        This should always be true, unless you want to load a specific dataset file instead of the current NKOD file."""
 
         self.config = config
         self.client = OllamaClient(self.config["data_processing"]["llm"], self.config["data_processing"]["timeout"])
-
-        self.distributions = download_distribution_info(config["data"]["distributions"]["path"],
-                                                        config["data"]["distributions"]["url"],
-                                                        config["data_processing"]["distribution_column_mapping"],
-                                                        self._download_new_data)
 
         self._data_processing_config = config["data_processing"]
         self._state_dir = config["state_dir"]
         self._column_mapping: dict = self._data_processing_config["column_mapping"]
 
         self.datasets_raw: pd.DataFrame
-        """Dataset of datasets - contains information about each dataset on NKOD."""
+        """Dataset of all datasets' metadata - contains raw information about each dataset in NKOD.
+        This is the dataset that is donwloaded frm the Czech Dataset Portal, before any processing is applied."""
 
         self.datasets_raw_transformed: pd.DataFrame
         """Transformed datasets_raw - columns are renamed, rows belonging to the same dataset are merged into one,
         spatial and temporal coverage is added and initial preprocessing is applied."""
 
         self.datasets: pd.DataFrame
-        """Dataset of datasets containing also dataset metadata, with renamed columns based on column mapping.
-        Obtained by processing datasets_raw."""
+        """Processed dataset of datasets, with renamed columns based on column mapping.
+        Obtained by enhancing the datasets' metadata by an LLM. This is the dataset that represents NKOD in our system.
+        After data processing pipeline is completed, it is stored in memory and loaded by the NkodDataCatalog class."""
 
         self._data_config = {
             "datasets_raw_path": config["data"]["datasets_raw"]["path"],
             "datasets_raw_url": config["data"]["datasets_raw"]["url"],
             "datasets_transformed_path": config["data"]["datasets_raw"]["path"].replace(".csv", f"_transformed.csv"),
-            "datasets_path": config["data"]["datasets"]["path"],
+            "datasets_path": config["data"]["datasets"]["path"]
         }
-
-        self.all_keywords: set = set()
-        """Set of all keywords present in the datasets metadata."""
-
-        self.all_themes: set = set()
-        """Set of all themes present in the datasets metadata."""
 
         self.all_categories: set = set(self._data_processing_config["categories"])
         """Set of all categories."""
-
-        self.all_providers: set = set()
-        """Set of all providers of datasets at NKOD."""
-
-        self.all_spatial_coverages: set = set()
-        """Set of all spatial_coverages used in the datasets."""
-
-        self.all_temporal_coverages: set = set()
-        """Set of all temporal coverages used in the datasets."""
-
-        self.all_categories_with_other_category: set = self.all_categories | set(self._data_processing_config["other_category"])
-        """Set of all categories including "other" category used when a dataset does not belong into any category."""
 
         self._all_keywords_raw: set
         """Set of all keywords present in datasets_raw."""
@@ -114,11 +96,12 @@ class NkodDataCatalog(DataCatalog):
         self._load_datasets_raw(self._download_new_data)
         self._transform_datasets_raw(self._download_new_data)
         self._load_datasets()
+        self._load_distribution_info(self._download_new_data)
 
     def _load_datasets(self) -> None:
         """Load datasets file, which contains the preprocessed and enriched data about all datasets in NKOD."""
 
-        # temporary file is used to store intermediate data during metadata enrichment - check if tmp file exists
+        # temporary file is used to store intermediate data during metadata enrichment
         tmp_file_name = self._data_config["datasets_path"].replace(".json", f"_tmp.csv")
 
         if os.path.exists(self._data_config["datasets_path"]):
@@ -140,11 +123,6 @@ class NkodDataCatalog(DataCatalog):
                 lambda lst: sorted([x for x in lst if pd.notna(x) and x is not None and x != np.nan])
             )
 
-        self.all_keywords = set(self.datasets["keywords"].explode().dropna().unique())
-        self.all_themes = set(self.datasets["themes"].explode().dropna().unique())
-        self.all_providers = set(self.datasets["provider"].dropna().unique())
-        self.all_spatial_coverages = set(self.datasets["spatial_coverage"].explode().dropna().unique())
-        self.all_temporal_coverages = set(self.datasets["temporal_coverage"].explode().dropna().unique())
 
     def _load_datasets_raw(self, download_new_data: bool) -> None:
         """Load the raw NKOD dataset of datasets."""
@@ -213,6 +191,21 @@ class NkodDataCatalog(DataCatalog):
         # metadata cleaned -> find all unique keywords and themes, which will be used for metadata enrichment
         self._all_keywords_raw = set(self.datasets_raw_transformed["keywords"].explode().dropna().unique())
         logger.info(f"Number of unique keywords in transformed datasets_raw: {len(self._all_keywords_raw)}")
+
+    def _load_distribution_info(self, download_new_data: bool) -> None:
+        """Download distribution table from NKOD, transform it and store the strasnformed file as json."""
+        path = self.config["data"]["distributions_raw"]["path"]
+        url = self.config["data"]["distributions_raw"]["url"]
+        column_mapping = self.config["data_processing"]["distribution_column_mapping"]
+        if not download_new_data and os.path.exists(path):
+            distributions_df = pd.read_csv(path, sep=",", dtype="string")
+        else:
+            distributions_df = download_df(path, url)
+
+        columns_to_keep = list(column_mapping.keys())
+        distributions_df = distributions_df[columns_to_keep]
+        distributions_df = distributions_df.rename(columns=column_mapping)
+        distributions_df.to_json(self.config["data"]["distributions"]["path"], orient="split", force_ascii=False)
 
     def get_new_datasets(self) -> (pd.DataFrame, list):
         """Get a dataframe of new or updated datasets and update self.datasets with the new data."""
@@ -320,7 +313,6 @@ class NkodDataCatalog(DataCatalog):
         categories = row["categories"] if row["categories"] is not None else []
         categories = list(set(categories + generated_metadata["categories"]))
         self._all_keywords_raw.update(set(keywords))  # update keywords set
-        print(row["title"], generated_metadata)
 
         metadata = {
             "title": row["title"],
@@ -364,37 +356,3 @@ class NkodDataCatalog(DataCatalog):
 
         logger.info("Documents created.")
         return documents
-
-    def get_dataset_by_url(self, url: str) -> dict | None:
-        """Get extended dataset info by URL."""
-        dataset_row = self.datasets[self.datasets['url'] == url]
-        if dataset_row.empty:  # try also the url used on dataset detail page
-            detail_urls = self.datasets['url'].apply(lambda u: dataset_detail_url(self.config, u))
-            dataset_row = self.datasets[detail_urls == url]
-        if dataset_row.empty:
-            return None  # still no result -> dataset with the given URL not found
-
-        row = dataset_row.iloc[0]
-        return {
-            'title': row['title'],
-            'url': row['url'],
-            'text': row['description'] if pd.notna(row['description']) else "",
-            'distributions': self.distributions[self.distributions['dataset_url'] == row['url']].to_dict(orient='records'),
-            'categorization_metadata': {
-                'keywords': row['keywords'] if 'keywords' in row and isinstance(row['keywords'], list) else [],
-                'themes': row['themes'] if 'themes' in row and isinstance(row['themes'], list) else [],
-                'categories': row['categories'] if 'categories' in row and isinstance(row['categories'], list) else [],
-                'spatial_coverage': row['spatial_coverage'] if 'spatial_coverage' in row and isinstance(row['spatial_coverage'], list) else [],
-                'temporal_coverage': row['temporal_coverage'] if 'temporal_coverage' in row and isinstance(row['temporal_coverage'], list) else [],
-                'provider': row['provider'] if 'provider' in row and not pd.isna(row['provider']) else '',
-            }
-        }
-
-    def get_filters_with_counts(self) -> dict:
-        """Get metadata filters"""
-        if not self.filters_with_counts:
-            self.filters_with_counts = {
-                col_name: {"title": title, "value_counts": self.datasets[col_name].explode().value_counts(dropna=True).to_dict()}
-                for (col_name, title) in zip(self._filter_columns, self._filter_column_names)
-            }
-        return self.filters_with_counts

@@ -12,8 +12,8 @@ import yaml
 from llama_index.llms.ollama import Ollama
 from sklearn.metrics import ndcg_score
 
-from EnhancedDatasetSearch.data_processing.database import Database
-from EnhancedDatasetSearch.data_processing.NKOD.nkod import NkodDataCatalog
+from EnhancedDatasetSearch.database import Database
+from EnhancedDatasetSearch.NKOD.nkod import NkodDataCatalog
 from EnhancedDatasetSearch.search.pipeline import SearchPipeline
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")

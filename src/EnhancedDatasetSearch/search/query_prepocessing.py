@@ -23,12 +23,25 @@ def _metadata_filters_selected(applied_filters: dict | None) -> bool:
 
 
 class QueryPreprocessor:
+    """Search query preprocessor.
+
+    Based on the config, the preprocessor will:
+    1. Detect intent behind the user query. The detection is done by an LLM.
+    2. Extend te user query to increase the chance of finding relevant datasets. The extension is done by an LLM.
+
+    The steps are performed only if they are set to true in the preprocessing config."""
     def __init__(self, config: dict) -> None:
-        self.config = config
-        self.client = OllamaClient(config["pipeline_config"]["llm"], timeout=config["pipeline_config"]["preprocessing"]["timeout"])
+        self.config: dict = config
+        self.client: OllamaClient = OllamaClient(config["pipeline_config"]["llm"], timeout=config["pipeline_config"]["preprocessing"]["timeout"])
 
     def run(self, user_query: str, applied_filters: dict | None, categories: list[str], other_category: str) -> (dict, str):
-        """Preprocess the user query."""
+        """Preprocess the search query.
+
+        Preprocessing steps:
+        1. Detect intent behind the search query.
+        2. Extend the search query.
+        The steps are performed only if they are set to true in the config.
+        """
         logger.info(f"Preprocessing user query: {user_query} with metadata filters: {applied_filters}")
 
         if self.config["pipeline_config"]["preprocessing"]["detect_intent"]:
@@ -46,6 +59,7 @@ class QueryPreprocessor:
         return intent, extended_query
 
     def extend_user_query(self, user_query: str, applied_filters: dict | None, intent: dict) -> str:
+        """Extend the search query to increase the chance of finding relevant datasets."""
         template = env.get_template("rewrite_query.j2")
         prompt = template.render(intro=intro_prompt,
                                  user_query=user_query,
@@ -71,8 +85,11 @@ class QueryPreprocessor:
             applied_filters: dict | None,
             categories: list[str],
             other_category: str
-    ) -> dict[str, str]:
-        """Detect the user intent from the query using LLM."""
+    ) -> dict[str, list]:
+        """Detect the user intent from the query using LLM.
+
+        Intent detection is done for the following metadata categories:
+        categories, spatial_coverage and temporal_coverage."""
         logger.info("Detecting intent for query: %s", user_query)
 
         num_categories = 2
@@ -99,5 +116,4 @@ class QueryPreprocessor:
                 "temporal_coverage": []
             }
         logger.info(f"Detected intent: {intent}")
-
         return intent
