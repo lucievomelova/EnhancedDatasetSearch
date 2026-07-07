@@ -50,8 +50,8 @@ Settings.embed_model = OllamaEmbedding(
 search_pipeline_instances = {}  # dictionary to store search pipeline instances per session
 chatbot_instances = {}  # dictionary to store chatbot instances per session
 database: Database = Database(config)
-data_catalog: DataCatalog = NkodDataCatalog(config)
 knowledge_graph: KnowledgeGraph = NkodKnowledgeGraph(config["data_processing"]["knowledge_graph"], database)
+data_catalog: DataCatalog = NkodDataCatalog(config, knowledge_graph)
 
 
 def get_current_session_id():
@@ -71,14 +71,14 @@ def get_search_pipeline():
     return search_pipeline_instances[session_id]
 
 
-def get_chatbot():
+def get_chatbot(language: str):
     """Get or create a chatbot instance for the current session."""
     session_id = get_current_session_id()
 
     # create a new chatbot instance for this session if it doesn't exist
     if session_id not in chatbot_instances:
         pipeline = get_search_pipeline()
-        chatbot_instances[session_id] = Chatbot(config, pipeline, data_catalog, llm)
+        chatbot_instances[session_id] = Chatbot(config, pipeline, data_catalog, llm, language)
     return chatbot_instances[session_id]
 
 
@@ -134,8 +134,8 @@ def dataset_detail():
         return redirect(url_for('home'))
     similar_datasets = get_similar_datasets_with_preview_text(dataset_url,
                                                               dataset_info,
-                                                              data_catalog,
-                                                              knowledge_graph)
+                                                              data_catalog
+                                                              )
     distributions = dataset_info["distributions"]
     for i, d in enumerate(distributions, start=1):
         d["title"] = f"Distribution {i}" if d["title"] is None else d["title"]
@@ -148,17 +148,19 @@ def dataset_detail():
 @app.route('/chatbot')
 def chatbot():
     """Display the chatbot page."""
-    return render_template("chatbot.html")
+    language = session["language"] if "language" in session else "English"
+    return render_template("chatbot.html", language=language)
 
 
 @app.route('/chatbot/reset', methods=['POST'])
 def reset_chatbot():
     """Reset the chatbot memory for the current session."""
+    language = session["language"] if "language" in session else "English"
     if 'session_id' in session:
         session_id = session['session_id']
         if session_id in chatbot_instances:
             del chatbot_instances[session_id]
-            chatbot_instances[session_id] = Chatbot(config, get_search_pipeline(), data_catalog)
+            chatbot_instances[session_id] = Chatbot(config, get_search_pipeline(), data_catalog, llm, language)
 
     return jsonify({'success': True, 'message': 'Chatbot memory cleared.'})
 
@@ -168,13 +170,14 @@ def chatbot_query():
     """Handle chatbot queries using the Chatbot class."""
     data = request.get_json()
     user_query = data.get('query', '').strip()
+    language = session["language"] if "language" in session else "English"
 
     if not user_query:
         return jsonify({'success': False, 'response': 'Please type in a message.'})
 
     try:
         future = asyncio.run_coroutine_threadsafe(
-            get_chatbot().react_to_message(user_query),
+            get_chatbot(language).react_to_message(user_query),
             loop
         )
         result = future.result()
@@ -190,6 +193,13 @@ def chatbot_query():
         logger.error(f"Error in chatbot query: {str(e)}", exc_info=True)
         return jsonify({'success': False, 'response': 'An error occurred while processing your query.'})
 
+
+@app.route("/set-language", methods=["POST"])
+def set_language():
+    lang = request.form.get("language")
+    session["language"] = lang
+
+    return redirect(request.referrer or "/")
 
 if __name__ == '__main__':
     app.run(debug=True)

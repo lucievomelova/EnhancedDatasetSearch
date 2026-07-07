@@ -16,6 +16,7 @@ import os
 from llama_index.llms.ollama import Ollama
 from sklearn.metrics import ndcg_score
 
+from EnhancedDatasetSearch.NKOD.knowledge_graph import NkodKnowledgeGraph
 from EnhancedDatasetSearch.data_catalog import DataCatalog
 from EnhancedDatasetSearch.database import Database
 from EnhancedDatasetSearch.NKOD.nkod import NkodDataCatalog
@@ -80,7 +81,9 @@ def main(config_path: str):
     with open(config_path, "r") as f:
         grid_search_config = yaml.safe_load(f)
 
-    data_catalog = NkodDataCatalog(grid_search_config)
+    database = Database(grid_search_config)
+    knowledge_graph = NkodKnowledgeGraph(grid_search_config["data_processing"]["knowledge_graph"], database)
+    data_catalog = NkodDataCatalog(grid_search_config, knowledge_graph)
     config = copy.deepcopy(grid_search_config)
     i = 1
     pipeline_config_gs = grid_search_config["pipeline_config"]
@@ -108,15 +111,14 @@ def main(config_path: str):
                                             for reranker in pipeline_config_gs["postprocessing"]["reranker"]:
                                                 pipeline_config["postprocessing"]["reranker"] = reranker
                                                 logger.info(f"{i}. Configuration: {pipeline_config}")
-                                                run_experiment(config, data_catalog)
+                                                run_experiment(config, data_catalog, database)
 
 
-def run_experiment(config: dict, data_catalog: NkodDataCatalog) -> None:
+def run_experiment(config: dict, data_catalog: NkodDataCatalog, database: Database) -> None:
     llm = Ollama(model=config['pipeline_config']['llm']['model_name'],
                  context_window=config['pipeline_config']['llm']['context_length'],
                  request_timeout=300)
 
-    database = Database(config)
     queries_k = 1
     search_pipeline = EvaluationSearchPipeline(config, llm, data_catalog, database, queries_k)
 

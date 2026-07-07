@@ -4,7 +4,6 @@ from llama_index.core.memory import ChatMemoryBuffer
 from llama_index.core.tools import FunctionTool
 
 from EnhancedDatasetSearch.data_catalog import DataCatalog
-import EnhancedDatasetSearch.NKOD.knowledge_graph as kg
 from EnhancedDatasetSearch.search.pipeline import SearchPipeline
 from EnhancedDatasetSearch.utils import dataset_detail_url, render_template, setup_logger
 
@@ -12,18 +11,25 @@ logger = setup_logger(__name__)
 
 
 class Chatbot:
-    """The chatbot class.
+    """The NKOD chatbot class.
 
     This class handles the chatbot backend logic - message generation and tool calling.
     The chatbot is powered by llama_index FunctionAgent."""
 
-    def __init__(self, config: dict, search_pipeline: SearchPipeline, data_catalog: DataCatalog, llm: FunctionCallingLLM):
-        self.config = config
-        self.search_pipeline = search_pipeline
-        self.data_catalog = data_catalog
+    def __init__(
+            self,
+            config: dict,
+            search_pipeline: SearchPipeline,
+            data_catalog: DataCatalog,
+            llm: FunctionCallingLLM,
+            language: str):
+        self.config: dict = config
+        self.search_pipeline: SearchPipeline = search_pipeline
+        self.data_catalog: DataCatalog = data_catalog
         self.memory = ChatMemoryBuffer.from_defaults(token_limit=config["chatbot"]["llm"]["memory_limit"])
+        self.language: str = language
         tools = self.create_tools()
-        system_prompt = render_template("chatbot/chat.j2", {"language": "English"})
+        system_prompt = render_template("chatbot/chat.j2", {"language": language})
         self.agent = FunctionAgent(
             llm=llm,
             tools=tools,
@@ -37,14 +43,13 @@ class Chatbot:
         search_in_data_catalog = FunctionTool.from_defaults(
             async_fn=self._tool_search,
             name="search_in_data_catalog",
-            description="Search the data catalog for most relevant datasets based on the search query." +
-                        "Input a search query."
+            description="Search in the data catalog - retrieve relevant datasets based on the provided search query."
         )
         get_list_of_all_values_for_metadata_category = FunctionTool.from_defaults(
             fn=self._tool_get_list_of_all_values_for_metadata_category,
             name="get_list_of_all_values_for_metadata_category",
             description="Get a list of all values occurring in the data catalog for a given metadata category. " +
-            "Possible category values are: keywords, themes, categories, providers, spatial_coverages, temporal_coverages."
+            "Possible category values are: themes, categories, providers, spatial_coverages, temporal_coverages."
         )
         extract_data_catalog_information = FunctionTool.from_defaults(
             fn=self._tool_read_info_file,
@@ -57,18 +62,19 @@ class Chatbot:
         get_dataset_info = FunctionTool.from_defaults(
             fn=self._tool_get_dataset_info,
             name="get_dataset_info",
-            description="Get dataset information based on the dataset URL. "+
+            description="Get dataset information based on the dataset URL or title. "+
             "Returns a dict, where key is the type of metadata (e.g. dataset title or description) " +
-            "and value is the associated information."
+            "and value is the associated metadata."
         )
 
         get_similar_datasets = FunctionTool.from_defaults(
             fn=self._tool_get_similar_datasets,
             name="get_similar_datasets",
-            description="Get datasets similar to the given dataset (based on its URL). "+
-            "Optionally, similarity category can be specified - 'description' or 'themes''. " +
-            "If similarity category is specified, returns a list of similar datasets for the specified category."
-            "Otherwise returns a dict with similarity category as key and similar datasets as value."
+            description="Get datasets similar to the given dataset based on the dataset URL or title. " +
+            "Optionally, similarity category can be specified - 'description', 'keywords', 'themes', 'provider', " +
+            "'spatial_coverage' or 'temporal_coverage. " +
+            "If similarity category is specified, returns a list of similar datasets in that category."
+            "Otherwise returns a dict with similarity category as key and list of similar datasets as value."
         )
 
         return [
@@ -82,7 +88,7 @@ class Chatbot:
     async def react_to_message(self, user_message: str) -> str:
         """Run the chatbot in a loop."""
         error_message = "There was an error during answer generation. Try rewriting your message or start a new chat."
-        logger.info("Reacting.")
+        logger.info(f"Generating a response, language: {self.language}.")
         try:
             response = str(await self.agent.run(user_msg=user_message, memory=self.memory))
             logger.info(f"Response: {response}")
@@ -96,17 +102,19 @@ class Chatbot:
     def _tool_get_list_of_all_values_for_metadata_category(self, metadata_category: str) -> list[str] | str:
         """Get a list of all values for a given metadata category.
 
-        Possible category values are: keywords, themes, categories, providers, spatial_coverages, temporal_coverages."""
+        Possible category values are: themes, categories, providers, spatial_coverages, temporal_coverages."""
+        logger.info("Tool call: get_list_of_all_values_for_metadata_category")
         possible_categories = ["keywords", "themes", "categories", "region", "time_periods"]
         try:
             if metadata_category == "categories":
-                return self.data_catalog.all_categories_with_other_category
+                return list(self.data_catalog.all_categories_with_other_category)
             return getattr(self.data_catalog, f"all_{metadata_category}")
         except AttributeError:
             return f"Invalid metadata category, possible values are: {possible_categories}"
 
     def _tool_read_info_file(self, info_type: str) -> str:
         """Read the content of an information file and return it as a string."""
+        logger.info("Tool call: read_info_file")
         try:
             with open(f"/llm_inputs/nkod_context/{info_type}.md", "r") as f:
                 return f.read()
@@ -118,6 +126,7 @@ class Chatbot:
 
         Returns:
             a of dicts, where each item represents one dataset. For each dataset there is its title and URL."""
+        logger.info("Tool call: search")
         try:
             search_results = await self.search_pipeline.run(query)
             formatted_results = self._keep_only_title_and_url(search_results)
@@ -126,27 +135,33 @@ class Chatbot:
             logger.error(f"Error during search in data catalog: {str(e)}", exc_info=True)
             return "An error occurred during search in data catalog."
 
-    def _tool_get_dataset_info(self, dataset_url: str) -> dict | str:
+    def _tool_get_dataset_info(self, url: str | None = None, title: str | None = None) -> dict | str:
         """Get detailed information about a dataset based on its URL."""
+        logger.info("Tool call: get_dataset_info")
         try:
-            dataset_info = self.data_catalog.get_dataset_by_url(dataset_url)
+            if url is None:
+                url = self.data_catalog.get_dataset_url_by_title(title)
+            dataset_info = self.data_catalog.get_dataset_by_url(url)
             if dataset_info is None:
                 return "No dataset found with the given URL."
-            dataset_info["url"] = dataset_detail_url(self.config, dataset_url)
+            dataset_info["url"] = dataset_detail_url(self.config, url)
             return dataset_info
         except Exception as e:
             logger.error(f"Error during getting dataset info: {str(e)}", exc_info=True)
-            return "An error occurred during retrieving dataset information."
+            return "An error occurred during retrieving dataset information. You must specify title or URL."
 
-    def _tool_get_similar_datasets(self, dataset_url: str, similarity_type: str | None = None) -> list | dict | str:
+    def _tool_get_similar_datasets(self, url: str | None = None, title: str | None = None, similarity_type: str | None = None) -> list | dict | str:
         """Get similar datasets for a given dataset based on its URL."""
+        logger.info("Tool call: get_similar_datasets")
         try:
-            similar_datasets = kg.get_similar_datasets(dataset_url, self.config["data_processing"]["knowledge_graph"])
+            if url is None:
+                url = self.data_catalog.get_dataset_url_by_title(title)
+            similar_datasets = self.data_catalog.get_similar_datasets(url)
             results = {}
             for sim_type, url_score_list in similar_datasets.items():
                 results_per_sim_type = []
                 for url, _ in url_score_list:
-                    sim_dataset = self.search_pipeline.data_catalog.get_dataset_by_url(url)
+                    sim_dataset = self.data_catalog.get_dataset_by_url(url)
                     results_per_sim_type.append({
                         "title": sim_dataset["title"],
                         "url": dataset_detail_url(self.config, sim_dataset["url"])
@@ -158,7 +173,7 @@ class Chatbot:
             return similar_datasets
         except Exception as e:
             logger.error(f"Error during getting similar datasets: {str(e)}", exc_info=True)
-            return "An error occurred during retrieving similar datasets."
+            return "An error occurred during retrieving similar datasets. You must specify title or URL."
 
     def _keep_only_title_and_url(self, search_results: list[dict] | None) -> list[dict[str, str]]:
         """Keep only title of a dataset and its url to the dataset_detail page.

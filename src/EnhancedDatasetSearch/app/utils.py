@@ -18,11 +18,10 @@ def get_common_metadata(metadata_category_list: list[str], metadata_a: dict, met
 def get_similar_datasets_with_preview_text(
         dataset_url: str,
         dataset_info: dict,
-        data_catalog: DataCatalog,
-        knowledge_graph: KnowledgeGraph
+        data_catalog: DataCatalog
 ) -> dict:
     """Get datasets similar to the specified dataset with preview texts."""
-    similar_datasets_raw = knowledge_graph.get_similar_datasets(dataset_url)
+    similar_datasets_raw = data_catalog.get_similar_datasets(dataset_url)
 
     similar_datasets = {}
     for sim_category, url_score_list in similar_datasets_raw.items():

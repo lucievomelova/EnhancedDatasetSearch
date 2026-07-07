@@ -5,9 +5,9 @@ import pytest
 
 
 @pytest.mark.dependency()
-def test_load_new_documents(data_processing_pipeline, database):
+def test_load_new_documents(document_converter, dataset_processing_pipeline, database):
     """Test that load_documents doesn't throw any errors."""
-    datasets_documents = data_processing_pipeline.prepare_documents_for_upload(data_processing_pipeline.datasets)
+    datasets_documents = document_converter.create_documents(dataset_processing_pipeline.datasets)
     database.load_documents(datasets_documents)
 
 

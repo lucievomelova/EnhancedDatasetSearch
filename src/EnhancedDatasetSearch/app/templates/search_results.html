@@ -7,8 +7,6 @@
     <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='book_icon.svg') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='styles/styles.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='styles/search_results.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='styles/loading.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='styles/chatbot_button.css') }}">
 </head>
 <body>
     <!-- Display loading circle -->
@@ -17,13 +15,6 @@
             <div class="spinner"></div>
             <div class="loading-text">Searching</div>
         </div>
-    </div>
-
-    <div class="language-selector">
-        <select id="language" name="language" class="language-dropdown">
-            <option value="en">🇬🇧</option>
-            <option value="cs">🇨🇿</option>
-        </select>
     </div>
 
      {% if results %}
@@ -76,6 +67,7 @@
                         name="query"
                         class="search-input"
                         placeholder="Search for datasets..."
+                        maxlength="1000"
                         value="{{ query }}"
                         autofocus
                         required
@@ -100,35 +92,28 @@
 
             <div class="results-container">
                 {% for dataset in results %}
-                <div class="result-card" data-keywords="{{ dataset.categorization_metadata.keywords | join(',') }}" data-themes="{{ dataset.categorization_metadata.themes | join(',') }}" data-categories="{{ dataset.categorization_metadata.categories | join(',') }}" data-provider="{{ dataset.categorization_metadata.provider }}" data-temporal="{{ dataset.categorization_metadata.temporal_coverage | join(',') }}" data-spatial="{{ dataset.categorization_metadata.spatial_coverage | join(',') }}">
+                <div class="result-card"
+                     data-keywords="{{ dataset.categorization_metadata.keywords | join('", "') }}"
+                     data-themes="{{ dataset.categorization_metadata.themes | join('", "') }}"
+                     data-categories="{{ dataset.categorization_metadata.categories | join('", "') }}"
+                     data-provider="{{ dataset.categorization_metadata.provider }}"
+                     data-temporal="{{ dataset.categorization_metadata.temporal_coverage | join('", "') }}"
+                     data-spatial="{{ dataset.categorization_metadata.spatial_coverage | join('", "') }}">
                             <div class="result-header">
                                 <h2 class="result-title">
                                     <a href="{{ url_for('dataset_detail', source=dataset.url) }}">{{ dataset.title }}</a>
                                 </h2>
                                 <div class="result-actions">
-                                    {% if dataset.explanation %}
-                                    <button class="action-button action-button-lg" aria-label="Show explanation">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                            <circle cx="12" cy="12" r="10"></circle>
-                                            <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
-                                            <line x1="12" y1="17" x2="12.01" y2="17"></line>
-                                        </svg>
-                                        <div class="tooltip">
-                                            <strong>Why this result?</strong>
-                                            <p>{{ dataset.explanation }}</p>
-                                        </div>
-                                    </button>
-                                    {% endif %}
                                     <button class="action-button" aria-label="Show metadata">⋮
                                         <div class="tooltip">
-                                            <div class="metadata-section">
-                                                <strong>Keywords:</strong>
-                                                <span>{{ dataset.categorization_metadata.keywords | join(', ') if dataset.categorization_metadata.keywords else '-' }}</span>
-                                            </div>
-                                            <div class="metadata-section">
-                                                <strong>Themes:</strong>
-                                                <span>{{ dataset.categorization_metadata.themes | join(', ') if dataset.categorization_metadata.themes else '-' }}</span>
-                                            </div>
+                                            {% for metadata_cat, metadata_values in dataset.categorization_metadata.items() %}
+                                                {% if metadata_values and metadata_cat != "provider" %}
+                                                    <div class="metadata-section">
+                                                        <strong>{{ metadata_cat | replace("_", " ") | title }}:</strong>
+                                                        <span>{{ metadata_values | join(', ')}}</span>
+                                                    </div>
+                                                {% endif %}
+                                            {% endfor %}
                                             <div class="metadata-section">
                                                 <strong>Provider:</strong>
                                                 <span>{{ dataset.categorization_metadata.provider if dataset.categorization_metadata.provider else '-' }}</span>

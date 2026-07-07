@@ -33,13 +33,13 @@ class SearchPipeline:
 
     async def run(self, query: str, applied_filters: dict | None = None) -> list[dict[str, str | list | None]]:
         """Run the search pipeline for the given query and return the results as a DataFrame."""
-        intent, extended_query = self.query_preprocessor.run(
+        _, extended_query = self.query_preprocessor.run(
             query,
             applied_filters,
             self.config["data_processing"]["categories"],
             self.config["data_processing"]["other_category"]
         )
-        search_results = await self.retriever.run(query, extended_query)
+        search_results = await self.retriever.run(query, extended_query, applied_filters)
         nodes = self.postprocessor.run(query, search_results)
         if nodes is not None:
             return nodes

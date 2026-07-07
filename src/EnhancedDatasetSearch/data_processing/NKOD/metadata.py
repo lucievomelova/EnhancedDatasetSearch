@@ -21,10 +21,10 @@ return_json_template = env.get_template("return_json.j2")
 return_json_instructions = return_json_template.render()
 
 
-def preprocess_comma_separated_words(client: OllamaClient, word_sequence: str, state_dir: str) -> list[str]:
-    """Preprocess words containing commas.
+def preprocess_comma_separated_keywords(client: OllamaClient, word_sequence: str, state_dir: str) -> list[str]:
+    """Preprocess keywords containing commas.
 
-    Some keywords or themes like this truly contain commas, but others are actually multiple keywords
+    Some keywords contain commas. Identify if these keywords are correct or if they are multiple keywords
     that were formatted incorrectly. Use an LLM to identify and split those."""
     state_file = state_dir + "/comma_separated_keywords.json"
     if os.path.exists(state_file):  # check if we already processed some keywords
@@ -35,7 +35,7 @@ def preprocess_comma_separated_words(client: OllamaClient, word_sequence: str, s
 
     template = env.get_template("keywords_commas.j2")
     prompt = template.render(keyword=word_sequence, return_json_instructions=return_json_instructions)
-    response = client.get_llm_json_response(prompt, num_retry_attempts=1)
+    response, _ = client.get_llm_json_response(prompt, num_retry_attempts=1)
     if response is None:
         return [word_sequence]  # return unprocessed sequence if the LLM couldn't process it
 
@@ -57,7 +57,7 @@ def extract_year_from_temporal_coverage(temporal_coverages: list[str]) -> list[s
     """Extract year from temporal_coverage.
 
     The LLM sometimes assigns concrete dates to time periods, which is not desirable. Other times, it assigns
-    just month+year, which we also do not want."""
+    just month+year, which we also do not want. Extract just year using regex."""
     new_temporal_coverages = set()
     date_pattern1 = r'^\d{1,2}[/\.\-]\s*\d{1,2}[/\.\-]\s*(\d{4})$'
     date_pattern2 = r'^(\d{4})[/\.\-]\d{1,2}[/\.\-]\d{1,2}$'
@@ -120,7 +120,7 @@ def simplify_temporal_coverage(temporal_coverages: list[str]) -> list[str]:
 
 
 def process_spatial_and_temporal_coverage(datasets: pd.DataFrame) -> None:
-    """Process spatial and temporal coverage column programatically (without using an LLM).
+    """Process spatial and temporal coverage column (without using an LLM).
 
     The goal is to remove unusable data and unify format of data where possible."""
     logger.info(f"Processing spatial and temporal coverage.")
@@ -133,24 +133,28 @@ def process_spatial_and_temporal_coverage(datasets: pd.DataFrame) -> None:
     )
     logger.info("Temporal coverage simplified to contain just year or year range where applicable.")
 
+    _unify_word_capitalization(datasets, "spatial_coverage")  # unify spatial coverage capitalization
+    logger.info(f"Spatial coverage capitalization unified.")
+
     # we don't want spatial coverage in forms of "Czech Republic" or similar - that is useless information
     cz_spatial_coverage = ["ČESKÁ REPUBLIKA", "CZ", "CZECH REPUBLIC", "ČESKO", "CZECH"]
     datasets["spatial_coverage"] = datasets["spatial_coverage"].apply(
         lambda spatial_coverage: [s for s in spatial_coverage if s.upper() not in cz_spatial_coverage]
     )
     logger.info("Removed variants of \"Czech Republic\" from spatial coverage.")
-    # many spatial coverages contain municipality or district word (obec, okres) - remvoe
+    # many spatial coverages contain municipality or district word (obec, okres) - remove
     datasets["spatial_coverage"] = datasets["spatial_coverage"].apply(
         lambda spatial_coverage: [s.replace("obec ", "").replace("okres ", "") for s in spatial_coverage]
     )
     logger.info("Removed \"obec\" and \"okres\" from spatial coverage.")
 
 
-def _unify_keyword_capitalization(datasets: pd.DataFrame, column: str) -> None:
+
+def _unify_word_capitalization(datasets: pd.DataFrame, column: str) -> None:
     """Find words that differ just by capitalization and rewrite them into the same form."""
     all_words = datasets[column].explode().dropna().unique()
     logger.info(f"Number of words {len(all_words)}.")
-    logger.info(f"Merging keywords that differ just by capitalization.")
+    logger.info(f"Merging words that differ just by capitalization.")
 
     words_df = pd.DataFrame({
         'word': all_words,
@@ -187,9 +191,20 @@ def preprocess_keywords(datasets: pd.DataFrame, client: OllamaClient | None, sta
     col = "keywords"
     datasets[col] = datasets[col].apply(lambda k: list(set(k)))  # remove possible duplicates from keywords
     logger.info(f"Preprocessing keywords.")
-    if OllamaClient:
-        # some keywords might be incorrectly formatted and contain commas separating multiple keywords/themes
-        datasets[col] = datasets[col].apply(lambda x: preprocess_comma_separated_words(client, x, state_dir) if "," in x else x)
+    if client is not None:
+        # some keywords might be incorrectly formatted and contain commas separating multiple keywords
+        # split them where appropriate
+        def split_comma_separated_keywords(lst):
+            result = []
+            for x in lst:
+                if "," in x:
+                    processed = preprocess_comma_separated_keywords(client, x, state_dir)
+                    result.extend(processed)
+                else:
+                    result.append(x)
+            return result
+        datasets[col] = datasets[col].apply(split_comma_separated_keywords)
+
     # strip whitespaces from beginning and end of each word
     datasets[col] = datasets[col].apply(lambda words: [w.strip() for w in words])
 
@@ -197,7 +212,7 @@ def preprocess_keywords(datasets: pd.DataFrame, client: OllamaClient | None, sta
     datasets[col] = datasets[col].apply(
         lambda words: [w[:-1] if (w.endswith(".") and not w.endswith("Sb.")) or w.endswith(",") else w for w in words]
     )
-    _unify_keyword_capitalization(datasets, col)
+    _unify_word_capitalization(datasets, col)
 
     # use Levenshtein distance to find very similar words
     word_counts = datasets[col].explode().dropna().value_counts()
@@ -226,6 +241,7 @@ def preprocess_keywords(datasets: pd.DataFrame, client: OllamaClient | None, sta
     # replace by similar words if applicable
     datasets[col] = datasets[col].apply(lambda words: [similarity_dict.get(w, w) for w in words])
 
+    # remove duplicates
     datasets[col] = datasets[col].apply(lambda words: [w for w in set(words) if w is not None])
     all_words = datasets[col].explode().dropna().unique()
     logger.info(f"Merged. Number of keywords: {len(all_words)}")

@@ -1,6 +1,6 @@
 from llama_index.core import VectorStoreIndex
 from llama_index.core.retrievers import QueryFusionRetriever
-from llama_index.core.schema import NodeWithScore
+from llama_index.core.schema import NodeWithScore, QueryBundle
 from llama_index.retrievers.bm25 import BM25Retriever
 from llama_index.storage.docstore.postgres import PostgresDocumentStore
 
@@ -40,10 +40,16 @@ class Retriever:
         )
         return retriever
 
-    async def run(self, user_query: str, extended_query: str | None = None) -> list[NodeWithScore]:
+    async def run(self, user_query: str, extended_query: str | None, applied_filters: dict | None) -> list[NodeWithScore]:
         """Search for relevant datasets."""
-        logger.info(f"Searching - query: {user_query} + extended query: {extended_query}")
-        nodes = await self.retriever.aretrieve(f'{user_query}, {extended_query}')
+        query = user_query
+        if extended_query:
+            query += ", " + extended_query
+        if applied_filters:
+            filter_list = [item for lst in applied_filters.values() for item in lst]
+            query += f", {".".join(filter_list)}"
+        logger.info(f"Searching - query: {query}")
+        nodes = await self.retriever.aretrieve(query)
         node_ids = [n.id_ for n in nodes]
         logger.info(f"Retrieved {len(node_ids)} nodes.")
 

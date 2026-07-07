@@ -4,6 +4,7 @@ import pandas as pd
 
 from EnhancedDatasetSearch.data_catalog import DataCatalog
 from EnhancedDatasetSearch.utils import dataset_detail_url, setup_logger
+from EnhancedDatasetSearch.knowledge_graph import KnowledgeGraph
 
 logger = setup_logger(__name__)
 
@@ -15,8 +16,8 @@ class NkodDataCatalog(DataCatalog):
     The datasets dataframe is the processed and enhanced metadata dataset representing the NKOD datasets.
     """
 
-    def __init__(self, config: dict):
-        super().__init__(config)
+    def __init__(self, config: dict, knowledge_graph: KnowledgeGraph):
+        super().__init__(config, knowledge_graph)
 
         self.config: dict = config
 
@@ -32,11 +33,18 @@ class NkodDataCatalog(DataCatalog):
         self._distributions_path: str = config["data"]["distributions"]["path"]
         """Path where the datasets file is stored."""
 
+        self.knowledge_graph: KnowledgeGraph = knowledge_graph
+        """Knowledge graph of the data catalog - contains dataset and metadata nodes. This knowledge is used to 
+        detect similar datasets."""
+
         self._filter_columns: list = ["keywords", "themes", "categories", "spatial_coverage", "temporal_coverage", "provider"]
         """Columns that can be used for search result filtering."""
 
         self.filters_with_counts: dict = {}
         """Dictionary that stores occurrence counts of each unique value in every filter category."""
+
+        self._last_modification_time: float | None = None
+        """Last modification time of the datasets file. Used to check if the loaded datasets are up to date."""
 
         self._load_datasets()
         self._load_distributions()
@@ -55,6 +63,7 @@ class NkodDataCatalog(DataCatalog):
         self.all_providers = set(self.datasets["provider"].dropna().unique())
         self.all_spatial_coverages = set(self.datasets["spatial_coverage"].explode().dropna().unique())
         self.all_temporal_coverages = set(self.datasets["temporal_coverage"].explode().dropna().unique())
+        self._last_modification_time = os.path.getmtime(self._datasets_path)
 
     def _load_distributions(self):
         """Load distributions file."""
@@ -63,6 +72,18 @@ class NkodDataCatalog(DataCatalog):
             self.distributions = pd.read_json(self._distributions_path, orient="split")
         else:
             logger.error("Distributions file not found.")
+
+    def _update_datasets_file_if_outdated(self) -> None:
+        """Check if the loaded datasets and distributions file is up to date and load them again if not.
+
+        We check only datasets file modification time, becuase both files are updated together.
+        """
+
+        mod_time = os.path.getmtime(self._datasets_path)
+        if self._last_modification_time != mod_time:
+            self._load_datasets()
+            self._load_distributions()
+            self.filters_with_counts = {} # reset metadata filters as well
 
 
     def get_dataset_by_url(self, url: str) -> dict | None:
@@ -76,6 +97,7 @@ class NkodDataCatalog(DataCatalog):
             categorization_metadata: dict with keywords, themes, categories, spatial_coverage,
             temporal_coverage, provider
         """
+        self._update_datasets_file_if_outdated()
         dataset_row = self.datasets[self.datasets['url'] == url]
         if dataset_row.empty:  # try also the url used on dataset detail page
             detail_urls = self.datasets['url'].apply(lambda u: dataset_detail_url(self.config, u))
@@ -99,11 +121,19 @@ class NkodDataCatalog(DataCatalog):
             }
         }
 
+    def get_dataset_url_by_title(self, title: str) -> str | None:
+        """Get dataset URL by its title. If multiple datasets have the same title, the first match will be returned."""
+        rows = self.datasets[self.datasets["title"] == title]
+        if rows.empty:
+            return None
+        return rows.iloc[0]["url"]
+
     def get_filters_with_counts(self) -> dict:
         """Get a dict of metadata filters and the number of occurrences of each metadata value.
 
         Each filter column is a key, value is another dict with two keys: title and value_counts. Title is the filter
         category title, value_counts is a dict, where key is each unique value, value is number of occurrences."""
+        self._update_datasets_file_if_outdated()
         if not self.filters_with_counts:
             self.filters_with_counts = {
                 col_name: {
@@ -113,3 +143,12 @@ class NkodDataCatalog(DataCatalog):
                 for col_name in self._filter_columns
             }
         return self.filters_with_counts
+
+    def get_similar_datasets(self, dataset_url: str) -> dict[str, list[tuple[str, float]]]:
+        """Get similar datasets based on the knowledge graph.
+
+        Returns:
+            A dictionary with keys: 'description', 'keywords', 'themes', 'provider', 'spatial_coverage',
+            'temporal_coverage'. Each value is a list of (url, score) tuples.
+        """
+        return self.knowledge_graph.get_similar_datasets(dataset_url)

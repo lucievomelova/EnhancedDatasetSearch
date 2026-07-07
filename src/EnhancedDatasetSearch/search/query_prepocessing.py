@@ -34,7 +34,7 @@ class QueryPreprocessor:
         self.config: dict = config
         self.client: OllamaClient = OllamaClient(config["pipeline_config"]["llm"], timeout=config["pipeline_config"]["preprocessing"]["timeout"])
 
-    def run(self, user_query: str, applied_filters: dict | None, categories: list[str], other_category: str) -> (dict, str):
+    def run(self, user_query: str, applied_filters: dict | None, categories: list[str], other_category: str) -> tuple[dict | None, None]:
         """Preprocess the search query.
 
         Preprocessing steps:
@@ -47,27 +47,24 @@ class QueryPreprocessor:
         if self.config["pipeline_config"]["preprocessing"]["detect_intent"]:
             intent = self.detect_user_intent(user_query, applied_filters, categories, other_category)
         else:
-            intent = {
-                "categories": [],
-                "spatial_coverage": [],
-                "temporal_coverage": []
-            }
+            intent = None
         if self.config["pipeline_config"]["preprocessing"]["extend_query"]:
             extended_query = self.extend_user_query(user_query, applied_filters, intent)
         else:
-            extended_query = "-"
+            extended_query = None
         return intent, extended_query
 
-    def extend_user_query(self, user_query: str, applied_filters: dict | None, intent: dict) -> str:
+    def extend_user_query(self, user_query: str, applied_filters: dict | None, intent: dict | None) -> str:
         """Extend the search query to increase the chance of finding relevant datasets."""
         template = env.get_template("rewrite_query.j2")
         prompt = template.render(intro=intro_prompt,
                                  user_query=user_query,
                                  applied_filters=applied_filters,
                                  filters_selected=_metadata_filters_selected(applied_filters),
-                                 categories_intent=intent["categories"],
-                                 spatial_intent=intent["spatial_coverage"],
-                                 temporal_intent=intent["temporal_coverage"])
+                                 intent_detected=True if intent is not None else False,
+                                 categories_intent=intent["categories"] if intent is not None else [],
+                                 spatial_intent=intent["spatial_coverage"] if intent is not None else [],
+                                 temporal_intent=intent["temporal_coverage"] if intent is not None else [])
         logger.info(f"Extending user query: {user_query}")
 
         try:
@@ -110,10 +107,6 @@ class QueryPreprocessor:
             intent = json.loads(response)
         except (httpx.ReadTimeout, json.decoder.JSONDecodeError) as e:
             logger.error(f"Error while detecting user intent for query: {e}, this step will be skipped.")
-            intent = {
-                "categories": [],
-                "spatial_coverage": [],
-                "temporal_coverage": []
-            }
+            intent = None
         logger.info(f"Detected intent: {intent}")
         return intent

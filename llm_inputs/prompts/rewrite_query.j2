@@ -6,10 +6,12 @@ The search query: "{{ user_query }}".
 The selected metadata filters are: {{ applied_filters }}
 {% endif %}
 
+{% if intent_detected %}
 ## Detected User Intent
 - Categories: {{ categories_intent }}
 - Spatial coverage: {{ spatial_intent }}
 - Temporal coverage: {{ temporal_intent }}
+{% endif %}
 
 # Your Task
 Expand the query to improve its effectiveness for searching in the catalog. Consider the following guidelines:

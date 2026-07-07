@@ -25,7 +25,10 @@ class NkodKnowledgeGraph(KnowledgeGraph):
         self.database = database
 
     def _add_dataset_node(self, row: Series, graph_name: str) -> None:
-        """Add a dataset node to KG represented by a dataframe row and create all its metadata relationships."""
+        """Add a dataset node to KG represented by a dataframe row and create all its metadata relationships.
+
+        Create a new dataset node if it doesn't exist, then create its metadata nodes if they don't exist and
+        connect the dataset with its metadata by the appropriate relationships."""
         with self.driver.session() as session:
             metadata = row.drop(columns="description")
             # add dataset node
@@ -58,12 +61,26 @@ class NkodKnowledgeGraph(KnowledgeGraph):
     def create_or_update_kg(self, datasets: pd.DataFrame, new_datasets: pd.DataFrame, removed_urls: list) -> None:
         """Create a knowledge graph or update it if it exists."""
         if len(new_datasets) == len(datasets):
-            self.create_kg(datasets)
+            self.create_kg(datasets)  # create KG if all datasets are new
         else:
             self.update_kg(datasets, new_datasets, removed_urls)
 
     def create_kg(self, datasets: pd.DataFrame) -> None:
-        """Create knowledge graph based on dataset metadata and description embedding similarity."""
+        """Create knowledge graph based on dataset metadata and description embedding similarity.
+
+        Steps:
+            1. Create constraints if they do not exist.
+            2. Create a staging KG:
+                1. Create dataset nodes and metadata nodes and connect datasets to their metadata.
+                2. Create description similarity edges btween datasets.
+            3. Delete old live graph if it exists.
+            4. Rename staging graph to live.
+
+        This method intended to be used only on the first creation of the KG. Then update_kg() can be used to update the
+        existing graph. But this method can also be used to recreate the KG completely if needed.
+        A new staging KG is created and only after it is ready, the old live KG is deleted and the staging KG is renamed
+        to live. This way, there is no downtime and the old live graph can be used while the new one is being created.
+        """
         logger.info(f"Creating knowledge graph from dataset metadata for {len(datasets)} datasets.")
 
         # create constraints on nodes
@@ -96,7 +113,15 @@ class NkodKnowledgeGraph(KnowledgeGraph):
         logger.info("Knowledge graph creation completed.")
 
     def update_kg(self, datasets: pd.DataFrame, new_datasets: pd.DataFrame, removed_urls: list):
-        """Update an existing knowledge graph by adding new datasets."""
+        """Update an existing knowledge graph by removing old and adding new datasets.
+
+        Steps:
+        1. All dataset nodes whose url is in removed_urls are removed and all their relationships as well.
+        2. If a dataset in new_datasets already exists in the KG, it is removed frst and then added again.
+        3. All datasets in new_datasets are added to KG.
+        4. Before deleting dataset nodes in 1. and 2., we keep track of all their neighboring dataset nodes. We
+        add similarity edges to those neighboring datasets.
+        """
         # remove removed datasets by url
         logger.info(f"Removing {len(removed_urls)} datasets from the knowledge graph.")
         deleted_neighbor_urls = []
@@ -129,7 +154,7 @@ class NkodKnowledgeGraph(KnowledgeGraph):
         logger.info("Knowledge graph creation complete.")
 
     def add_similarity_edges(self, datasets: pd.DataFrame, graph_name: str) -> None:
-        """Add similarity edges between datasets based on description embedding and metadata."""
+        """Add similarity edges between datasets based on description embedding similarity."""
         for i, (_, row) in enumerate(datasets.iterrows()):
             if i % 500 == 0:
                 logger.info(f"Adding description similarity edges for dataset {i}")
@@ -151,25 +176,28 @@ class NkodKnowledgeGraph(KnowledgeGraph):
         """Get similar datasets based on the knowledge graph.
 
         Returns:
-            A dictionary with keys: 'description', 'keywords', 'themes', 'provider'
-            Each value is a list of (url, score) tuples.
+            A dictionary with keys: 'description', 'keywords', 'themes', 'provider', 'spatial_coverage',
+            'temporal_coverage'. Each value is a list of (url, score) tuples.
         """
         logger.info(f"Retrieving similar datasets based on knowledge graph.")
         similar_datasets = {}
 
         with self.driver.session() as session:
+            # description similarity
             similar_datasets["description"] = session.execute_read(
                 run_similarity_query,
                 dataset_url,
                 self.kg_config
             )
+            logger.info(f"Retrieved {len(similar_datasets["description"])} similar datasets based on description.")
+            # provider similarity
             similar_datasets["provider"] = get_similar_datasets_from_the_same_provider(
                 session,
                 dataset_url,
                 self.kg_config
             )
             logger.info(f"Retrieved {len(similar_datasets["provider"])} similar datasets based on common themes")
-            logger.info(f"Retrieved {len(similar_datasets["description"])} similar datasets based on description.")
+            # other metadata cataegories - keywords, themes, spatial and temporal coverage
             for metadata_category in ["keywords", "themes", "spatial_coverage", "temporal_coverage"]:
                 similar_datasets[metadata_category] = get_similar_datasets_based_on_metadata_category(
                     session,
@@ -177,7 +205,7 @@ class NkodKnowledgeGraph(KnowledgeGraph):
                     metadata_category,
                     self.kg_config
                 )
-                logger.info(f"Retrieved {len(similar_datasets[metadata_category])}"
+                logger.info(f"Retrieved {len(similar_datasets[metadata_category])} "
                             f"similar datasets based on common {metadata_category}.")
 
         return similar_datasets

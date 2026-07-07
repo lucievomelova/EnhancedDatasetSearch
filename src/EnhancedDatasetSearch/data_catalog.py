@@ -1,9 +1,12 @@
+from abc import ABC, abstractmethod
+
 import pandas as pd
+from EnhancedDatasetSearch.knowledge_graph import KnowledgeGraph
 
 
-class DataCatalog:
+class DataCatalog(ABC):
     """Class representing a generic data catalog."""
-    def __init__(self, config: dict):
+    def __init__(self, config: dict, knowledge_graph: KnowledgeGraph):
         self.config = config
 
         self.datasets: pd.DataFrame
@@ -17,6 +20,10 @@ class DataCatalog:
 
         self.filters_with_counts: dict
         """Dictionary that stores occurrence counts of each unique value in every filter category."""
+
+        self.knowledge_graph: KnowledgeGraph = knowledge_graph
+        """Knowledge graph of the data catalog - contains dataset and metadata nodes. This knowledge is used to 
+        detect similar datasets."""
 
         self.distributions: pd.DataFrame = pd.DataFrame()
         """Dataset of distributions - links each dataset with all its available distributions."""
@@ -42,16 +49,18 @@ class DataCatalog:
         self.all_categories_with_other_category: set
         """Set of all categories including "other" category used when a dataset does not belong into any category."""
 
-
+    @abstractmethod
     def get_dataset_by_url(self, url: str) -> dict | None:
         """Get dataset info by URL."""
-        pass
 
+    @abstractmethod
+    def get_dataset_url_by_title(self, title: str) -> str | None:
+        """Get dataset URL by its title. If multiple datasets have the same title, the first match will be returned."""
+
+    @abstractmethod
     def get_filters_with_counts(self) -> dict:
-        """Get a dict of metadata filters and the number of occurrences of each metadata value.
+        """Get a dict of metadata filters and the number of occurrences of each metadata value."""
 
-        Each filter column is a key, value is another dict with two keys: title and value_counts. Title is the filter
-        category title, value_counts is a dict, where key is each unique value, value is number of occurrences."""
-        pass
-
-
+    @abstractmethod
+    def get_similar_datasets(self, dataset_url: str) -> dict[str, list[tuple[str, float]]]:
+        """Get similar datasets based on the knowledge graph."""

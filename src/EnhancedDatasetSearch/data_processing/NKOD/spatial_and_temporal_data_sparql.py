@@ -14,7 +14,6 @@ logger = setup_logger(__name__)
 
 def get_spatial_and_temporal_coverage(graph: Graph) -> tuple[dict, dict]:
     """Run a SPARQL query to get spatial and temporal coverage from NKOD for all datasets."""
-
     query = """
     PREFIX dct: <http://purl.org/dc/terms/>
     PREFIX dcat: <http://www.w3.org/ns/dcat#>
@@ -81,7 +80,7 @@ def get_range_from_start_and_end(temporal_start: str, temporal_end: str) -> str:
 
 
 def add_metadata_to_datasets_from_sparql(config: dict, datasets: pd.DataFrame | None) -> None:
-    """Add spatial and temporal coverage to datasets' dataframe.
+    """Add spatial and temporal coverage to datasets.
     
     These metadata will be extracted using a sparql query, processed into a suitable format and then put in the
     corresponding columns in the given datframe."""

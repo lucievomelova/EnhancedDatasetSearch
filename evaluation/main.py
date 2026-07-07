@@ -13,6 +13,7 @@ from llama_index.llms.ollama import Ollama
 from sklearn.metrics import ndcg_score
 
 from EnhancedDatasetSearch.database import Database
+from EnhancedDatasetSearch.NKOD.knowledge_graph import NkodKnowledgeGraph
 from EnhancedDatasetSearch.NKOD.nkod import NkodDataCatalog
 from EnhancedDatasetSearch.search.pipeline import SearchPipeline
 
@@ -34,8 +35,9 @@ def main(config_path: str):
                  context_window=config['pipeline_config']['llm']['context_length'],
                  request_timeout=300)
 
-    data_catalog = NkodDataCatalog(config)
     database = Database(config)
+    knowledge_graph = NkodKnowledgeGraph(config["data_processing"]["knowledge_graph"], database)
+    data_catalog = NkodDataCatalog(config, knowledge_graph)
     search_pipeline = SearchPipeline(config, llm, data_catalog, database)
     with mlflow.start_run() as parent_run:
         for key in config["pipeline_config"]:

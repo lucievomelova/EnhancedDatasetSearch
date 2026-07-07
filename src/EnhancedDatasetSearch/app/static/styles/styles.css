@@ -437,3 +437,153 @@ body.home-page .container {
 }
 
 
+/* Loading spinner styles */
+.loading-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 9999;
+    justify-content: center;
+    align-items: center;
+    backdrop-filter: blur(2px);
+}
+
+.loading-overlay.active {
+    display: flex;
+}
+
+.loading-spinner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+}
+
+.spinner {
+    width: 60px;
+    height: 60px;
+    border: 5px solid rgba(255, 255, 255, 0.3);
+    border-top: 5px solid white;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% {
+        transform: rotate(0deg);
+    }
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+.loading-text {
+    color: white;
+    font-size: 18px;
+    font-weight: 500;
+    letter-spacing: 1px;
+}
+
+
+/* Animated loading dots */
+.loading-dots {
+    display: inline-block;
+    letter-spacing: 3px;
+    font-weight: 600;
+    color: #64748b;
+    width: 45px;
+    white-space: nowrap;
+}
+
+.loading-dots::after {
+    content: '...';
+    animation: dots 1.5s steps(4, end) infinite;
+}
+
+@keyframes dots {
+    0%, 10% {
+        content: '.';
+    }
+    33% {
+        content: '..';
+    }
+    66% {
+        content: '...';
+    }
+    100% {
+        content: '';
+    }
+}
+
+/* Chatbot button */
+.chatbot-floating-btn {
+    position: fixed !important;
+    bottom: 100px !important;
+    right: 30px !important;
+    left: auto !important;
+    width: 60px;
+    height: 60px;
+    background-color: var(--color-primary);
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 8px rgba(37, 99, 235, 0.2);
+    transition: all var(--transition);
+    z-index: 999;
+    color: white;
+    text-decoration: none;
+    font-size: 24px;
+}
+
+.chatbot-floating-btn:hover {
+    background-color: var(--color-primary-dark);
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+    transform: translateY(-2px);
+}
+
+/* Speech bubble pointer on the right side */
+.chatbot-floating-btn::after {
+    content: '';
+    position: absolute;
+    right: -7px;
+    top: 75%;
+    transform: translateY(-50%) rotate(25deg);
+    width: 0;
+    height: 0;
+    border-left: 12px solid var(--color-primary);
+    border-top: 9px solid transparent;
+    border-bottom: 9px solid transparent;
+    transition: border-left-color var(--transition);
+}
+
+.chatbot-floating-btn:hover::after {
+    border-left-color: var(--color-primary-dark);
+}
+
+/* Tooltip */
+.chatbot-floating-btn::before {
+    content: attr(title);
+    position: absolute;
+    bottom: -45px;
+    right: 0;
+    background-color: var(--color-tooltip-bg);
+    color: var(--color-tooltip-text);
+    padding: 8px 12px;
+    border-radius: 4px;
+    font-size: 12px;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity var(--transition);
+}
+
+.chatbot-floating-btn:hover::before {
+    opacity: 1;
+}

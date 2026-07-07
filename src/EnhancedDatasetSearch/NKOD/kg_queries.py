@@ -4,7 +4,7 @@ from neo4j import Session
 
 
 def create_dataset_node(tx, metadata, graph_name):
-    """Create a dataset node in the knowledge graph."""
+    """Create a dataset node in the knowledge graph if it doesn't exist."""
     tx.run("""
         MERGE (d:Dataset {url: $url, graph: $graph})
         SET d.title = $title

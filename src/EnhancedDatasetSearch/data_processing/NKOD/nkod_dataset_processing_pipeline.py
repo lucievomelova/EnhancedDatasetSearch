@@ -12,10 +12,9 @@ from datetime import datetime
 
 import numpy as np
 import pandas as pd
-from llama_index.core import Document
 from pandas import Series
 
-from EnhancedDatasetSearch.data_processing.data_processing_pipeline import DataProcessingPipeline
+from EnhancedDatasetSearch.data_processing.dataset_processing_pipeline import DatasetProcessingPipeline
 from EnhancedDatasetSearch.data_processing.NKOD.metadata import (
     clean_metadata, enrich_metadata, process_spatial_and_temporal_coverage
 )
@@ -24,14 +23,14 @@ from EnhancedDatasetSearch.data_processing.NKOD.utils import (
     download_df, merge_keywords_and_themes_rows, split_dataframe, drop_irrelevant_columns
 )
 from EnhancedDatasetSearch.ollama_client import OllamaClient
-from EnhancedDatasetSearch.utils import dataset_detail_url, setup_logger
+from EnhancedDatasetSearch.utils import setup_logger
 
 logger = setup_logger(__name__)
 executor = ThreadPoolExecutor(max_workers=4)
 
 
-class NkodDataProcessingPipeline(DataProcessingPipeline):
-    """Class representing the NKOD data processing pipeline.
+class NkodDatasetProcessingPipeline(DatasetProcessingPipeline):
+    """Class representing the NKOD dataset processing pipeline.
 
     It downloads the metadata dataset from the Czech Dataset Portal, applies transformation, cleaning,
     metadata enrichment and then the resulting dataset is stored in memory. The same dataset is then loaded by
@@ -118,11 +117,10 @@ class NkodDataProcessingPipeline(DataProcessingPipeline):
             self.datasets = pd.DataFrame()
             return
 
-        for col in self.list_columns:
-            self.datasets[col] = self.datasets[col].apply(
-                lambda lst: sorted([x for x in lst if pd.notna(x) and x is not None and x != np.nan])
-            )
-
+        # for col in self.list_columns:
+        #     self.datasets[col] = self.datasets[col].apply(
+        #         lambda lst: sorted([x for x in lst if pd.notna(x) and x is not None and x != np.nan])
+        #     )
 
     def _load_datasets_raw(self, download_new_data: bool) -> None:
         """Load the raw NKOD dataset of datasets."""
@@ -136,12 +134,13 @@ class NkodDataProcessingPipeline(DataProcessingPipeline):
             if mod_datetime.date() == today:
                 logger.info("File containing datasets_raw exists and is up to date - loading.")
                 self.datasets_raw = pd.read_csv(self._data_config["datasets_raw_path"], sep=",", dtype="string")
+                return
             else:
                 # if the file is outdated, rename it and keep it as a backup
-                old_file_name = self._data_config["datasets_path"].replace(".json", f"_old.json")
+                old_file_name = self._data_config["datasets_raw_path"].replace(".csv", f"_old.csv")
                 os.rename(self._data_config["datasets_raw_path"], old_file_name)
-                # download the most recent raw datasets file
-                self.datasets_raw = download_df(self._data_config["datasets_raw_path"], self._data_config["datasets_raw_url"])
+        # download the most recent raw datasets file
+        self.datasets_raw = download_df(self._data_config["datasets_raw_path"], self._data_config["datasets_raw_url"])
         logger.info("Raw dataset info loaded, starting preprocessing.")
 
     def _transform_datasets_raw(self, download_new_data: bool) -> None:
@@ -277,11 +276,16 @@ class NkodDataProcessingPipeline(DataProcessingPipeline):
         # save after metadata cleaning as json
         self.datasets.to_json(self._data_config["datasets_path"], orient="split", force_ascii=False)
 
-    async def update_datasets(self) -> (pd.DataFrame, list):
-        """Update datasets based on the last downloaded datasets_raw table.
+    async def update_datasets(self) -> tuple[pd.DataFrame, list]:
+        """Update self.datasets and find and return new or updated datasets and removed datasets.
 
-        Remove datasets that are not present, update existing datasets or add new datasets, then enrich new
-        or existing datasets' metadata using an LLM."""
+        Update datasets based on the last downloaded datasets_raw table. Remove datasets that are not present,
+        update existing datasets or add new datasets, then enrich new or existing datasets' metadata using an LLM.
+
+        Returns:
+            a tuple: (pd.DataFrame, list), where the dataframe contains new or updated datasets in hte same format as
+            self.dataset. The list contains a list of removed datasets URLs.
+        """
         new_datasets, removed_urls = self.get_new_datasets()
         await self.enrich_new_datasets_metadata(new_datasets)
         return new_datasets, removed_urls
@@ -327,32 +331,3 @@ class NkodDataProcessingPipeline(DataProcessingPipeline):
             "full_description_hash": row["full_description_hash"]
         }
         return metadata
-
-    @staticmethod
-    def _create_documents(datasets: pd.DataFrame) -> list[Document]:
-        """Create llama index Documents from the datasets' dataframe. Each row will be used to create one Document.
-
-        The Document text will be: title + description + keywords + themes + categories + provider. All
-        columns will also be stored in the metadata of the Document (even those that will be part of the text)."""
-        documents = []
-        descriptions = datasets["description"]
-        datasets = datasets.where(datasets.notna(), None)
-        metadata_df = datasets.drop(columns="description").to_dict(orient="records")
-        logger.info(f"Creating {len(datasets)} llamaindex Documents.")
-
-        for description, metadata in zip(descriptions, metadata_df):
-            text = f"""
-                {metadata['title']}
-                {description}\n
-                Poskytovatel: {metadata['provider']}
-                Klíčová slova: {metadata['keywords']}
-                Témata: {metadata['themes']}
-                Kategorie: {metadata['categories']}
-                Prostorové pokrytí": {metadata['spatial_coverage']}
-                Časové pokrytí: {metadata['temporal_coverage']}
-            """
-            document = Document(text=text, metadata=metadata, id_=metadata["url"])
-            documents.append(document)
-
-        logger.info("Documents created.")
-        return documents

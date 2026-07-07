@@ -5,7 +5,7 @@ data:
     url: "https://data.gov.cz/soubor/datov%C3%A9-sady.csv"
   datasets:
 #    path: "data/small/datasets_small.json"
-    path: "data//datasets.json"
+    path: "data//datasets_raw.json"
   sparql_endpoint: "https://data.gov.cz/sparql"
   distributions_raw:
     path: "data/distributions_raw.csv"
@@ -17,8 +17,8 @@ app_url: "http://127.0.0.1:5000/"
 db:
   host: "localhost"
   port: 5432
-  document_table: documents_qwen_4b # "documents_qwen_4b"  # "documents_test"
-  vector_table: embeddings_qwen_4b #"embeddings_qwen_4b"  # "embeddings_test"
+  document_table: documents_raw # "documents_qwen_4b"  # "documents_test"
+  vector_table: embeddings_raw #"embeddings_qwen_4b"  # "embeddings_test"
   embed_dim: 2560  #2560  # 4096
 embedding:
   model_name: "qwen3-embedding:4b"  # "qwen3-embedding:4b"
@@ -62,7 +62,7 @@ data_processing:
     base_url: "http://localhost:11434"
     context_length: 2048
   knowledge_graph:
-    name: "graph_qwen4b"  # test_graph, graph_qwen4b
+    name: "graph_qwen4b_raw"  # test_graph, graph_qwen4b
     top_k: 5
     similarity_threshold: 0.7
   column_mapping:

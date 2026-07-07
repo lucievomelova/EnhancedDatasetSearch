@@ -75,13 +75,14 @@ function applyFilters() {
 
 // check if a result card matches the selected filters
 function checkCardMatchesFilters(card, selectedFilters) {
+    sep = '", "'
     const cardData = {
-        keywords: (card.getAttribute('data-keywords') || '').split(',').filter(v => v),
-        themes: (card.getAttribute('data-themes') || '').split(',').filter(v => v),
-        categories: (card.getAttribute('data-categories') || '').split(',').filter(v => v),
+        keywords: (card.getAttribute('data-keywords') || '').split(sep).filter(v => v),
+        themes: (card.getAttribute('data-themes') || '').split(sep).filter(v => v),
+        categories: (card.getAttribute('data-categories') || '').split(sep).filter(v => v),
         provider: (card.getAttribute('data-provider') || '').trim(),
-        temporal_coverage: (card.getAttribute('data-temporal') || '').split(',').filter(v => v),
-        spatial_coverage: (card.getAttribute('data-spatial') || '').split(',').filter(v => v)
+        temporal_coverage: (card.getAttribute('data-temporal') || '').split(sep).filter(v => v),
+        spatial_coverage: (card.getAttribute('data-spatial') || '').split(sep).filter(v => v)
     };
     
     // check each filter type
@@ -93,17 +94,16 @@ function checkCardMatchesFilters(card, selectedFilters) {
         let cardHasValue = false;
         
         if (filterType === 'provider') {
-            cardHasValue = selectedValues.includes(cardData.provider);  // for provider, do exact match
+            cardHasValue = selectedValues.every(value => cardData.provider === value);  // for provider, do exact match
         } else {
             // for arrays, check if any selected value exists in card data
-            cardHasValue = selectedValues.some(value => cardData[filterType].includes(value));
+            cardHasValue = selectedValues.every(value => cardData[filterType].includes(value));
         }
         
         if (!cardHasValue) {
             return false;  // card doesn't match this filter -> it will be excluded
         }
     }
-
     return true;  // card matches all active filters
 }
 

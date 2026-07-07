@@ -7,19 +7,10 @@
     <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='book_icon.svg') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='styles/styles.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='styles/dataset_detail.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='styles/chatbot_button.css') }}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css">
 
 </head>
 <body>
-    <div class="language-selector">
-        <select id="language" name="language" class="language-dropdown">
-            <option value="en">🇬🇧</option>
-            <option value="cs">🇨🇿</option>
-        </select>
-    </div>
-
-
     <div class="container-dataset-detail">
         <div class="detail-header">
             <div class="detail-titles">
@@ -47,11 +38,7 @@
                     {% for metadata_category, metadata_values in dataset.categorization_metadata.items() %}
                     {% if metadata_values %}
                     <div class="metadata-item-inline">
-                        {% if metadata_category == "time_periods" %}
-                        <strong>Time Periods</strong>
-                        {% else %}
-                        <strong>{{ metadata_category | title }}</strong>
-                        {% endif %}
+                        <strong>{{ metadata_category | replace("_", " ") | title }}</strong>
                         <div class="metadata-tags">
                         {% if metadata_category == "provider" %}
                             <span>{{ dataset.categorization_metadata.provider }}</span>

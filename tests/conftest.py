@@ -2,6 +2,7 @@
 import asyncio
 import os
 from unittest.mock import MagicMock
+import shutil
 
 import psycopg2
 import pytest
@@ -10,13 +11,25 @@ from dotenv import load_dotenv
 from llama_index.llms.ollama import Ollama
 from neo4j import GraphDatabase
 
-from EnhancedDatasetSearch.data_processing.NKOD.nkod_data_processing_pipeline import NkodDataProcessingPipeline
+from EnhancedDatasetSearch.data_processing.NKOD.nkod_dataset_processing_pipeline import NkodDatasetProcessingPipeline
+from EnhancedDatasetSearch.data_processing.NKOD.nkod_documents import NkodDocumentConverter
 from EnhancedDatasetSearch.database import Database
 from EnhancedDatasetSearch.search.pipeline import SearchPipeline
 from EnhancedDatasetSearch.search.query_prepocessing import QueryPreprocessor
 from EnhancedDatasetSearch.NKOD.knowledge_graph import NkodKnowledgeGraph
 from EnhancedDatasetSearch.NKOD.nkod import NkodDataCatalog
 from EnhancedDatasetSearch.ollama_client import OllamaClient
+
+
+# copy old datasets file so that it can be used in dataset processing pipeline
+src_file = "tests/data/test_datasets_old.json"
+dst_file = "tests/data/test_datasets.json"
+shutil.copy(src_file, dst_file)
+
+# copy datasets_raw file so that it can be used in dataset processing pipeline and its modification date will be today
+src_file = "tests/data/test_datasets_raw_copy.csv"
+dst_file = "tests/data/test_datasets_raw.csv"
+shutil.copy(src_file, dst_file)
 
 
 @pytest.fixture(scope="module")
@@ -60,35 +73,39 @@ def knowledge_graph(config, mock_database):
 
 
 @pytest.fixture(scope="module")
-def data_processing_pipeline(config, mock_ollama_client):
+def dataset_processing_pipeline(config, mock_ollama_client):
 
     # delete distributions.json before data processing pipeline is created
     files_to_remove = [config["data"]["distributions"]["path"]]
     _cleanup_files(files_to_remove)
 
-    data_processing_pipeline = NkodDataProcessingPipeline(config)
+    dataset_processing_pipeline = NkodDatasetProcessingPipeline(config)
     files_to_remove = [
         config["data"]["datasets"]["path"],
         config["data"]["datasets_raw"]["path"],
     ]
     _cleanup_files(files_to_remove)  # remove datasets files from previous test runs in case there was an error
-    data_processing_pipeline.client = mock_ollama_client
+    dataset_processing_pipeline.client = mock_ollama_client
 
-    asyncio.run(data_processing_pipeline.update_datasets())
-    yield data_processing_pipeline
+    asyncio.run(dataset_processing_pipeline.update_datasets())
+    yield dataset_processing_pipeline
 
     files_to_remove = [config["data"]["datasets_raw"]["path"]]
     _cleanup_files(files_to_remove)  # remove transformed datasets file from this test run
 
 
+@pytest.fixture(scope="module")
+def data_catalog(config, knowledge_graph):
+    # load the dataset processing pipeline before loading data catalog
+    dataset_processing_pipeline = NkodDatasetProcessingPipeline(config)
+    catalog = NkodDataCatalog(config, knowledge_graph)
+    return catalog
+
 
 @pytest.fixture(scope="module")
-def data_catalog(config):
-
-    # load the data processing pipeline before loading data catalog
-    data_processing_pipeline = NkodDataProcessingPipeline(config)
-    catalog = NkodDataCatalog(config)
-    return catalog
+def document_converter():
+    document_converter = NkodDocumentConverter()
+    return document_converter
 
 
 @pytest.fixture(scope="module")
