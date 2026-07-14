@@ -1,7 +1,7 @@
 from llama_index.core.postprocessor import SentenceTransformerRerank
 from llama_index.core.schema import NodeWithScore
 
-from EnhancedDatasetSearch.data_catalog import DataCatalog
+from EnhancedDatasetSearch.search_platform.data_catalog import DataCatalog
 from EnhancedDatasetSearch.utils import setup_logger
 
 logger = setup_logger(__name__)
@@ -15,9 +15,9 @@ class PostProcessor:
         self.top_k: int = self.postprocessing_config["top_k"]
 
         # initialize sentence transformer if it is set as reranker
-        if self.postprocessing_config["reranker"] == "sentence_transformer":
-            self.sentence_transformer = SentenceTransformerRerank(
-                model=self.postprocessing_config["sentence_transformer_model"], top_n=self.top_k
+        if self.postprocessing_config["reranker"] == "cross_encoder":
+            self.cross_encoder = SentenceTransformerRerank(
+                model=self.postprocessing_config["cross_encoder_model"], top_n=self.top_k
             )
 
     def run(self, user_query: str, results: list[NodeWithScore]) -> list[dict]:
@@ -61,7 +61,7 @@ class PostProcessor:
             results = sorted(results, key=lambda r: r.score, reverse=True)
 
         # sort results using sentence transformer
-        elif reranker == "sentence_transformer":
-            results = self.sentence_transformer.postprocess_nodes(nodes=results, query_str=user_query)
+        elif reranker == "cross_encoder":
+            results = self.cross_encoder.postprocess_nodes(nodes=results, query_str=user_query)
         logger.info(f"Reranking complete.")
         return results

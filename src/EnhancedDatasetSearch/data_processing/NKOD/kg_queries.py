@@ -116,10 +116,18 @@ def get_similar_datasets_based_on_metadata_category(session: Session, dataset_ur
         MATCH (a:Dataset {{url: $url, graph: $graph}})-[:{relationship}]-(metadata_node)
         MATCH (metadata_node)-[:{relationship}]-(b:Dataset {{graph: $graph}})
         WHERE b <> a
-        RETURN b.url as url, count(metadata_node) AS sharedMetadata,
+        
+        OPTIONAL MATCH (a)-[r1]-(other_metadata)-[r2]-(b)
+        WHERE type(r1) STARTS WITH 'HAS_'
+          AND type(r2) = type(r1)
+          AND type(r1) <> '{relationship}'
+        
+        RETURN b.url AS url,
+               count(DISTINCT metadata_node) AS sharedMetadata,
+               count(DISTINCT other_metadata) AS otherSharedMetadata,
                collect(DISTINCT metadata_node.name) AS sharedNeighborNames
-        ORDER BY sharedMetadata DESC
-        LIMIT {kg_config["top_k"]}
+        ORDER BY sharedMetadata DESC, otherSharedMetadata DESC
+        LIMIT {kg_config["top_k"]}        
         """
     result = session.run(query, url=dataset_url, graph=kg_config["name"])
     return [(record["url"], record["sharedNeighborNames"]) for record in result]

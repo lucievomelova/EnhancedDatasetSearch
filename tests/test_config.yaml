@@ -10,7 +10,7 @@ data:
     url: "https://data.gov.cz/soubor/distribuce.csv"
   distributions:
     path: "tests/data/distributions.json"
-state_dir: "state"
+state_dir: "tests/state"
 app_url: "http://127.0.0.1:5000/"
 db:
   host: "localhost"
@@ -25,22 +25,18 @@ embedding:
   chunk_overlap: 50
   embed_batch_size: 100
   url_to_node_id_mapping_file: "test_url_to_node_id_mapping.json"
-chatbot:
+search_platform:
   llm:
     model_name: "mistral-small3.2:latest"
     base_url: "http://localhost:11434"
     context_length: 4096
     memory_limit: 4096
-pipeline_config:
-  llm:
-    model_name: "mistral-small3.2:latest"
-    base_url: "http://localhost:11434"
-    context_length: 2048
+    timeout: 60
   preprocessing:
     detect_intent: true
     extend_query: true
     timeout: 60
-  search:
+  retriever:
     top_k: 30
     vector_top_k: 20
     bm25_top_k: 20
@@ -48,17 +44,18 @@ pipeline_config:
     retriever_weights:
       - 0.7  # vector_retriever
       - 0.3  # bm25_retriever
+    bm25_retriever_persist_dir: "bm25_retriever"
   postprocessing:
-    reranker: simple  # simple / llm / sentence_transformer
-    sentence_transformer_model: "cross-encoder/ms-marco-MiniLM-L-2-v2"  # only used for sentence_transformer reranker
-    top_k: 20  # only used for llm and sentence_transformer rerankers
+    reranker: simple  # simple / llm / cross_encoder
+    cross_encoder_model: "cross-encoder/ms-marco-MiniLM-L-2-v2"  # only used for cross_encoder reranker
+    top_k: 20  # only used for llm and cross_encoder rerankers
     score_cutoff: 0.2
 data_processing:
-  timeout: 120
   llm:
     model_name: "mistral-small3.2:latest"
     base_url: "http://localhost:11434"
-    context_length: 2048
+    context_length: 4096
+    timeout: 120
   knowledge_graph:
     name: "test_kg"
     top_k: 5

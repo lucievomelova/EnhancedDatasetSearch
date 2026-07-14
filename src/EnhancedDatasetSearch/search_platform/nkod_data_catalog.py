@@ -2,9 +2,9 @@ import os
 
 import pandas as pd
 
-from EnhancedDatasetSearch.data_catalog import DataCatalog
+from EnhancedDatasetSearch.search_platform.data_catalog import DataCatalog
 from EnhancedDatasetSearch.utils import dataset_detail_url, setup_logger
-from EnhancedDatasetSearch.knowledge_graph import KnowledgeGraph
+from EnhancedDatasetSearch.data_processing.knowledge_graph import KnowledgeGraph
 
 logger = setup_logger(__name__)
 
@@ -63,6 +63,7 @@ class NkodDataCatalog(DataCatalog):
         self.all_providers = set(self.datasets["provider"].dropna().unique())
         self.all_spatial_coverages = set(self.datasets["spatial_coverage"].explode().dropna().unique())
         self.all_temporal_coverages = set(self.datasets["temporal_coverage"].explode().dropna().unique())
+        self.all_categories = set(self.config["data_processing"]["categories"]).add(self.config["data_processing"]["other_category"])
         self._last_modification_time = os.path.getmtime(self._datasets_path)
 
     def _load_distributions(self):

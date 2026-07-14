@@ -1,12 +1,16 @@
 """Simple unit tests for the Flask user interface."""
 
+import os
 import pytest
 
-from EnhancedDatasetSearch.app.main import app as flask_app
+# set test config as config for the app
+os.environ["CONFIG_PATH"] = "tests/test_config.yaml"
+
+from EnhancedDatasetSearch.search_platform.main import app as flask_app
 
 
 @pytest.fixture()
-def app():
+def app(config):
     flask_app.config.update({"TESTING": True})
     yield flask_app
 

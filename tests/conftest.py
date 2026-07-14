@@ -13,11 +13,11 @@ from neo4j import GraphDatabase
 
 from EnhancedDatasetSearch.data_processing.NKOD.nkod_dataset_processing_pipeline import NkodDatasetProcessingPipeline
 from EnhancedDatasetSearch.data_processing.NKOD.nkod_documents import NkodDocumentConverter
-from EnhancedDatasetSearch.database import Database
-from EnhancedDatasetSearch.search.pipeline import SearchPipeline
-from EnhancedDatasetSearch.search.query_prepocessing import QueryPreprocessor
-from EnhancedDatasetSearch.NKOD.knowledge_graph import NkodKnowledgeGraph
-from EnhancedDatasetSearch.NKOD.nkod import NkodDataCatalog
+from EnhancedDatasetSearch.data_processing.database import Database
+from EnhancedDatasetSearch.search_platform.search_pipeline.pipeline import SearchPipeline
+from EnhancedDatasetSearch.search_platform.search_pipeline.query_prepocessing import QueryPreprocessor
+from EnhancedDatasetSearch.data_processing.NKOD.nkod_knowledge_graph import NkodKnowledgeGraph
+from EnhancedDatasetSearch.search_platform.nkod_data_catalog import NkodDataCatalog
 from EnhancedDatasetSearch.ollama_client import OllamaClient
 
 
@@ -36,7 +36,9 @@ shutil.copy(src_file, dst_file)
 def config():
     with open("tests/test_config.yaml", "r") as f:
         config = yaml.safe_load(f)
-        return config
+    if not os.path.exists(config["state_dir"]):  # create state dir
+        os.makedirs(config["state_dir"])
+    return config
 
 
 def _cleanup_files(file_paths: list):
@@ -129,7 +131,7 @@ def connection(config):
 
 @pytest.fixture(scope="module")
 def search_pipeline(config, data_catalog, database):
-    llm = Ollama(model=config["pipeline_config"]["llm"]["model_name"], context_window=config["pipeline_config"]["llm"]["context_length"])
+    llm = Ollama(model=config["search_platform"]["llm"]["model_name"], context_window=config["search_platform"]["llm"]["context_length"])
     search_pipeline = SearchPipeline(config, llm, data_catalog, database)
     return search_pipeline
 

@@ -3,8 +3,8 @@ tha tests do not rely on the results of these calls in any way to ensure that th
 import pytest
 from llama_index.core.schema import NodeWithScore, TextNode
 
-from EnhancedDatasetSearch.search.result_postprocessing import PostProcessor
-from EnhancedDatasetSearch.search.retrieve import Retriever
+from EnhancedDatasetSearch.search_platform.search_pipeline.result_postprocessing import PostProcessor
+from EnhancedDatasetSearch.search_platform.search_pipeline.retrieve import Retriever
 
 pytest_plugins = ('pytest_asyncio',)
 
@@ -51,8 +51,9 @@ def test_detect_user_intent(config, query_preprocessor):
 @pytest.mark.asyncio(loop_scope="session")
 async def test_retriever(config, database):
     """Test that retriever doesn't throw any errors and returns a list with no duplicates."""
-    retriever = Retriever(config["pipeline_config"]["search"], database)
-    results = await retriever.run(user_query="Desc", extended_query="")
+    bm25_dir = config["state_dir"] + "/" + config["search_platform"]["retriever"]["bm25_retriever_persist_dir"]
+    retriever = Retriever(config["search_platform"]["retriever"], database, bm25_dir)
+    results = await retriever.run(user_query="Desc", extended_query="", applied_filters=None)
     assert isinstance(results, list)
 
     # test also that the results do not contain any duplicates by comparing id_ and ref_doc_id of each node
@@ -65,7 +66,7 @@ def test_reranking(config, data_catalog):
     """Test that reranking returns a list sorted by score and that  nodes with low score are removed."""
     # create test nodes with scores 0, 0.1, ..., 0.9
     example_search_results = [NodeWithScore(node=TextNode(text=f"node{i}"), score=i/10) for i in range(10)]
-    postprocessor = PostProcessor(config["pipeline_config"]["postprocessing"], data_catalog)
+    postprocessor = PostProcessor(config["search_platform"]["postprocessing"], data_catalog)
     reranked_results = postprocessor.rerank(
         user_query="test query",
         results=example_search_results

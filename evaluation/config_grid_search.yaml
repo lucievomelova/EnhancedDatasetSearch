@@ -1,9 +1,9 @@
 data:
   datasets_raw:
-    path: "data//datove_sady.csv"
+    path: "data//datasets_raw.csv"
     url: "https://data.gov.cz/soubor/datov%C3%A9-sady.csv"
   datasets:
-    path: "data//datasets_with_metadata_large.json"
+    path: "data//datasets_new2.json"
   sparql_endpoint: "https://data.gov.cz/sparql"
   distributions_raw:
     path: "data/distributions_raw.csv"
@@ -15,8 +15,8 @@ app_url: "http://127.0.0.1:5000/"
 db:
   host: "localhost"
   port: 5432
-  document_table: documents_qwen_4b
-  vector_table: embeddings_qwen_4b
+  document_table: documents_new2 #documents_qwen_4b
+  vector_table: embeddings_new2 #embeddings_qwen_4b
   embed_dim: 2560
 embedding:
   model_name: "qwen3-embedding:4b"
@@ -24,46 +24,41 @@ embedding:
   chunk_size: 8096
   chunk_overlap: 50
   embed_batch_size: 100
-  url_to_node_id_mapping_file: "url_to_node_id_mapping.json"  #"url_to_node_id_mapping_test.json"
-chatbot:
+  url_to_node_id_mapping_file: "url_to_node_id_mapping.json"
+search_platform:
   llm:
-    model_name: "qwen3.6:27b"  #"mistral-small3.2:latest"
+    model_name: ["mistral-small3.2:latest", "qwen3.6:35b-a3b"]
     base_url: "http://localhost:11434"
     context_length: 4096
     memory_limit: 4096
-pipeline_config:
-  llm:
-    model_name: ["mistral-small3.2:latest", "qwen3:14b", "qwen3.6:35b-a3b"]  #"qwen3.6:27b" "qwen3.6:35b-a3b"
-    base_url: "http://localhost:11434"
-    context_length: 4096
+    timeout: 60
   preprocessing:
     detect_intent: [true, false]
     extend_query: [true, false]
     timeout: 60
-  search:
+  retriever:
     top_k: [40]
-    vector_top_k: [30, 25]
-    bm25_top_k: [30, 25]
-    mode: [dist_based_score]
+    vector_top_k: [25]
+    bm25_top_k: [25]
+    mode: [relative_score, dist_based_score]  #dist_based_score #relative_score
     retriever_weights:
-      - [0.3, 0.7]
-      - [0.4, 0.6]
       - [0.5, 0.5]
       - [0.6, 0.4]
       - [0.7, 0.3]
+    bm25_retriever_persist_dir: "bm25_retriever_new2"
   postprocessing:
-    reranker: [simple]  # simple / sentence_transformer
-    sentence_transformer_model: "cross-encoder/mmarco-mMiniLMv2-L12-H384-v1"  # only used for sentence_transformer reranker
+    reranker: [simple]  # simple / cross_encoder
+    cross_encoder_model: "cross-encoder/mmarco-mMiniLMv2-L12-H384-v1"  # only used for cross_encoder reranker
     top_k: 30
-    score_cutoff: [0.2, 0.1]
+    score_cutoff: [0.2, 0.3]
 data_processing:
-  timeout: 120
   llm:
-    model_name: "qwen3.6:35b-a3b" #"mistral-small3.2:latest"  #"qwen3.6:27b" "qwen3.6:35b-a3b"
+    model_name: "qwen3.6:35b-a3b" #"mistral-small3.2:latest" "qwen3.6:35b-a3b"
     base_url: "http://localhost:11434"
     context_length: 4096
+    timeout: 120
   knowledge_graph:
-    name: "graph_qwen4b"  # test_graph, graph_qwen4b
+    name: "graph_qwen4b"
     top_k: 5
     similarity_threshold: 0.7
   column_mapping:

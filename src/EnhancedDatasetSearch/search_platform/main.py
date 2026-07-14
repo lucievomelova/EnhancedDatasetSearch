@@ -9,14 +9,14 @@ from llama_index.core import Settings
 from llama_index.embeddings.ollama import OllamaEmbedding
 from llama_index.llms.ollama import Ollama
 
-from EnhancedDatasetSearch.app.utils import get_filters_for_results, get_similar_datasets_with_preview_text
-from EnhancedDatasetSearch.data_catalog import DataCatalog
-from EnhancedDatasetSearch.search.chatbot import Chatbot
-from EnhancedDatasetSearch.search.pipeline import SearchPipeline
-from EnhancedDatasetSearch.database import Database
-from EnhancedDatasetSearch.knowledge_graph import KnowledgeGraph
-from EnhancedDatasetSearch.NKOD.knowledge_graph import NkodKnowledgeGraph
-from EnhancedDatasetSearch.NKOD.nkod import NkodDataCatalog
+from EnhancedDatasetSearch.search_platform.utils import get_filters_for_results, get_similar_datasets_with_preview_text
+from EnhancedDatasetSearch.search_platform.data_catalog import DataCatalog
+from EnhancedDatasetSearch.search_platform.chatbot import Chatbot
+from EnhancedDatasetSearch.search_platform.search_pipeline.pipeline import SearchPipeline
+from EnhancedDatasetSearch.data_processing.database import Database
+from EnhancedDatasetSearch.data_processing.knowledge_graph import KnowledgeGraph
+from EnhancedDatasetSearch.data_processing.NKOD.nkod_knowledge_graph import NkodKnowledgeGraph
+from EnhancedDatasetSearch.search_platform.nkod_data_catalog import NkodDataCatalog
 from EnhancedDatasetSearch.utils import setup_logger
 
 logger = setup_logger(__name__)
@@ -31,14 +31,16 @@ threading.Thread(target=start_loop, daemon=True).start()
 
 app = Flask(__name__)
 app.secret_key = os.environ['SECRET_KEY']
+config_path = os.environ["CONFIG_PATH"]
 
-with open("config.yaml", "r") as f:
+with open(config_path, "r") as f:
     config = yaml.safe_load(f)
 
 # setup LLM and embedding model
-llm = Ollama(model=config['chatbot']['llm']['model_name'],
-             context_window=config['chatbot']['llm']['context_length'],
-             request_timeout=300)
+llm = Ollama(model=config['search_platform']['llm']['model_name'],
+             base_url=config['search_platform']['llm']['base_url'],
+             context_window=config['search_platform']['llm']['context_length'],
+             request_timeout=config['search_platform']['llm']['timeout'])
 
 Settings.llm = llm
 Settings.embed_model = OllamaEmbedding(
@@ -49,6 +51,7 @@ Settings.embed_model = OllamaEmbedding(
 
 search_pipeline_instances = {}  # dictionary to store search pipeline instances per session
 chatbot_instances = {}  # dictionary to store chatbot instances per session
+
 database: Database = Database(config)
 knowledge_graph: KnowledgeGraph = NkodKnowledgeGraph(config["data_processing"]["knowledge_graph"], database)
 data_catalog: DataCatalog = NkodDataCatalog(config, knowledge_graph)
@@ -67,7 +70,8 @@ def get_search_pipeline():
 
     # create a new search pipeline instance for this session if it doesn't exist
     if session_id not in search_pipeline_instances:
-        search_pipeline_instances[session_id] = SearchPipeline(config, llm, data_catalog, database)
+        pipeline = SearchPipeline(config, llm, data_catalog, database)
+        search_pipeline_instances[session_id] = pipeline
     return search_pipeline_instances[session_id]
 
 
@@ -132,10 +136,7 @@ def dataset_detail():
 
     if not dataset_info:
         return redirect(url_for('home'))
-    similar_datasets = get_similar_datasets_with_preview_text(dataset_url,
-                                                              dataset_info,
-                                                              data_catalog
-                                                              )
+    similar_datasets = get_similar_datasets_with_preview_text(dataset_url, dataset_info, data_catalog)
     distributions = dataset_info["distributions"]
     for i, d in enumerate(distributions, start=1):
         d["title"] = f"Distribution {i}" if d["title"] is None else d["title"]
@@ -202,4 +203,4 @@ def set_language():
     return redirect(request.referrer or "/")
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run()

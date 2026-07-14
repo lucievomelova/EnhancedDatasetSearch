@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 
 import pandas as pd
-from EnhancedDatasetSearch.knowledge_graph import KnowledgeGraph
+from EnhancedDatasetSearch.data_processing.knowledge_graph import KnowledgeGraph
 
 
 class DataCatalog(ABC):
@@ -35,7 +35,7 @@ class DataCatalog(ABC):
         """Set of all themes present in the datasets metadata."""
 
         self.all_categories: set
-        """Set of all categories."""
+        """Set of all categories (including "other" category)."""
 
         self.all_providers: set
         """Set of all providers of datasets at NKOD."""
@@ -45,9 +45,6 @@ class DataCatalog(ABC):
 
         self.all_temporal_coverages: set
         """Set of all temporal coverages used in the datasets."""
-
-        self.all_categories_with_other_category: set
-        """Set of all categories including "other" category used when a dataset does not belong into any category."""
 
     @abstractmethod
     def get_dataset_by_url(self, url: str) -> dict | None:

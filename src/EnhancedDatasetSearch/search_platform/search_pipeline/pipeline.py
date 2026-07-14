@@ -3,11 +3,11 @@ import logging
 from llama_index.core import Settings
 from llama_index.llms.ollama import Ollama
 
-from EnhancedDatasetSearch.data_catalog import DataCatalog
-from EnhancedDatasetSearch.search.query_prepocessing import QueryPreprocessor
-from EnhancedDatasetSearch.search.result_postprocessing import PostProcessor
-from EnhancedDatasetSearch.search.retrieve import Retriever
-from EnhancedDatasetSearch.database import Database
+from EnhancedDatasetSearch.search_platform.data_catalog import DataCatalog
+from EnhancedDatasetSearch.search_platform.search_pipeline.query_prepocessing import QueryPreprocessor
+from EnhancedDatasetSearch.search_platform.search_pipeline.result_postprocessing import PostProcessor
+from EnhancedDatasetSearch.search_platform.search_pipeline.retrieve import Retriever
+from EnhancedDatasetSearch.data_processing.database import Database
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
@@ -28,8 +28,9 @@ class SearchPipeline:
         self.config = config
         Settings.llm = llm
         self.query_preprocessor = QueryPreprocessor(config)
-        self.retriever = Retriever(self.config["pipeline_config"]["search"], database)
-        self.postprocessor = PostProcessor(self.config["pipeline_config"]["postprocessing"], data_catalog)
+        bm25_dir = config["state_dir"] + "/" + self.config["search_platform"]["retriever"]["bm25_retriever_persist_dir"]
+        self.retriever = Retriever(self.config["search_platform"]["retriever"], database, bm25_dir)
+        self.postprocessor = PostProcessor(self.config["search_platform"]["postprocessing"], data_catalog)
 
     async def run(self, query: str, applied_filters: dict | None = None) -> list[dict[str, str | list | None]]:
         """Run the search pipeline for the given query and return the results as a DataFrame."""

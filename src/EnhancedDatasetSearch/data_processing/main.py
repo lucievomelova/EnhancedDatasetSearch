@@ -7,6 +7,7 @@
 
 import asyncio
 import os
+import shutil
 
 import click
 import yaml
@@ -17,9 +18,9 @@ from llama_index.llms.ollama import Ollama
 from EnhancedDatasetSearch.data_processing.dataset_processing_pipeline import DatasetProcessingPipeline
 from EnhancedDatasetSearch.data_processing.documents import DocumentConverter
 from EnhancedDatasetSearch.data_processing.NKOD.nkod_documents import NkodDocumentConverter
-from EnhancedDatasetSearch.database import Database
-from EnhancedDatasetSearch.knowledge_graph import KnowledgeGraph
-from EnhancedDatasetSearch.NKOD.knowledge_graph import NkodKnowledgeGraph
+from EnhancedDatasetSearch.data_processing.database import Database
+from EnhancedDatasetSearch.data_processing.knowledge_graph import KnowledgeGraph
+from EnhancedDatasetSearch.data_processing.NKOD.nkod_knowledge_graph import NkodKnowledgeGraph
 from EnhancedDatasetSearch.data_processing.NKOD.nkod_dataset_processing_pipeline import NkodDatasetProcessingPipeline
 
 
@@ -44,7 +45,8 @@ def main(config_path: str):
         database
     )
     llm = Ollama(model=config["data_processing"]["llm"]["model_name"],
-                      context_window=config["data_processing"]["llm"]["context_length"])
+                base_url=config["data_processing"]["llm"]['base_url'],
+                 context_window=config["data_processing"]["llm"]["context_length"])
     Settings.llm = llm
     Settings.embed_model = OllamaEmbedding(
         model_name=config['embedding']['model_name'],
@@ -55,19 +57,24 @@ def main(config_path: str):
     if not os.path.exists(state_dir):  # create state dir
         os.makedirs(state_dir)
 
-    # # Run data processing:
-    # # 1. update metadata dataset and get updated and removed datasets info
+    # Run data processing:
+    # 1. update metadata dataset and get updated and removed datasets info
     new_datasets, removed_urls = asyncio.run(dataset_processing_pipeline.update_datasets())
-    #
+
     # # 2. create llama_index documents from the metadata dataset
     datasets_documents = document_converter.create_documents(dataset_processing_pipeline.datasets)
-    #
+
     # # 3. load the documents to the knowledge base
     database.load_documents(datasets_documents)
-    #
-    # # 4. create or update the knowledge graph
-    # knowledge_graph.create_or_update_kg(dataset_processing_pipeline.datasets, new_datasets, removed_urls)
-    knowledge_graph.create_or_update_kg(dataset_processing_pipeline.datasets, dataset_processing_pipeline.datasets, [])
+
+    # 4. create or update the knowledge graph
+    knowledge_graph.create_or_update_kg(dataset_processing_pipeline.datasets, new_datasets, removed_urls)
+    # knowledge_graph.create_or_update_kg(dataset_processing_pipeline.datasets, dataset_processing_pipeline.datasets, [])
+
+    # remove bm25 directory because the database changed
+    bm25_dir = config["state_dir"] + "/" + config["search_platform"]["retriever"]["bm25_retriever_persist_dir"]
+    if os.path.exists(bm25_dir):
+        shutil.rmtree(bm25_dir)
 
 
 if __name__ == "__main__":

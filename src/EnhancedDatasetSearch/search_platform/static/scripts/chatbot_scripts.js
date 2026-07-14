@@ -20,7 +20,10 @@ document.getElementById('chatForm').addEventListener('submit', async function(e)
 
     addMessage(message, 'user');  // add new message to chat
     userInput.value = '';
-    
+
+    const sendButton = document.getElementById("sendButton");
+    sendButton.disabled = true;
+
     const loadingMessageId = showLoadingDots();  // show loading dots in chat
 
     // send message to backend
@@ -45,6 +48,8 @@ document.getElementById('chatForm').addEventListener('submit', async function(e)
         console.error('Error:', error);
         removeMessage(loadingMessageId);
         addMessage('Sorry, I encountered an error. Please try again.', 'assistant');
+    } finally {
+        sendButton.disabled = false;
     }
 });
 
@@ -74,6 +79,8 @@ function showLoadingDots() {
     const messagesDiv = document.getElementById('chatMessages');
     const messageDiv = document.createElement('div');
     messageDiv.className = 'chat-message assistant-message';
+
+    const language = document.getElementById('language').value;
     
     // generate ID for the loading message
     const messageId = 'msg_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
@@ -81,7 +88,10 @@ function showLoadingDots() {
 
     const contentDiv = document.createElement('div');
     contentDiv.className = 'message-content';
-    contentDiv.innerHTML = 'Thinking<span class="loading-dots"></span>';
+    if(language === "Czech")
+        contentDiv.innerHTML = 'Přemýšlím<span class="loading-dots"></span>';
+    else
+        contentDiv.innerHTML = 'Thinking<span class="loading-dots"></span>';
 
     messageDiv.appendChild(contentDiv);
     messagesDiv.appendChild(messageDiv);

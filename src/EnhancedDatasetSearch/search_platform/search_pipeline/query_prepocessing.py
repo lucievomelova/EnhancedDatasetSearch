@@ -1,15 +1,11 @@
 import json
 
 import httpx
-from jinja2 import Environment, FileSystemLoader
 
 from EnhancedDatasetSearch.ollama_client import OllamaClient
-from EnhancedDatasetSearch.utils import setup_logger
+from EnhancedDatasetSearch.utils import setup_logger, render_template
 
 logger = setup_logger(__name__)
-env = Environment(loader=FileSystemLoader('llm_inputs/prompts'))
-intro_template = env.get_template("intro.j2")
-intro_prompt = intro_template.render()
 
 
 def _metadata_filters_selected(applied_filters: dict | None) -> bool:
@@ -32,7 +28,7 @@ class QueryPreprocessor:
     The steps are performed only if they are set to true in the preprocessing config."""
     def __init__(self, config: dict) -> None:
         self.config: dict = config
-        self.client: OllamaClient = OllamaClient(config["pipeline_config"]["llm"], timeout=config["pipeline_config"]["preprocessing"]["timeout"])
+        self.client: OllamaClient = OllamaClient(config["search_platform"]["llm"], timeout=config["search_platform"]["preprocessing"]["timeout"])
 
     def run(self, user_query: str, applied_filters: dict | None, categories: list[str], other_category: str) -> tuple[dict | None, None]:
         """Preprocess the search query.
@@ -44,11 +40,11 @@ class QueryPreprocessor:
         """
         logger.info(f"Preprocessing user query: {user_query} with metadata filters: {applied_filters}")
 
-        if self.config["pipeline_config"]["preprocessing"]["detect_intent"]:
+        if self.config["search_platform"]["preprocessing"]["detect_intent"]:
             intent = self.detect_user_intent(user_query, applied_filters, categories, other_category)
         else:
             intent = None
-        if self.config["pipeline_config"]["preprocessing"]["extend_query"]:
+        if self.config["search_platform"]["preprocessing"]["extend_query"]:
             extended_query = self.extend_user_query(user_query, applied_filters, intent)
         else:
             extended_query = None
@@ -56,15 +52,18 @@ class QueryPreprocessor:
 
     def extend_user_query(self, user_query: str, applied_filters: dict | None, intent: dict | None) -> str:
         """Extend the search query to increase the chance of finding relevant datasets."""
-        template = env.get_template("rewrite_query.j2")
-        prompt = template.render(intro=intro_prompt,
-                                 user_query=user_query,
-                                 applied_filters=applied_filters,
-                                 filters_selected=_metadata_filters_selected(applied_filters),
-                                 intent_detected=True if intent is not None else False,
-                                 categories_intent=intent["categories"] if intent is not None else [],
-                                 spatial_intent=intent["spatial_coverage"] if intent is not None else [],
-                                 temporal_intent=intent["temporal_coverage"] if intent is not None else [])
+        prompt = render_template(
+            "rewrite_query.j2",
+            {
+                "user_query": user_query,
+                "applied_filters": applied_filters,
+                "filters_selected":_metadata_filters_selected(applied_filters),
+                "intent_detected": True if intent is not None else False,
+                "categories_intent":intent["categories"] if intent is not None else [],
+                "spatial_intent": intent["spatial_coverage"] if intent is not None else [],
+                "temporal_intent": intent["temporal_coverage"] if intent is not None else []
+            }
+        )
         logger.info(f"Extending user query: {user_query}")
 
         try:
@@ -88,16 +87,19 @@ class QueryPreprocessor:
         Intent detection is done for the following metadata categories:
         categories, spatial_coverage and temporal_coverage."""
         logger.info("Detecting intent for query: %s", user_query)
-
         num_categories = 2
-        template = env.get_template("detect_user_intent.j2")
-        prompt = template.render(intro=intro_prompt,
-                                 user_query=user_query,
-                                 applied_filters=applied_filters,
-                                 filters_selected=_metadata_filters_selected(applied_filters),
-                                 num_categories=num_categories,
-                                 categories=", ".join(categories),
-                                 other_category=other_category)
+        prompt = render_template(
+            "detect_user_intent.j2",
+            {
+                "user_query": user_query,
+                "applied_filters": applied_filters,
+                "filters_selected": _metadata_filters_selected(applied_filters),
+                "num_categories": num_categories,
+                "categories": ", ".join(categories),
+                "other_category": other_category
+            },
+            include_return_instructions=False
+        )
         try:
             response = self.client.get_llm_response(prompt)
             if "```" in response:

@@ -2,24 +2,22 @@
 This repository contains application code for the master thesis 
 "Enhancing Dataset Discovery in Data Catalogs through Knowledge Graphs and Large Language Models". 
 
-It works with datasets from the Czech National Open Data Catalog (NKOD - Národní katalog otevřených dat),
-which contains datasets from various public institutions in the Czech Republic.
+It works with datasets from the Czech National Open Data Catalog (NKOD - Národní katalog otevřených dat).
 
 ## Structure
 The system is structured into two main parts:
 1. **Data processing** - responsible for loading, cleaning, transforming and enhancing the datasets' metadata,
-as well as creating a knowledge base and a knowledge graph.
-2. **Web application** - an application that provides a search engine over the datasets and a chatbot. It works with
+as well as creating the knowledge base.
+2. **Search platform** - a web application that provides a search engine over the datasets and a chatbot. It works with
 data obtained by the Data processing step.
 
-The application is written in Python. It uses Flask for the web interface, llamaindex for handling LLM-based parts 
-and Neo4j for knowledge graph handling. The knowledge base is stored in a PostgreSQL database.
+The application is written in Python. It uses `Flask` for the web interface, `llama_index` for handling LLM-based parts 
+and `Neo4j` for knowledge graph handling. The knowledge base is stored in a `PostgreSQL` database.
 
 # Implementation
-
 ## Data Processing
 The data processing pipeline manages the preprocessing of data. First, the datasets' metadata are downloaded from
-the [Czech Dataset Portal](data.gov.cz). After that the data is cleaned and transformed, so that we obtain a *dataset
+the [Czech Data Portal](data.gov.cz). After that the data is cleaned and transformed, so that we obtain a *dataset
 of datasets*, where one row represents one dataset from the NKOD. 
 
 Each dataset is represented by its metadata:
@@ -38,25 +36,32 @@ Each dataset is represented by its metadata:
 Loading raw datasets file from NKOD and performing initial preprocessing steps. The raw file contains one line per each 
 metadata configuration. When a dataset has multiple keywords or themes assigned, each is handled on a separate line. 
 This is quite impractical, so the initial preprocessing step includes merging keywords and themes for each dataset into 
-a single list. After that, additional metadata (spatial and temporal coverage) is obtained through the NKOD SPARQL 
+a single list. After that, additional metadata (spatial and temporal coverage) are obtained through the NKOD SPARQL 
 endpoint.
 
-#### Data Cleaning
+#### 2. LLM-based Metadata Enhancement
+Using a Large Language Model (LLM) to enhance the metadata by generating additional metadata based on the 
+already existing metadata, which can help improve the discoverability of datasets.
+
+#### 3. Data Cleaning
 Removing duplicates, handling missing values, ensuring that the data has a consistent format. This step also includes 
 heuristical keyword and theme processing, where we try to find and fix typos by finding words that are used sporadically and 
 are very similar to more frequently used words. 
 This is done by calculating the Levenshtein distance between words and merging those that are similar.
 
-#### LLM-based Metadata Enhancement
-Using a Large Language Model (LLM) to enhance the metadata by generating additional metadata based on the 
-already existing metadata, which can help improve the discoverability of datasets.
+#### 4. Knowledge base creation
+Creating a knowledge base from the preprocessed data. The knowledge base includes the metadata dataset obtained 
+in the previous steps, a Postgres database and a knowledge graph.
 
-#### Knowledge base creation
-Creating a knowledge base from the preprocessed data - a document store and a vector store. We use Postgres, 
-specifically `PGVectorStore` and `PostgresDocumentStore` from llamaindex. The knowldge base stores information
-about each dataset, including its metadata and a description of its content.
+##### Postgres database
+The Postgres database contains a document store and a vector store. We use
+`PGVectorStore` and `PostgresDocumentStore` from llamaindex. 
 
-#### Knowledge graph creation
+Each document represents one dataset and it contains the dataset's metadata. 
+The vector store contains embeddings of the datasets' descriptions, which are used for semantic search. 
+The embeddings are generated using an embedding model.
+
+##### Knowledge graph creation
 Creating a knowledge graph based on dataset metadata to capture relationships between datasets. This knowledge 
 graph is then used for retrieval of similar datasets.
 

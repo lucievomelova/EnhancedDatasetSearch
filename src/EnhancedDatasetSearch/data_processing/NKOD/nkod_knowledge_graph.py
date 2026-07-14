@@ -3,9 +3,9 @@ import os
 import pandas as pd
 from neo4j import Driver, GraphDatabase
 
-from EnhancedDatasetSearch.NKOD.kg_queries import *
-from EnhancedDatasetSearch.database import Database
-from EnhancedDatasetSearch.knowledge_graph import KnowledgeGraph
+from EnhancedDatasetSearch.data_processing.NKOD.kg_queries import *
+from EnhancedDatasetSearch.data_processing.database import Database
+from EnhancedDatasetSearch.data_processing.knowledge_graph import KnowledgeGraph
 from EnhancedDatasetSearch.utils import setup_logger
 from pandas import Series
 
