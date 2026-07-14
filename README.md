@@ -4,7 +4,7 @@ This repository contains application code for the master thesis
 
 It works with datasets from the Czech National Open Data Catalog (NKOD - Národní katalog otevřených dat).
 
-## Structure
+## System structure
 The system is structured into two main parts:
 1. **Data processing** - responsible for loading, cleaning, transforming and enhancing the datasets' metadata,
 as well as creating the knowledge base.
@@ -13,6 +13,80 @@ data obtained by the Data processing step.
 
 The application is written in Python. It uses `Flask` for the web interface, `llama_index` for handling LLM-based parts 
 and `Neo4j` for knowledge graph handling. The knowledge base is stored in a `PostgreSQL` database.
+
+The source code can be found in the `src/EnhancedNkodDatasetSearch` directory.
+
+# Installation
+To install and run the provided package, a Linux operating system or WSL2
+environment is needed. The installation requires `Python 3.12` or higher, `Ollama`,
+`PostgreSQL` and `Neo4j`. The system was developed using `Python 3.12.13`, `Ollama
+0.21.0`, `PostgreSQL 14.23` and `Neo4j` version `2026.05.0`.
+
+The system uses LLMs through `Ollama`. Before running the system, the
+required LLM and embedding model must be downloaded. To download the
+required models, run:
+
+```sh
+ollama pull mistral-small3.2:latest
+ollama pull qwen3-embedding:4b
+```
+
+To run both of these models with the default configuration, around 40 GB of
+free memory is needed. In case of insufficient memory, an LLM and an embedding
+model which require less memory to run can be downloaded and the system can
+be configured to use them instead. 
+
+## EnhancedNKODDatasetSearch installation
+The `EnhancedNKODDatasetSearch` package can be installed by running the follow-
+ing command from the project root folder:
+
+```sh
+pip install -e .
+```
+
+This will install the package together with all the required Python packages
+specified in `pyproject.toml`.
+
+### Local run
+To run the data processing or the web application, a `.env` file with the following
+variables is required:
+```
+POSTGRES_USER=<postgres-user>
+POSTGRES_PASSWORD=<postgres-password>
+POSTGRES_DB=<database-name>
+NEO4J_USER=<neo4j-user>
+NEO4J_PASSWORD=<neo4j-password>
+NEO4J_URI=<neo4j-uri>
+SECRET_KEY=<flask-secret-key>
+CONFIG_PATH=config.yaml
+```
+These variables are used for connection to the `Postgres` and `Neo4j` databases,
+the `SECRET_KEY` is used for encryption of Flask user session data and `CONFIG_PATH`
+specifies the path to the configuration file that is used by the web application.
+
+If the Postgres database specified in the `POSTGRES_DB` variable does not exist,
+it must be created.
+
+#### Running data processing
+Data processing can be started by running the following command from the
+project root folder:
+
+```sh
+python -m EnhancedNkodDatasetSearch.data_processing.main --config_path config.yaml
+```
+
+This will start the data processing pipeline.
+#### Running the search platform
+The search platform application can be started by running the following command from
+the project root folder:
+
+```sh
+flask --app EnhancedDatasetSearch.search_platform.main run
+```
+
+
+
+
 
 # Implementation
 ## Data Processing
@@ -69,10 +143,10 @@ graph is then used for retrieval of similar datasets.
 ### Running the Data Processing Pipeline
 To run the data preprocessing pipeline, run the following command from the project directory (`EnhancedDatasetSearch/`)
 ```bash
-python -m EnhancedDatasetSearch.data_preprocessing.main --config <path-to-config>
+python -m EnhancedNkodDatasetSearch.data_preprocessing.main --config <path-to-config>
 ```
 
-## Web Application
+## Search Platform
 The web application provides a simple user interface, where users can search for datasets, apply metadata filters, 
 check dataset detail page or chat with a chatbot. On the backend the main part is an LLM-based search pipeline.
 This pipeline handles user query preprocessing, retrieval of relevant datasets and result postprocessing

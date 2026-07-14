@@ -2,8 +2,8 @@ import pandas as pd
 
 from llama_index.core import Document
 
-from EnhancedDatasetSearch.data_processing.documents import DocumentConverter
-from EnhancedDatasetSearch.utils import setup_logger
+from EnhancedNkodDatasetSearch.data_processing.documents import DocumentConverter
+from EnhancedNkodDatasetSearch.utils import setup_logger
 
 logger = setup_logger(__name__)
 

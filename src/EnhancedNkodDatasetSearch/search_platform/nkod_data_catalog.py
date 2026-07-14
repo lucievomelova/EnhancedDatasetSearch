@@ -2,9 +2,9 @@ import os
 
 import pandas as pd
 
-from EnhancedDatasetSearch.search_platform.data_catalog import DataCatalog
-from EnhancedDatasetSearch.utils import dataset_detail_url, setup_logger
-from EnhancedDatasetSearch.data_processing.knowledge_graph import KnowledgeGraph
+from EnhancedNkodDatasetSearch.search_platform.data_catalog import DataCatalog
+from EnhancedNkodDatasetSearch.utils import dataset_detail_url, setup_logger
+from EnhancedNkodDatasetSearch.data_processing.knowledge_graph import KnowledgeGraph
 
 logger = setup_logger(__name__)
 

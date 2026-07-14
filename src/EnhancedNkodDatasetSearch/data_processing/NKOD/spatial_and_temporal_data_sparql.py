@@ -7,7 +7,7 @@ import pandas as pd
 from rdflib import Graph
 from rdflib.plugins.stores.sparqlstore import SPARQLStore
 
-from EnhancedDatasetSearch.utils import setup_logger
+from EnhancedNkodDatasetSearch.utils import setup_logger
 
 logger = setup_logger(__name__)
 

@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 
 import pandas as pd
-from EnhancedDatasetSearch.data_processing.knowledge_graph import KnowledgeGraph
+from EnhancedNkodDatasetSearch.data_processing.knowledge_graph import KnowledgeGraph
 
 
 class DataCatalog(ABC):

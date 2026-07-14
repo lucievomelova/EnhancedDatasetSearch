@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 
 import pandas as pd
 
-from EnhancedDatasetSearch.utils import setup_logger
+from EnhancedNkodDatasetSearch.utils import setup_logger
 
 logger = setup_logger(__name__)
 

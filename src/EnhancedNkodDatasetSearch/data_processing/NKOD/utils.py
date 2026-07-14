@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 import requests
 
-from EnhancedDatasetSearch.utils import setup_logger
+from EnhancedNkodDatasetSearch.utils import setup_logger
 
 logger = setup_logger(__name__)
 

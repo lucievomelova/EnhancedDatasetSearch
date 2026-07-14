@@ -11,14 +11,14 @@ from dotenv import load_dotenv
 from llama_index.llms.ollama import Ollama
 from neo4j import GraphDatabase
 
-from EnhancedDatasetSearch.data_processing.NKOD.nkod_dataset_processing_pipeline import NkodDatasetProcessingPipeline
-from EnhancedDatasetSearch.data_processing.NKOD.nkod_documents import NkodDocumentConverter
-from EnhancedDatasetSearch.data_processing.database import Database
-from EnhancedDatasetSearch.search_platform.search_pipeline.pipeline import SearchPipeline
-from EnhancedDatasetSearch.search_platform.search_pipeline.query_prepocessing import QueryPreprocessor
-from EnhancedDatasetSearch.data_processing.NKOD.nkod_knowledge_graph import NkodKnowledgeGraph
-from EnhancedDatasetSearch.search_platform.nkod_data_catalog import NkodDataCatalog
-from EnhancedDatasetSearch.ollama_client import OllamaClient
+from EnhancedNkodDatasetSearch.data_processing.NKOD.nkod_dataset_processing_pipeline import NkodDatasetProcessingPipeline
+from EnhancedNkodDatasetSearch.data_processing.NKOD.nkod_documents import NkodDocumentConverter
+from EnhancedNkodDatasetSearch.data_processing.database import Database
+from EnhancedNkodDatasetSearch.search_platform.search_pipeline.pipeline import SearchPipeline
+from EnhancedNkodDatasetSearch.search_platform.search_pipeline.query_prepocessing import QueryPreprocessor
+from EnhancedNkodDatasetSearch.data_processing.NKOD.nkod_knowledge_graph import NkodKnowledgeGraph
+from EnhancedNkodDatasetSearch.search_platform.nkod_data_catalog import NkodDataCatalog
+from EnhancedNkodDatasetSearch.ollama_client import OllamaClient
 
 
 # copy old datasets file so that it can be used in dataset processing pipeline

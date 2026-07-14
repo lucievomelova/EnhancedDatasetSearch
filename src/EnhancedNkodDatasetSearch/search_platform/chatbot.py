@@ -3,9 +3,9 @@ from llama_index.core.llms.function_calling import FunctionCallingLLM
 from llama_index.core.memory import ChatMemoryBuffer
 from llama_index.core.tools import FunctionTool
 
-from EnhancedDatasetSearch.search_platform.data_catalog import DataCatalog
-from EnhancedDatasetSearch.search_platform.search_pipeline.pipeline import SearchPipeline
-from EnhancedDatasetSearch.utils import dataset_detail_url, render_template, setup_logger
+from EnhancedNkodDatasetSearch.search_platform.data_catalog import DataCatalog
+from EnhancedNkodDatasetSearch.search_platform.search_pipeline.pipeline import SearchPipeline
+from EnhancedNkodDatasetSearch.utils import dataset_detail_url, render_template, setup_logger
 
 logger = setup_logger(__name__)
 

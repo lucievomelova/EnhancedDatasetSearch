@@ -9,8 +9,8 @@ import pandas as pd
 from pandas import Series
 from polyleven import levenshtein
 
-from EnhancedDatasetSearch.ollama_client import OllamaClient
-from EnhancedDatasetSearch.utils import setup_logger, render_template
+from EnhancedNkodDatasetSearch.ollama_client import OllamaClient
+from EnhancedNkodDatasetSearch.utils import setup_logger, render_template
 
 logger = setup_logger(__name__)
 

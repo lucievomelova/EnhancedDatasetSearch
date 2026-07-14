@@ -3,8 +3,8 @@ tha tests do not rely on the results of these calls in any way to ensure that th
 import pytest
 from llama_index.core.schema import NodeWithScore, TextNode
 
-from EnhancedDatasetSearch.search_platform.search_pipeline.result_postprocessing import PostProcessor
-from EnhancedDatasetSearch.search_platform.search_pipeline.retrieve import Retriever
+from EnhancedNkodDatasetSearch.search_platform.search_pipeline.result_postprocessing import PostProcessor
+from EnhancedNkodDatasetSearch.search_platform.search_pipeline.retrieve import Retriever
 
 pytest_plugins = ('pytest_asyncio',)
 

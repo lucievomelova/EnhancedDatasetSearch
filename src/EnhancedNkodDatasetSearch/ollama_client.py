@@ -3,7 +3,7 @@ import json
 import httpx
 from ollama import Client
 
-from EnhancedDatasetSearch.utils import setup_logger
+from EnhancedNkodDatasetSearch.utils import setup_logger
 
 logger = setup_logger(__name__)
 

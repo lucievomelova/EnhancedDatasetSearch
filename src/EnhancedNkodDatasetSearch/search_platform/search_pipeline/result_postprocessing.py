@@ -1,8 +1,8 @@
 from llama_index.core.postprocessor import SentenceTransformerRerank
 from llama_index.core.schema import NodeWithScore
 
-from EnhancedDatasetSearch.search_platform.data_catalog import DataCatalog
-from EnhancedDatasetSearch.utils import setup_logger
+from EnhancedNkodDatasetSearch.search_platform.data_catalog import DataCatalog
+from EnhancedNkodDatasetSearch.utils import setup_logger
 
 logger = setup_logger(__name__)
 

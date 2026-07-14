@@ -13,16 +13,16 @@ from datetime import datetime
 import pandas as pd
 from pandas import Series
 
-from EnhancedDatasetSearch.data_processing.dataset_processing_pipeline import DatasetProcessingPipeline
-from EnhancedDatasetSearch.data_processing.NKOD.metadata import (
+from EnhancedNkodDatasetSearch.data_processing.dataset_processing_pipeline import DatasetProcessingPipeline
+from EnhancedNkodDatasetSearch.data_processing.NKOD.metadata import (
     clean_metadata, enrich_metadata, process_spatial_and_temporal_coverage
 )
-from EnhancedDatasetSearch.data_processing.NKOD.spatial_and_temporal_data_sparql import add_metadata_to_datasets_from_sparql
-from EnhancedDatasetSearch.data_processing.NKOD.utils import (
+from EnhancedNkodDatasetSearch.data_processing.NKOD.spatial_and_temporal_data_sparql import add_metadata_to_datasets_from_sparql
+from EnhancedNkodDatasetSearch.data_processing.NKOD.utils import (
     download_df, merge_keywords_and_themes_rows, split_dataframe, drop_irrelevant_columns
 )
-from EnhancedDatasetSearch.ollama_client import OllamaClient
-from EnhancedDatasetSearch.utils import setup_logger
+from EnhancedNkodDatasetSearch.ollama_client import OllamaClient
+from EnhancedNkodDatasetSearch.utils import setup_logger
 
 logger = setup_logger(__name__)
 executor = ThreadPoolExecutor(max_workers=4)

@@ -9,15 +9,15 @@ from llama_index.core import Settings
 from llama_index.embeddings.ollama import OllamaEmbedding
 from llama_index.llms.ollama import Ollama
 
-from EnhancedDatasetSearch.search_platform.utils import get_filters_for_results, get_similar_datasets_with_preview_text
-from EnhancedDatasetSearch.search_platform.data_catalog import DataCatalog
-from EnhancedDatasetSearch.search_platform.chatbot import Chatbot
-from EnhancedDatasetSearch.search_platform.search_pipeline.pipeline import SearchPipeline
-from EnhancedDatasetSearch.data_processing.database import Database
-from EnhancedDatasetSearch.data_processing.knowledge_graph import KnowledgeGraph
-from EnhancedDatasetSearch.data_processing.NKOD.nkod_knowledge_graph import NkodKnowledgeGraph
-from EnhancedDatasetSearch.search_platform.nkod_data_catalog import NkodDataCatalog
-from EnhancedDatasetSearch.utils import setup_logger
+from EnhancedNkodDatasetSearch.search_platform.utils import get_filters_for_results, get_similar_datasets_with_preview_text
+from EnhancedNkodDatasetSearch.search_platform.data_catalog import DataCatalog
+from EnhancedNkodDatasetSearch.search_platform.chatbot import Chatbot
+from EnhancedNkodDatasetSearch.search_platform.search_pipeline.pipeline import SearchPipeline
+from EnhancedNkodDatasetSearch.data_processing.database import Database
+from EnhancedNkodDatasetSearch.data_processing.knowledge_graph import KnowledgeGraph
+from EnhancedNkodDatasetSearch.data_processing.NKOD.nkod_knowledge_graph import NkodKnowledgeGraph
+from EnhancedNkodDatasetSearch.search_platform.nkod_data_catalog import NkodDataCatalog
+from EnhancedNkodDatasetSearch.utils import setup_logger
 
 logger = setup_logger(__name__)
 
@@ -137,6 +137,7 @@ def dataset_detail():
     if not dataset_info:
         return redirect(url_for('home'))
     similar_datasets = get_similar_datasets_with_preview_text(dataset_url, dataset_info, data_catalog)
+    similar_datasets = None if all(value == [] for value in similar_datasets.values()) else similar_datasets
     distributions = dataset_info["distributions"]
     for i, d in enumerate(distributions, start=1):
         d["title"] = f"Distribution {i}" if d["title"] is None else d["title"]

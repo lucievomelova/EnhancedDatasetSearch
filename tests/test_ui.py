@@ -6,7 +6,7 @@ import pytest
 # set test config as config for the app
 os.environ["CONFIG_PATH"] = "tests/test_config.yaml"
 
-from EnhancedDatasetSearch.search_platform.main import app as flask_app
+from EnhancedNkodDatasetSearch.search_platform.main import app as flask_app
 
 
 @pytest.fixture()

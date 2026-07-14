@@ -16,11 +16,11 @@ import os
 from llama_index.llms.ollama import Ollama
 from sklearn.metrics import ndcg_score
 
-from EnhancedDatasetSearch.data_processing.NKOD.nkod_knowledge_graph import NkodKnowledgeGraph
-from EnhancedDatasetSearch.search_platform.data_catalog import DataCatalog
-from EnhancedDatasetSearch.data_processing.database import Database
-from EnhancedDatasetSearch.search_platform.nkod_data_catalog import NkodDataCatalog
-from EnhancedDatasetSearch.search_platform.search_pipeline.pipeline import SearchPipeline
+from EnhancedNkodDatasetSearch.data_processing.NKOD.nkod_knowledge_graph import NkodKnowledgeGraph
+from EnhancedNkodDatasetSearch.search_platform.data_catalog import DataCatalog
+from EnhancedNkodDatasetSearch.data_processing.database import Database
+from EnhancedNkodDatasetSearch.search_platform.nkod_data_catalog import NkodDataCatalog
+from EnhancedNkodDatasetSearch.search_platform.search_pipeline.pipeline import SearchPipeline
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)

@@ -3,11 +3,11 @@ import logging
 from llama_index.core import Settings
 from llama_index.llms.ollama import Ollama
 
-from EnhancedDatasetSearch.search_platform.data_catalog import DataCatalog
-from EnhancedDatasetSearch.search_platform.search_pipeline.query_prepocessing import QueryPreprocessor
-from EnhancedDatasetSearch.search_platform.search_pipeline.result_postprocessing import PostProcessor
-from EnhancedDatasetSearch.search_platform.search_pipeline.retrieve import Retriever
-from EnhancedDatasetSearch.data_processing.database import Database
+from EnhancedNkodDatasetSearch.search_platform.data_catalog import DataCatalog
+from EnhancedNkodDatasetSearch.search_platform.search_pipeline.query_prepocessing import QueryPreprocessor
+from EnhancedNkodDatasetSearch.search_platform.search_pipeline.result_postprocessing import PostProcessor
+from EnhancedNkodDatasetSearch.search_platform.search_pipeline.retrieve import Retriever
+from EnhancedNkodDatasetSearch.data_processing.database import Database
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)

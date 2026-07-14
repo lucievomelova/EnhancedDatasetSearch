@@ -1,6 +1,6 @@
 import pandas as pd
 
-from EnhancedDatasetSearch.search_platform.data_catalog import DataCatalog
+from EnhancedNkodDatasetSearch.search_platform.data_catalog import DataCatalog
 
 
 def get_common_metadata(metadata_category_list: list[str], metadata_a: dict, metadata_b: dict) -> dict[str, set[str]]:
