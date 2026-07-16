@@ -2,6 +2,7 @@ import json
 import os
 from datetime import datetime
 
+from dotenv import load_dotenv
 import psycopg2
 from llama_index.core import Document, StorageContext, VectorStoreIndex
 from llama_index.core.base.embeddings.base import BaseEmbedding
@@ -14,6 +15,7 @@ from llama_index.vector_stores.postgres import PGVectorStore
 
 from EnhancedNkodDatasetSearch.utils import setup_logger
 
+load_dotenv()
 logger = setup_logger(__name__)
 
 

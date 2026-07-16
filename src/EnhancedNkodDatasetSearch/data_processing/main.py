@@ -39,6 +39,9 @@ def main(config_path: str):
         config = yaml.safe_load(f)
 
     state_dir = config["state_dir"]
+    if not os.path.exists(state_dir):  # create state dir
+        os.makedirs(state_dir)
+
     database = Database(config)
     dataset_processing_pipeline: DatasetProcessingPipeline = NkodDatasetProcessingPipeline(config)
     document_converter: DocumentConverter = NkodDocumentConverter()
@@ -57,8 +60,6 @@ def main(config_path: str):
         embed_batch_size=config['embedding']['embed_batch_size'],
     )
 
-    if not os.path.exists(state_dir):  # create state dir
-        os.makedirs(state_dir)
 
     # Run data processing:
     # 1. update metadata dataset and get updated and removed datasets info

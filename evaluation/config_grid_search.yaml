@@ -3,7 +3,7 @@ data:
     path: "data//datasets_raw.csv"
     url: "https://data.gov.cz/soubor/datov%C3%A9-sady.csv"
   datasets:
-    path: "data//datasets_raw.json"
+    path: "data//datasets.json"
   sparql_endpoint: "https://data.gov.cz/sparql"
   distributions_raw:
     path: "data/distributions_raw.csv"
@@ -15,8 +15,8 @@ app_url: "http://127.0.0.1:5000/"
 db:
   host: "localhost"
   port: 5432
-  document_table: documents_raw
-  vector_table: embeddings_raw
+  document_table: documents
+  vector_table: embeddings
   embed_dim: 2560
 embedding:
   model_name: "qwen3-embedding:4b"
@@ -33,7 +33,7 @@ search_platform:
     memory_limit: 4096
     timeout: 60
   preprocessing:
-    detect_intent: [false] #, false]
+    detect_intent: [true] #, false]
     extend_query: [true] #, false]
     timeout: 60
   retriever:
@@ -42,8 +42,8 @@ search_platform:
     bm25_top_k: [25]
     mode: [relative_score]  #dist_based_score #relative_score
     retriever_weights:
-      - [0.7, 0.3]
-    bm25_retriever_persist_dir: "bm25_retriever_raw"
+      - [0.6, 0.4]
+    bm25_retriever_persist_dir: "bm25_retriever"
   postprocessing:
     reranker: [simple]  # simple / cross_encoder
     cross_encoder_model: "cross-encoder/mmarco-mMiniLMv2-L12-H384-v1"  # only used for cross_encoder reranker
