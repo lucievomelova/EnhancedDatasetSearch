@@ -44,7 +44,7 @@ search_platform:
     retriever_weights:
       - 0.7  # vector_retriever
       - 0.3  # bm25_retriever
-    bm25_retriever_persist_dir: "bm25_retriever"
+    bm25_retriever_persist_dir: "bm25_retriever_small"
   postprocessing:
     reranker: simple  # simple / cross_encoder
     cross_encoder_model: "cross-encoder/mmarco-mMiniLMv2-L12-H384-v1"  # only used for cross_encoder reranker

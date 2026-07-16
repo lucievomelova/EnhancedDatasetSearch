@@ -3,7 +3,6 @@ import os
 from datetime import datetime
 
 import psycopg2
-from dotenv import load_dotenv
 from llama_index.core import Document, StorageContext, VectorStoreIndex
 from llama_index.core.base.embeddings.base import BaseEmbedding
 from llama_index.core.ingestion import IngestionPipeline
@@ -15,7 +14,6 @@ from llama_index.vector_stores.postgres import PGVectorStore
 
 from EnhancedNkodDatasetSearch.utils import setup_logger
 
-load_dotenv()
 logger = setup_logger(__name__)
 
 

@@ -4,6 +4,7 @@ import os
 from unittest.mock import MagicMock
 import shutil
 
+from dotenv import load_dotenv
 import psycopg2
 import pytest
 import yaml
@@ -20,6 +21,7 @@ from EnhancedNkodDatasetSearch.data_processing.NKOD.nkod_knowledge_graph import 
 from EnhancedNkodDatasetSearch.search_platform.nkod_data_catalog import NkodDataCatalog
 from EnhancedNkodDatasetSearch.ollama_client import OllamaClient
 
+load_dotenv()
 
 # copy old datasets file so that it can be used in dataset processing pipeline
 src_file = "tests/data/test_datasets_old.json"

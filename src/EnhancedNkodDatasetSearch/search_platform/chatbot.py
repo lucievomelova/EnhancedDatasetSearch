@@ -49,7 +49,7 @@ class Chatbot:
             fn=self._tool_get_list_of_all_values_for_metadata_category,
             name="get_list_of_all_values_for_metadata_category",
             description="Get a list of all values occurring in the data catalog for a given metadata category. " +
-            "Possible category values are: themes, categories, providers, spatial_coverages, temporal_coverages."
+            "Possible category values are: themes, categories, providers."
         )
         get_data_catalog_information = FunctionTool.from_defaults(
             fn=self._tool_read_info_file,
@@ -92,9 +92,9 @@ class Chatbot:
     def _tool_get_list_of_all_values_for_metadata_category(self, metadata_category: str) -> list[str] | str:
         """Get a list of all values for a given metadata category.
 
-        Possible category values are: themes, categories, providers, spatial_coverages, temporal_coverages."""
+        Possible category values are: themes, categories, providers."""
         logger.info(f"Tool call: get_list_of_all_values_for_metadata_category, metadata_category: {metadata_category}")
-        possible_categories = ["themes", "categories", "region", "time_periods", "providers"]
+        possible_categories = ["themes", "categories", "providers"]
         try:
             return getattr(self.data_catalog, f"all_{metadata_category}")
         except AttributeError:

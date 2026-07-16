@@ -4,4 +4,4 @@ jehož smyslem je na jednom místě evidovat a publikovat data a informace z ve�
 a zajistit tak jejich maximální dostupnost k dalšímu využití.
 Spravuje ho Digitální a informační agentura (DIA).
 
-Katalog je dostupný na Portálu o datech (Czech Dataset Portal): https://data.gov.cz/.
+Katalog je dostupný na Portálu o datech (Czech Data Portal): https://data.gov.cz/.

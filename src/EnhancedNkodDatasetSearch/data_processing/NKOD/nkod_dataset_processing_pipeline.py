@@ -92,7 +92,7 @@ class NkodDatasetProcessingPipeline(DatasetProcessingPipeline):
         """Dictionary that stores occurrence counts of each unique value in every filter category."""
 
         self._load_datasets_raw(self._download_new_data)
-        self._transform_datasets_raw(self._download_new_data)
+        self._transform_datasets_raw()
         self._load_datasets()
         self._load_distribution_info(self._download_new_data)
 
@@ -118,6 +118,8 @@ class NkodDatasetProcessingPipeline(DatasetProcessingPipeline):
     def _load_datasets_raw(self, download_new_data: bool) -> None:
         """Load the raw NKOD dataset of datasets."""
         if not download_new_data:
+            logger.info("Loading old datasets raw.")
+            self.datasets_raw = pd.read_csv(self._data_config["datasets_raw_path"], sep=",", dtype="string")
             return
         today = datetime.today().date()
         if os.path.exists(self._data_config["datasets_raw_path"]):
@@ -136,11 +138,8 @@ class NkodDatasetProcessingPipeline(DatasetProcessingPipeline):
         self.datasets_raw = download_df(self._data_config["datasets_raw_path"], self._data_config["datasets_raw_url"])
         logger.info("Raw dataset info loaded, starting preprocessing.")
 
-    def _transform_datasets_raw(self, download_new_data: bool) -> None:
+    def _transform_datasets_raw(self) -> None:
         """Apply initial transformations on the raw dataset."""
-        if not download_new_data:
-            return  # we don't need to load transformed_datasets_raw
-
         today = datetime.today().date()
         mod_datetime = None
         if os.path.exists(self._data_config["datasets_transformed_path"]):
@@ -231,6 +230,8 @@ class NkodDatasetProcessingPipeline(DatasetProcessingPipeline):
             # find which rows are already in the datasets based on url - don't add them again
             merged_df = pd.merge(self.datasets["url"], new_datasets, on="url", how='outer', indicator=True)
             new_datasets = merged_df.query("_merge == 'right_only'").drop('_merge', axis=1).reset_index(drop=True)
+        if removed_urls is None:
+            removed_urls = []
         return new_datasets, removed_urls
 
     async def enrich_new_datasets_metadata(self, new_datasets: pd.DataFrame) -> None:
@@ -241,7 +242,7 @@ class NkodDatasetProcessingPipeline(DatasetProcessingPipeline):
         if not self.datasets.empty:  # if datasets is not empty, put current state of it in tmp file
             self.datasets.to_csv(tmp_file_name, index=False, header=True)
         # do the updates in chunks -> in case of script failure we can resume from the last chunk
-        chunks = split_dataframe(new_datasets, chunk_size=32)
+        chunks = split_dataframe(new_datasets, batch_size=32)
         logger.info(f"Extending dataset metadata.")
         for index, chunk in enumerate(chunks, start=1):
             if chunk.empty:

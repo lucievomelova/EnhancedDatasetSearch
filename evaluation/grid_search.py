@@ -25,7 +25,7 @@ from EnhancedNkodDatasetSearch.search_platform.search_pipeline.pipeline import S
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
-mlflow.set_experiment("SearchPipeline Evaluation - grid search final new2")
+mlflow.set_experiment("Default")
 golden_dataset = pd.read_csv("data/golden/golden_dataset.csv")
 
 

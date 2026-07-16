@@ -10,6 +10,7 @@ import os
 import shutil
 
 import click
+from dotenv import load_dotenv
 import yaml
 from llama_index.core import Settings
 from llama_index.embeddings.ollama import OllamaEmbedding
@@ -22,6 +23,8 @@ from EnhancedNkodDatasetSearch.data_processing.database import Database
 from EnhancedNkodDatasetSearch.data_processing.knowledge_graph import KnowledgeGraph
 from EnhancedNkodDatasetSearch.data_processing.NKOD.nkod_knowledge_graph import NkodKnowledgeGraph
 from EnhancedNkodDatasetSearch.data_processing.NKOD.nkod_dataset_processing_pipeline import NkodDatasetProcessingPipeline
+
+load_dotenv()
 
 
 @click.command()
@@ -69,7 +72,6 @@ def main(config_path: str):
 
     # 4. create or update the knowledge graph
     knowledge_graph.create_or_update_kg(dataset_processing_pipeline.datasets, new_datasets, removed_urls)
-    # knowledge_graph.create_or_update_kg(dataset_processing_pipeline.datasets, dataset_processing_pipeline.datasets, [])
 
     # remove bm25 directory because the database changed
     bm25_dir = config["state_dir"] + "/" + config["search_platform"]["retriever"]["bm25_retriever_persist_dir"]

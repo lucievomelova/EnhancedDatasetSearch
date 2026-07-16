@@ -131,7 +131,7 @@ class NkodKnowledgeGraph(KnowledgeGraph):
                     # first find neighbors of nodes to be deleted
                     deleted_neighbor_urls = get_similar_neighbors_urls(session, url, self.kg_config["name"])
                     # delete nodes
-                    session.run("MATCH (n:Dataset) WHERE n.url = $url DETACH DELETE n;", url=url)
+                    session.run("MATCH (n:Dataset) WHERE n.url = $url and n.graph = $graph DETACH DELETE n;", url=url, graph=self.kg_config["name"])
         logger.info(f"Adding {len(new_datasets)} new datasets to the knowledge graph.")
         for _, row in new_datasets.iterrows():
             with self.driver.session() as session:
@@ -141,8 +141,8 @@ class NkodKnowledgeGraph(KnowledgeGraph):
                 # first find neighbors of nodes to be deleted
                 deleted_neighbor_urls.extend(get_similar_neighbors_urls(session, row["url"], self.kg_config["name"]))
                 # delete node if it already exists in the KG
-                session.run("MATCH (n:Dataset) WHERE n.url = $url DETACH DELETE n;", url=row["url"])
-                self._add_dataset_node(row, self.kg_config["name"])  # add node to the KG
+                session.run("MATCH (n:Dataset) WHERE n.url = $url and n.graph = $graph DETACH DELETE n;", url=row["url"], graph=self.kg_config["name"])
+            self._add_dataset_node(row, self.kg_config["name"])  # add node to the KG
 
         logger.info(f"Creating similarity edges for {len(new_datasets)} new datasets.")
         self.add_similarity_edges(new_datasets, self.kg_config["name"])
@@ -180,7 +180,16 @@ class NkodKnowledgeGraph(KnowledgeGraph):
             'temporal_coverage'. Each value is a list of (url, score) tuples.
         """
         logger.info(f"Retrieving similar datasets based on knowledge graph.")
-        similar_datasets = {}
+
+        # set the order of similarity types, so that more important types are closer to the top
+        similar_datasets = {
+            "description": [],
+            "themes": [],
+            "keywords": [],
+            "provider": [],
+            "spatial_coverage": [],
+            "temporal_coverage": []
+        }
 
         with self.driver.session() as session:
             # description similarity

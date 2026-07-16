@@ -9,12 +9,12 @@ from EnhancedNkodDatasetSearch.utils import setup_logger
 logger = setup_logger(__name__)
 
 
-def split_dataframe(df: pd.DataFrame, chunk_size=100) -> list[pd.DataFrame]:
+def split_dataframe(df: pd.DataFrame, batch_size=100) -> list[pd.DataFrame]:
     """Split dataframe into chunks of specified size."""
     chunks = list()
-    num_chunks = len(df) // chunk_size + 1
+    num_chunks = len(df) // batch_size + 1
     for i in range(num_chunks):
-        chunks.append(df[i * chunk_size:(i + 1) * chunk_size])
+        chunks.append(df[i * batch_size:(i + 1) * batch_size])
     return chunks
 
 

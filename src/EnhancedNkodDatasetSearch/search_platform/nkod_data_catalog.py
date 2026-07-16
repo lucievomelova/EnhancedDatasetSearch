@@ -152,4 +152,5 @@ class NkodDataCatalog(DataCatalog):
             A dictionary with keys: 'description', 'keywords', 'themes', 'provider', 'spatial_coverage',
             'temporal_coverage'. Each value is a list of (url, score) tuples.
         """
+        print(dataset_url)
         return self.knowledge_graph.get_similar_datasets(dataset_url)
