@@ -27,28 +27,30 @@ embedding:
   url_to_node_id_mapping_file: "url_to_node_id_mapping.json"
 search_platform:
   llm:
-    model_name: ["qwen3.6:35b-a3b"]  #qwen3.6:35b-a3b  #"mistral-small3.2:latest"
+    model_name: ["mistral-small3.2:latest", "qwen3.6:35b-a3b"]
     base_url: "http://localhost:11434"
     context_length: 4096
     memory_limit: 4096
     timeout: 60
   preprocessing:
-    detect_intent: [true] #, false]
-    extend_query: [true] #, false]
+    detect_intent: [true, false]
+    extend_query: [true, false]
     timeout: 60
   retriever:
     top_k: [40]
     vector_top_k: [25]
     bm25_top_k: [25]
-    mode: [relative_score]  #dist_based_score #relative_score
+    mode: [relative_score, dist_based_score]
     retriever_weights:
+      - [0.5, 0.5]
       - [0.6, 0.4]
+      - [0.7, 0.3]
     bm25_retriever_persist_dir: "bm25_retriever"
   postprocessing:
     reranker: [simple]  # simple / cross_encoder
     cross_encoder_model: "cross-encoder/mmarco-mMiniLMv2-L12-H384-v1"  # only used for cross_encoder reranker
     top_k: 30
-    score_cutoff: [0.2]
+    score_cutoff: [0.2, 0.3]
 data_processing:
   llm:
     model_name: "mistral-small3.2:latest"

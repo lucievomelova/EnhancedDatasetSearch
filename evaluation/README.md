@@ -5,12 +5,6 @@ of the search platform. The evaluation script can be run by executing the follow
 ```sh
 python -m evaluation.grid_search  --config_path evaluation/config_grid_search.yaml
 ```
-Before running the evaluation, `mlflow` must be installed in the Python environment. 
-It can be installed by running the following command:
-
-```sh
-pip install mlflow
-```
 
 To see the results, start the `mlflow` server:
 ```sh
