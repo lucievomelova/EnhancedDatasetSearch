@@ -84,7 +84,8 @@ project root folder:
 python -m EnhancedNkodDatasetSearch.data_processing.main --config_path config.yaml
 ```
 
-To run the data processing pipeline every day, cron can be used. The setup instructions are provided [here](crontab_example.md).
+To run the data processing pipeline every day, cron can be used. The setup instructions are provided 
+[here](crontab_instructions.md).
 
 This will start the data processing pipeline.
 ### Running the search platform
