@@ -1,0 +1,110 @@
+services:
+  ollama_tunnel:
+    image: alpine:latest
+    command: >
+      sh -c "apk add --no-cache openssh-client &&
+      cp /root/.ssh/key /tmp/key && chmod 600 /tmp/key &&
+      ssh -N -p ${SSH_PORT:-22} -o StrictHostKeyChecking=accept-new -o ExitOnForwardFailure=yes -o ServerAliveInterval=15 -o ServerAliveCountMax=3 -o GatewayPorts=yes -L 0.0.0.0:11434:localhost:11434 -i /tmp/key ${SSH_USERNAME}@${SSH_ADDRESS}"
+    env_file: .env
+    volumes:
+      - ${SSH_KEY_PATH}:/root/.ssh/key:ro
+      - ~/.ssh/known_hosts:/root/.ssh/known_hosts:ro
+    restart: unless-stopped
+
+  ollama_proxy:
+    image: nginx:alpine
+    volumes:
+      - ./nginx-ollama.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - ollama_tunnel
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O- http://127.0.0.1:11434/ || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 5s
+    restart: unless-stopped
+
+  postgres:
+    image: pgvector/pgvector:pg14
+    env_file: .env
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  neo4j:
+    image: neo4j:2026.05.0
+    environment:
+      NEO4J_AUTH: ${NEO4J_USER}/${NEO4J_PASSWORD}
+    volumes:
+      - neo4j_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "cypher-shell -u ${NEO4J_USER} -p ${NEO4J_PASSWORD} 'RETURN 1' || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    restart: unless-stopped
+
+  search_platform:
+    build: .
+    command: flask --app EnhancedNkodDatasetSearch.search_platform.main run --host=0.0.0.0 --port=5000
+    env_file: .env
+    environment:
+      - CONFIG_PATH=config_docker.yaml
+      - NEO4J_URI=bolt://neo4j:7687
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./data:/app/data
+      - ./state:/app/state
+    depends_on:
+      postgres:
+        condition: service_healthy
+      neo4j:
+        condition: service_healthy
+      ollama_proxy:
+        condition: service_healthy
+    restart: unless-stopped
+
+  data_processing:
+    build: .
+    command: tail -f /dev/null
+    env_file: .env
+    environment:
+      - CONFIG_PATH=config_docker.yaml
+      - NEO4J_URI=bolt://neo4j:7687
+    volumes:
+      - ./data:/app/data
+      - ./state:/app/state
+    depends_on:
+      postgres:
+        condition: service_healthy
+      neo4j:
+        condition: service_healthy
+      ollama_proxy:
+        condition: service_healthy
+    labels:
+      ofelia.enabled: "true"
+      ofelia.job-exec.data_processing.schedule: "@every 24h"
+      ofelia.job-exec.data_processing.command: "python -m EnhancedNkodDatasetSearch.data_processing.main --config_path config_docker.yaml"
+      ofelia.job-exec.data_processing.no-overlap: "true"
+    restart: unless-stopped
+
+  ofelia:
+    image: mcuadros/ofelia:latest
+    command: daemon --docker
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    depends_on:
+      - data_processing
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  neo4j_data:

@@ -1,0 +1,13 @@
+.git
+.idea
+venv
+*__pycache__
+*.pyc
+*.pytest_cache
+.env
+data/
+state/
+documentation/
+evaluation/
+tests/
+mlflow*.db
